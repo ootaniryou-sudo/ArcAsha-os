@@ -44,16 +44,28 @@ async function main(): Promise<void> {
   });
 
   ws.on('message', (raw) => {
-    let msg: Record<string, unknown>;
-    try { msg = JSON.parse(raw.toString()) as Record<string, unknown>; } catch { return; }
+    let parsed: unknown;
+    try { parsed = JSON.parse(raw.toString()); } catch { return; }
+    // トップレベルがオブジェクトでなければ無視（null・配列・プリミティブを拒否）
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+    const msg = parsed as Record<string, unknown>;
     if (msg.type === 'register_ack') {
       console.log(`  ✅ ${nodeId} registered (master=${String(msg.master ?? '')})`);
     } else if (msg.type === 'ping') {
       ws.send(JSON.stringify({ type: 'pong', t: msg.t }));
     } else if (msg.type === 'compute') {
-      const rid = String(msg.request_id ?? '');
-      const prompt = String(msg.prompt ?? '');
-      const maxTokens = typeof msg.max_new_tokens === 'number' ? msg.max_new_tokens : 32;
+      // request_id / prompt は非空文字列のみ受理（不正メッセージは破棄）
+      if (typeof msg.request_id !== 'string' || msg.request_id === '') return;
+      if (typeof msg.prompt !== 'string' || msg.prompt === '') return;
+      const rid = msg.request_id;
+      const prompt = msg.prompt;
+      // max_new_tokens は安全な整数（>=1）のみ受理。負数・小数・非数値はデフォルトへ
+      const maxTokens =
+        typeof msg.max_new_tokens === 'number' &&
+          Number.isSafeInteger(msg.max_new_tokens) &&
+          msg.max_new_tokens >= 1
+          ? msg.max_new_tokens
+          : 32;
       console.log(`  📥 [${rid}] ${prompt.slice(0, 40)}...`);
       // 疑似生成: プロンプト末尾をそのまま返す (文字数 = maxTokens 相当)
       const text = `[MOCK ${family}] received "${prompt.slice(0, 60)}" (max_tokens=${maxTokens})`;

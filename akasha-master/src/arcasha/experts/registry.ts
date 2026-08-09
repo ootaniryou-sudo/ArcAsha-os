@@ -105,16 +105,28 @@ export class ExpertHub {
       const clientIp = req.socket?.remoteAddress || 'unknown';
       let nodeId = `unknown-${clientIp}`;
       ws.on('message', (raw: Buffer) => {
-        let msg: Record<string, unknown>;
-        try { msg = JSON.parse(raw.toString()) as Record<string, unknown>; } catch { return; }
+        let parsed: unknown;
+        try { parsed = JSON.parse(raw.toString()); } catch { return; }
+        // トップレベルがオブジェクトでなければ無視（null・配列・プリミティブを拒否）
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+        const msg = parsed as Record<string, unknown>;
         if (msg.type === 'register') {
-          const node = (msg.node ?? {}) as Record<string, unknown>;
-          nodeId = String(node.id ?? `unknown-${clientIp}`);
-          const modelId = String(node.model_id ?? 'unknown');
+          // msg.node は非 null オブジェクトで、id が非空文字列であることを検証（不正は状態変更せず拒否）
+          const node = msg.node;
+          if (node === null || typeof node !== 'object' || Array.isArray(node)) return;
+          const nodeRec = node as Record<string, unknown>;
+          if (typeof nodeRec.id !== 'string' || nodeRec.id === '') return;
+          nodeId = nodeRec.id;
+          const modelId = typeof nodeRec.model_id === 'string' && nodeRec.model_id !== '' ? nodeRec.model_id : 'unknown';
           const params = paramsOf(modelId);
-          this.nodeDetails.set(nodeId, node);
+          this.nodeDetails.set(nodeId, nodeRec);
           const now = Date.now();
-          const realBattery = typeof node.battery_pct === 'number' ? node.battery_pct : null;
+          // battery_pct は 0〜100 の有限値のみ受理。それ以外はシミュレーションへフォールバック
+          const rawBattery = nodeRec.battery_pct;
+          const realBattery =
+            typeof rawBattery === 'number' && Number.isFinite(rawBattery) && rawBattery >= 0 && rawBattery <= 100
+              ? rawBattery
+              : null;
           const sim = simMetric(nodeId);
           this.nodeMetrics.set(nodeId, {
             batteryPct: realBattery ?? sim.batteryPct,
