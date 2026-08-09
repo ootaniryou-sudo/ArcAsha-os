@@ -8,7 +8,7 @@ import { Domain, Slot, Task, registry } from './vocab.js';
 import { Opcode } from './opcode.js';
 import { CODE, MATH, getDialect } from './dialect.js';
 import { CodeOpcode, MathOpcode } from './dialect.js';
-import { Instruction, encodeVarint, MAX_VARINT_BYTES } from './encoder.js';
+import { CodecError, Instruction, encodeVarint, MAX_VARINT_BYTES } from './encoder.js';
 import { decodeVarint } from './decoder.js';
 import { compile, decode, encode, version } from './codec.js';
 import { validateProgram } from './validator.js';
@@ -31,6 +31,24 @@ function expectThrow(name: string, fn: () => unknown): void {
     console.error(`  ✗ FAIL: ${name}（例外が投げられなかった）`);
   } catch (e) {
     console.log(`  ✓ ${name}（${(e as Error).message}）`);
+  }
+}
+
+/** CodecError の送出を検証する（CodecError 以外の例外は失敗扱い） */
+function expectCodecError(name: string, fn: () => unknown): void {
+  try {
+    fn();
+    failed++;
+    console.error(`  ✗ FAIL: ${name}（CodecError が投げられなかった）`);
+  } catch (e) {
+    if (e instanceof CodecError) {
+      console.log(`  ✓ ${name}（${(e as Error).message}）`);
+    } else {
+      failed++;
+      console.error(
+        `  ✗ FAIL: ${name}（CodecError 以外の例外: ${(e as Error).constructor.name}: ${(e as Error).message}）`,
+      );
+    }
   }
 }
 
@@ -120,9 +138,14 @@ varintRoundtrip('4バイト最大', 2 ** 28 - 1);
 varintRoundtrip('4バイト境界', 2 ** 28);
 varintRoundtrip('32bit超（従来はビット演算で壊れる）', 2 ** 31);
 varintRoundtrip('5バイト最大', 2 ** 35 - 1);
-expectThrow('5バイト上限超でエラー', () => encodeVarint(2 ** 35));
-expectThrow('負数でエラー', () => encodeVarint(-1));
-expectThrow('非整数でエラー', () => encodeVarint(1.5));
+expectCodecError('5バイト上限超でエラー', () => encodeVarint(2 ** 35));
+expectCodecError('負数でエラー', () => encodeVarint(-1));
+expectCodecError('非整数でエラー', () => encodeVarint(1.5));
+// decodeVarint の offset 検証も CodecError を確認
+const enc128 = encodeVarint(128);
+expectCodecError('offset 負数でエラー', () => decodeVarint(enc128, -1));
+expectCodecError('offset 非整数でエラー', () => decodeVarint(enc128, 1.5));
+expectCodecError('offset NaN でエラー', () => decodeVarint(enc128, NaN));
 
 // MAX_VARINT_BYTES と varint 上限の整合（5 バイト = 2^35-1）
 check('MAX_VARINT_BYTES=5', MAX_VARINT_BYTES === 5);

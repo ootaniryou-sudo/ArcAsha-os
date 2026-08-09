@@ -10,6 +10,10 @@ import { valueTypeOf, ValueType } from './vocab.js';
 import { CodecError, Instruction, MAX_VARINT_BYTES, SlotValue } from './encoder.js';
 
 export function decodeVarint(bytes: Uint8Array, offset: number): { value: number; next: number } {
+  // offset は非負の安全整数でなければならない（負数・非整数・NaN・範囲外を拒否）
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new CodecError(`varint の offset には非負の安全整数が必要: ${offset}`);
+  }
   let value = 0;
   let multiplier = 1; // 各バイトの桁: 1, 128, 128^2, ...
   let i = offset;
