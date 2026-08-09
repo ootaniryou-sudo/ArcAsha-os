@@ -38,12 +38,18 @@ export function buildJsonReport(rows: BenchResultRow[], overhead: OverheadProfil
   );
 }
 
+/** CSV セルをエスケープ（カンマ・引用符・改行を含む値の安全化） */
+function csvEscape(v: string): string {
+  return /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
 /** CSV レポート（表計算ソフト対応） */
 export function buildCsvReport(rows: BenchResultRow[]): string {
   const header = 'suite,suite_name,category,config,config_name,samples,pass,accuracy,avg_quality';
   const lines = [header];
   for (const r of rows) {
-    lines.push(`${r.suite},${r.suiteName},${r.category},${r.config},${r.configName},${r.samples},${r.pass},${r.accuracy.toFixed(4)},${r.avgQuality.toFixed(4)}`);
+    const vals = [r.suite, r.suiteName, r.category, r.config, r.configName, r.samples, r.pass, r.accuracy.toFixed(4), r.avgQuality.toFixed(4)].map((v) => csvEscape(String(v)));
+    lines.push(vals.join(','));
   }
   return lines.join('\n');
 }

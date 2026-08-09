@@ -72,6 +72,9 @@ import { runModeValidation, runAblation, runRobotSimulation, estimatePower, rend
 import { SCIENTIFIC_CORPUS, modeQuality, runReasoningBenchmark, runLongContextValidation, runRobotValidation, runExecutiveValidation, runModelComparison } from '../attachments/scientific.js';
 import { ALL_BENCH_SUITES, runExternalBenchmarks, overallAccuracy } from '../bench/run.js';
 import { configQuality } from '../bench/types.js';
+import type { BenchResultRow } from '../bench/run.js';
+import type { BenchSuite } from '../bench/types.js';
+import { renderCaravanBenchmark } from '../bench/caravan.js';
 import { osOverheadProfile, allOverheadProfiles } from '../bench/overhead.js';
 import { buildJsonReport, buildCsvReport, buildMarkdownReport, writeReports, VALIDATION_KIND } from '../bench/report.js';
 import { explainExecutive, renderExplanation } from '../attachments/explain.js';
@@ -1407,6 +1410,25 @@ check('numbers=[3,5]', nz4.numbers.length === 2 && nz4.numbers[0] === 3 && nz4.n
 const nz5 = normalize('x^2 を積分して', tokenize('x^2 を積分して'));
 check('rawMath 抽出', nz5.rawMath.includes('x^2'));
 check('ACTION_INTEGRAL', nz5.actions.includes('ACTION_INTEGRAL'));
+
+// [79] Bench エッジケース（CSV エスケープ・ゼロ除算防御）
+console.log('\n[79] Bench エッジケース');
+// CSV エスケープ（カンマ・引用符を含む値の安全化）
+const csvRow79: BenchResultRow = {
+  suite: 'gsm8k', suiteName: 'カンマ,入り"値"', category: 'math', config: 'qwen', configName: 'Qwen,1.5B', samples: 10, pass: 5, accuracy: 0.5, avgQuality: 0.5,
+};
+const csvOut79 = buildCsvReport([csvRow79]);
+check('CSV: カンマ・引用符入り値をエスケープ', csvOut79.includes('"カンマ,入り""値"""'));
+check('CSV: configName のカンマをエスケープ', csvOut79.includes('"Qwen,1.5B"'));
+// 空サンプルのスイート（ゼロ除算防御）
+const emptySuite79: BenchSuite = { id: 'empty', name: 'Empty', category: 'math', samples: [] };
+const rowsEmpty79 = runExternalBenchmarks([emptySuite79], ['qwen']);
+check('空サンプル: accuracy=0 で NaN にならない', rowsEmpty79[0].accuracy === 0 && Number.isFinite(rowsEmpty79[0].avgQuality));
+// overallAccuracy の空 rows（ゼロ除算防御）
+const overallEmpty79 = overallAccuracy([]);
+check('overallAccuracy: 空 rows で NaN にならない', overallEmpty79.every((o) => Number.isFinite(o.accuracy)));
+// renderCaravanBenchmark の空配列
+check('renderCaravanBenchmark: 空配列で（データなし）', renderCaravanBenchmark([]).includes('データなし'));
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {

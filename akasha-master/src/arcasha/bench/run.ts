@@ -40,16 +40,17 @@ export function runExternalBenchmarks(suites: BenchSuite[] = ALL_BENCH_SUITES, c
         if (isPass(q)) pass++;
         qsum += q;
       }
+      const n = suite.samples.length;
       rows.push({
         suite: suite.id,
         suiteName: suite.name,
         category: suite.category,
         config,
         configName: configName(config),
-        samples: suite.samples.length,
+        samples: n,
         pass,
-        accuracy: pass / suite.samples.length,
-        avgQuality: qsum / suite.samples.length,
+        accuracy: n > 0 ? pass / n : 0,
+        avgQuality: n > 0 ? qsum / n : 0,
       });
     }
   }
@@ -62,7 +63,7 @@ export function overallAccuracy(rows: BenchResultRow[]): { config: ModelConfig; 
     const r = rows.filter((x) => x.config === config);
     const total = r.reduce((s, x) => s + x.pass, 0);
     const samples = r.reduce((s, x) => s + x.samples, 0);
-    return { config, configName: configName(config), accuracy: total / samples };
+    return { config, configName: configName(config), accuracy: samples > 0 ? total / samples : 0 };
   });
 }
 
@@ -73,7 +74,10 @@ export function renderExternalBenchmarks(rows: BenchResultRow[]): string {
   lines.push(`suite${' '.repeat(10)} ${ALL_CONFIG_IDS.map((c) => configName(c).padEnd(16)).join(' ')}`);
   for (const suite of suites) {
     const suiteRows = rows.filter((r) => r.suite === suite);
-    const accs = ALL_CONFIG_IDS.map((c) => `${(suiteRows.find((r) => r.config === c)!.accuracy * 100).toFixed(0).padStart(3)}%`);
+    const accs = ALL_CONFIG_IDS.map((c) => {
+      const row = suiteRows.find((r) => r.config === c);
+      return `${((row ? row.accuracy : 0) * 100).toFixed(0).padStart(3)}%`;
+    });
     lines.push(`${suite.padEnd(16)} ${accs.join(' ')}`);
   }
   const overall = overallAccuracy(rows);
