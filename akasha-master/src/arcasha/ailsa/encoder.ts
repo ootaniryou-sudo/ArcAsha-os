@@ -31,16 +31,30 @@ export function encodeUtf8(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
-/** 非負整数 → LEB128 varint */
+/** LEB128 varint の最大バイト数（AILSA 仕様: 最大 5 バイト = 2^35-1） */
+export const MAX_VARINT_BYTES = 5;
+
+/**
+ * 非負整数 → LEB128 varint。
+ *
+ * 乗算方式（v % 128 / Math.floor(v / 128)）を使い、JS の 32bit ビット演算
+ * （`v >>>= 7` 等）に依存しない。これにより 2^31 を超える安全整数も
+ * 正しくエンコードできる。上限は仕様どおり 5 バイト（2^35-1）。
+ */
 export function encodeVarint(n: number): Uint8Array {
   if (!Number.isSafeInteger(n) || n < 0) {
-    throw new CodecError(`varint には非負整数が必要: ${n}`);
+    throw new CodecError(`varint には非負の安全整数が必要: ${n}`);
+  }
+  if (n >= 2 ** (7 * MAX_VARINT_BYTES)) {
+    throw new CodecError(
+      `varint は ${MAX_VARINT_BYTES} バイト（最大 ${2 ** (7 * MAX_VARINT_BYTES) - 1}）まで: ${n}`,
+    );
   }
   const out: number[] = [];
   let v = n;
   do {
-    let b = v & 0x7f;
-    v >>>= 7;
+    let b = v % 128;
+    v = Math.floor(v / 128);
     if (v !== 0) b |= 0x80;
     out.push(b);
   } while (v !== 0);

@@ -7,28 +7,50 @@
 
 import { isSlotByte } from './opcode.js';
 import { valueTypeOf, ValueType } from './vocab.js';
-import { CodecError, Instruction, SlotValue } from './encoder.js';
+import { CodecError, Instruction, MAX_VARINT_BYTES, SlotValue } from './encoder.js';
 
 export function decodeVarint(bytes: Uint8Array, offset: number): { value: number; next: number } {
+  // offset は非負の安全整数でなければならない（負数・非整数・NaN・範囲外を拒否）
+  if (!Number.isSafeInteger(offset) || offset < 0) {
+    throw new CodecError(`varint の offset には非負の安全整数が必要: ${offset}`);
+  }
   let value = 0;
-  let shift = 0;
+  let multiplier = 1; // 各バイトの桁: 1, 128, 128^2, ...
   let i = offset;
-  for (let count = 0; count < 5; count++) {
+  for (let count = 0; count < MAX_VARINT_BYTES; count++) {
     if (i >= bytes.length) throw new CodecError(`varint が途中で切れている (offset ${offset})`);
     const b = bytes[i];
     i++;
-    value |= (b & 0x7f) << shift;
+    // 乗算方式（encoder と対称）。最初のバイトが最下位7ビット。
+    // 32bit ビット演算に依存せず 2^31 超も正しく復元できる。
+    value += (b & 0x7f) * multiplier;
+    multiplier *= 128;
     if ((b & 0x80) === 0) return { value, next: i };
-    shift += 7;
   }
-  throw new CodecError(`varint が 5 バイトを超えた (offset ${offset})`);
+  throw new CodecError(`varint が ${MAX_VARINT_BYTES} バイトを超えた (offset ${offset})`);
+}
+
+/**
+ * valueType に応じた正準値への変換。
+ * boolean は 'true'/'false' 以外を拒否（不正バイト列を黙って false にしない）。
+ * テスト容易性のため slot ではなく valueType を受け取る（boolean スロットは
+ * 現行 registry に無いため、boolean 分岐はここで直接検証できる）。
+ */
+export function coerceSlotValue(
+  t: ValueType | undefined,
+  raw: string,
+): string | number | boolean {
+  if (t === 'number') return Number(raw);
+  if (t === 'boolean') {
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+    throw new CodecError(`boolean 値に不正値 "${raw}"`);
+  }
+  return raw;
 }
 
 function typedValue(slot: number, raw: string): string | number | boolean {
-  const t: ValueType | undefined = valueTypeOf(slot);
-  if (t === 'number') return Number(raw);
-  if (t === 'boolean') return raw === 'true';
-  return raw;
+  return coerceSlotValue(valueTypeOf(slot), raw);
 }
 
 function decodeInstruction(bytes: Uint8Array, offset: number): { instr: Instruction; next: number } {

@@ -7,8 +7,9 @@
 import { Domain, Slot, Task, registry } from './vocab.js';
 import { Opcode } from './opcode.js';
 import { CODE, MATH, getDialect } from './dialect.js';
-import { Instruction } from './encoder.js';
 import { CodeOpcode, MathOpcode } from './dialect.js';
+import { CodecError, Instruction, encodeVarint, MAX_VARINT_BYTES } from './encoder.js';
+import { coerceSlotValue, decodeVarint } from './decoder.js';
 import { compile, decode, encode, version } from './codec.js';
 import { validateProgram } from './validator.js';
 
@@ -30,6 +31,24 @@ function expectThrow(name: string, fn: () => unknown): void {
     console.error(`  ✗ FAIL: ${name}（例外が投げられなかった）`);
   } catch (e) {
     console.log(`  ✓ ${name}（${(e as Error).message}）`);
+  }
+}
+
+/** CodecError の送出を検証する（CodecError 以外の例外は失敗扱い） */
+function expectCodecError(name: string, fn: () => unknown): void {
+  try {
+    fn();
+    failed++;
+    console.error(`  ✗ FAIL: ${name}（CodecError が投げられなかった）`);
+  } catch (e) {
+    if (e instanceof CodecError) {
+      console.log(`  ✓ ${name}（${(e as Error).message}）`);
+    } else {
+      failed++;
+      console.error(
+        `  ✗ FAIL: ${name}（CodecError 以外の例外: ${(e as Error).constructor.name}: ${(e as Error).message}）`,
+      );
+    }
   }
 }
 
@@ -102,6 +121,44 @@ check('日本語値の roundtrip', jaDecoded[1].slots?.find((s) => s.slot === Sl
 // 不正バイト列は大声で失敗
 expectThrow('切り詰めバイト列でエラー', () => decode(Uint8Array.from([0x30, 0x29, 0x05])));
 expectThrow('不正 varint でエラー', () => decode(Uint8Array.from([0x30, 0x29, 0x80, 0x80, 0x80, 0x80, 0x80, 0x01])));
+
+// ── 4.5. Varint エッジケース（乗算方式・32bit ビット演算非依存） ──
+console.log('\n[4.5] Varint エッジケース');
+function varintRoundtrip(name: string, n: number): void {
+  const enc = encodeVarint(n);
+  const dec = decodeVarint(enc, 0);
+  check(`varint roundtrip ${name} (${n})`, dec.value === n && dec.next === enc.length);
+}
+varintRoundtrip('ゼロ', 0);
+varintRoundtrip('1バイト境界', 127);
+varintRoundtrip('2バイト境界', 128);
+varintRoundtrip('2バイト最大', 16383);
+varintRoundtrip('3バイト境界', 16384);
+varintRoundtrip('4バイト最大', 2 ** 28 - 1);
+varintRoundtrip('4バイト境界', 2 ** 28);
+varintRoundtrip('32bit超（従来はビット演算で壊れる）', 2 ** 31);
+varintRoundtrip('5バイト最大', 2 ** 35 - 1);
+expectCodecError('5バイト上限超でエラー', () => encodeVarint(2 ** 35));
+expectCodecError('負数でエラー', () => encodeVarint(-1));
+expectCodecError('非整数でエラー', () => encodeVarint(1.5));
+// decodeVarint の offset 検証も CodecError を確認
+const enc128 = encodeVarint(128);
+expectCodecError('offset 負数でエラー', () => decodeVarint(enc128, -1));
+expectCodecError('offset 非整数でエラー', () => decodeVarint(enc128, 1.5));
+expectCodecError('offset NaN でエラー', () => decodeVarint(enc128, NaN));
+
+// ── 4.6. coerceSlotValue（valueType 変換・boolean 拒否分岐） ──
+console.log('\n[4.6] coerceSlotValue（valueType 変換）');
+check('boolean true を true に', coerceSlotValue('boolean', 'true') === true);
+check('boolean false を false に', coerceSlotValue('boolean', 'false') === false);
+expectCodecError('boolean に不正値でエラー', () => coerceSlotValue('boolean', 'yes'));
+expectCodecError('boolean に空文字でエラー', () => coerceSlotValue('boolean', ''));
+check('number 変換', coerceSlotValue('number', '42') === 42);
+check('string はそのまま', coerceSlotValue('string', 'abc') === 'abc');
+check('undefined はそのまま', coerceSlotValue(undefined, 'xyz') === 'xyz');
+
+// MAX_VARINT_BYTES と varint 上限の整合（5 バイト = 2^35-1）
+check('MAX_VARINT_BYTES=5', MAX_VARINT_BYTES === 5);
 
 // ── 5. Validator ──
 console.log('\n[5] Validator');
