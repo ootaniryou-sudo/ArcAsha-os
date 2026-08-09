@@ -61,6 +61,11 @@ export function renderCaravanBenchmark(rows: CaravanBenchRow[]): string {
   const lines: string[] = [];
   lines.push('■ Validation F: Caravan スケーラビリティ（キャラバン分割がスケールする実証）');
   lines.push('');
+  if (rows.length === 0) {
+    lines.push('（データなし）');
+    lines.push('> kind=simulation（キャラバン分割がスケールする実証）。実機は REAL_DEVICE_PROFILE と差し替え可能。');
+    return lines.join('\n');
+  }
   lines.push('| デバイス数 | キャラバン数 | Master管理対象(Flat) | Master管理対象(Caravan) | 削減 | 探索(Flat) | 探索(Caravan) | ホップ |');
   lines.push('|---:|---:|---:|---:|---:|---:|---:|---:|');
   for (const r of rows) {

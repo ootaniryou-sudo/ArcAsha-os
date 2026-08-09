@@ -73,6 +73,9 @@ import { runModeValidation, runAblation, runRobotSimulation, estimatePower, rend
 import { SCIENTIFIC_CORPUS, modeQuality, runReasoningBenchmark, runLongContextValidation, runRobotValidation, runExecutiveValidation, runModelComparison } from '../attachments/scientific.js';
 import { ALL_BENCH_SUITES, runExternalBenchmarks, overallAccuracy } from '../bench/run.js';
 import { configQuality } from '../bench/types.js';
+import type { BenchResultRow } from '../bench/run.js';
+import type { BenchSuite } from '../bench/types.js';
+import { renderCaravanBenchmark } from '../bench/caravan.js';
 import { osOverheadProfile, allOverheadProfiles } from '../bench/overhead.js';
 import { buildJsonReport, buildCsvReport, buildMarkdownReport, writeReports, VALIDATION_KIND } from '../bench/report.js';
 import { explainExecutive, renderExplanation } from '../attachments/explain.js';
@@ -1161,11 +1164,11 @@ check('品質モデル: Thinking は単体より高い', configQuality('qwen-thi
 const rows69 = runExternalBenchmarks();
 check('Validation E: 6 スイート × 5 構成 = 30 行', rows69.length === 30);
 const overall69 = overallAccuracy(rows69);
-const acc69 = (c: string): number => overall69.find((o) => o.config === c)!.accuracy;
-check('全体正答率: qwen < fast < auto < deep（単調増加）', acc69('qwen') < acc69('qwen-fast') && acc69('qwen-fast') < acc69('qwen-auto') && acc69('qwen-auto') < acc69('qwen-deep'), overall69.map((o) => `${o.config}=${(o.accuracy * 100).toFixed(0)}%`).join(' '));
+const acc69 = (c: string): number => overall69.find((o) => o.config === c)!.accuracy ?? 0;
+check('全体正答率: qwen < fast < auto < deep（単調増加）', acc69('qwen') < acc69('qwen-fast') && acc69('qwen-fast') < acc69('qwen-auto') && acc69('qwen-auto') < acc69('qwen-deep'), overall69.map((o) => `${o.config}=${o.accuracy === null ? 'N/A' : (o.accuracy * 100).toFixed(0)}%`).join(' '));
 const he69 = rows69.filter((r) => r.suite === 'human_eval');
-const heAcc = (c: string): number => he69.find((r) => r.config === c)!.accuracy;
-check('Qwen Thinking vs ArcAsha: human_eval で thinking(50%) > fast(40%) かつ deep(100%) > thinking', heAcc('qwen-thinking') > heAcc('qwen-fast') && heAcc('qwen-deep') > heAcc('qwen-thinking'), he69.map((r) => `${r.config}=${(r.accuracy * 100).toFixed(0)}%`).join(' '));
+const heAcc = (c: string): number => he69.find((r) => r.config === c)!.accuracy ?? 0;
+check('Qwen Thinking vs ArcAsha: human_eval で thinking(50%) > fast(40%) かつ deep(100%) > thinking', heAcc('qwen-thinking') > heAcc('qwen-fast') && heAcc('qwen-deep') > heAcc('qwen-thinking'), he69.map((r) => `${r.config}=${r.accuracy === null ? 'N/A' : (r.accuracy * 100).toFixed(0)}%`).join(' '));
 const ovFast69 = osOverheadProfile('qwen-fast');
 const ovDeep69 = osOverheadProfile('qwen-deep');
 const llmOf = (p: { components: { component: string; cpuPct: number }[] }): number => p.components.filter((c) => c.component.includes('LLM')).reduce((s, c) => s + c.cpuPct, 0);
@@ -1445,6 +1448,29 @@ await expectThrowAsync('execute: 空 id でエラー', () => mgr78b.execute('', 
 await expectThrowAsync('execute: 未登録 id でエラー', () => mgr78b.execute('unknown-att', ctx78));
 const parEmpty = await mgr78b.executeParallel([], ctx78);
 check('executeParallel: 空配列 → 空オブジェクト', Object.keys(parEmpty).length === 0);
+
+// [79] Bench エッジケース（CSV エスケープ・ゼロ除算防御）
+console.log('\n[79] Bench エッジケース');
+// CSV エスケープ（カンマ・引用符を含む値の安全化）
+const csvRow79: BenchResultRow = {
+  suite: 'gsm8k', suiteName: 'カンマ,入り"値"', category: 'math', config: 'qwen', configName: 'Qwen,1.5B', samples: 10, pass: 5, accuracy: 0.5, avgQuality: 0.5,
+};
+const csvOut79 = buildCsvReport([csvRow79]);
+check('CSV: カンマ・引用符入り値をエスケープ', csvOut79.includes('"カンマ,入り""値"""'));
+check('CSV: configName のカンマをエスケープ', csvOut79.includes('"Qwen,1.5B"'));
+// CSV エスケープ（改行を含む値もクォートで保持）
+const csvRow79nl: BenchResultRow = { ...csvRow79, suiteName: '改行\n入り' };
+const csvOut79nl = buildCsvReport([csvRow79nl]);
+check('CSV: 改行入り値をクォートで保持', csvOut79nl.includes('"改行\n入り"'));
+// 空サンプルのスイート（no-data 契約: 0 ではなく null）
+const emptySuite79: BenchSuite = { id: 'empty', name: 'Empty', category: 'math', samples: [] };
+const rowsEmpty79 = runExternalBenchmarks([emptySuite79], ['qwen']);
+check('空サンプル: accuracy=null（no-data）', rowsEmpty79[0].accuracy === null && rowsEmpty79[0].avgQuality === null);
+// overallAccuracy の空 rows（no-data）
+const overallEmpty79 = overallAccuracy([]);
+check('overallAccuracy: 空 rows で accuracy=null', overallEmpty79.every((o) => o.accuracy === null));
+// renderCaravanBenchmark の空配列
+check('renderCaravanBenchmark: 空配列で（データなし）', renderCaravanBenchmark([]).includes('データなし'));
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
