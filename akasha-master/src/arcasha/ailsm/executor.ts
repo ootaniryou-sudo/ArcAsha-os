@@ -75,13 +75,25 @@ function numericValues(g: AilsmGraph): { id: number; value: number }[] {
   const out: { id: number; value: number }[] = [];
   for (const n of g.nodes) {
     if (n.kind !== 'value' || n.type !== 'number') continue;
-    for (const v of Object.values(n.attrs)) {
-      if (typeof v === 'number' && Number.isFinite(v)) {
-        out.push({ id: n.id, value: v });
+    // value 属性を優先（属性の挿入順に依存しない）。min/max などの制約値を誤って
+    // 演算オペランドに使わないようにする。
+    const v = n.attrs.value;
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      out.push({ id: n.id, value: v });
+      continue;
+    }
+    if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) {
+      out.push({ id: n.id, value: Number(v) });
+      continue;
+    }
+    // value 属性が無い場合は他の数値属性から探す（フォールバック）
+    for (const attr of Object.values(n.attrs)) {
+      if (typeof attr === 'number' && Number.isFinite(attr)) {
+        out.push({ id: n.id, value: attr });
         break;
       }
-      if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) {
-        out.push({ id: n.id, value: Number(v) });
+      if (typeof attr === 'string' && attr.trim() !== '' && Number.isFinite(Number(attr))) {
+        out.push({ id: n.id, value: Number(attr) });
         break;
       }
     }

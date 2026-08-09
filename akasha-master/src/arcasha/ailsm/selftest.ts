@@ -1408,6 +1408,33 @@ const nz5 = normalize('x^2 を積分して', tokenize('x^2 を積分して'));
 check('rawMath 抽出', nz5.rawMath.includes('x^2'));
 check('ACTION_INTEGRAL', nz5.actions.includes('ACTION_INTEGRAL'));
 
+// [80] 実行基盤エッジケース（state 検証・numericValues 優先・AVM）
+console.log('\n[80] 実行基盤エッジケース');
+// execution.ts: 不正 state のフォールバック
+const execBad80 = createExecutionContext({ nodes: [], edges: [] }, 1, 'p', 'math').exec;
+check('createExecutionContext: state=created', execBad80.state === 'created');
+// 不正 state を持つノードを直接構築 → toExec が 'created' にフォールバックするか
+const badGraph80 = new AilsmBuilder();
+const badExecId = badGraph80.addNode('execution', 'p:math', 'unknown', {
+  contextId: 1, owner: 'p', expert: 'math', state: 'invalid-state', currentPage: 0, currentChunk: 0, currentSpan: 0, cursor: 0, attention: [], hypothesis: '', vars: [], callStack: [], activeExperts: ['math'], residentPages: [], stack: [],
+});
+const execOfBad80 = executionOf(badGraph80.graph(), badExecId);
+check('toExec: 不正 state → created にフォールバック', execOfBad80?.state === 'created');
+const frameBad80 = pushFrame(badGraph80.graph(), badExecId, 'branchA', 'H1').frame;
+check('pushFrame: frame state=active', frameBad80.state === 'active');
+// executor.ts: numericValues は value 属性を優先（min をオペランドにしない）
+const exeGraph80 = new AilsmBuilder();
+const task80 = exeGraph80.addNode('task', 'solve', 'unknown', { domain: 'math', intent: 'solve', actions: ['ACTION_ADD'] });
+const val80 = exeGraph80.addNode('value', 'number', 'number', { min: 0, value: 2 }); // min を先に
+const val81 = exeGraph80.addNode('value', 'number', 'number', { value: 3, min: 0 });
+exeGraph80.connect(task80, val80, 'uses');
+exeGraph80.connect(task80, val81, 'uses');
+const exeRes80 = execute(exeGraph80.graph());
+check('execute: 2+3=5（value 属性を優先・min をオペランドにしない）', exeRes80.resolved && exeRes80.value === 5, String(exeRes80.value));
+// avm.ts: runAvmDemo の maxLoadedRatio が 0〜1
+const avmDemo80 = runAvmDemo();
+check('AVM デモ: maxLoadedRatio は 0〜1', avmDemo80.maxLoadedRatio > 0 && avmDemo80.maxLoadedRatio <= 1, String(avmDemo80.maxLoadedRatio));
+
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
   console.log('  ✅ ALL PASS — AILSM Phase 0.5（Stage 1 決定論 + Stage 3 決定論Verifier）');

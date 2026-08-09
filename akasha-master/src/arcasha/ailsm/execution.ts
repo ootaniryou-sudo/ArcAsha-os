@@ -39,6 +39,19 @@ export interface ExecutionContext {
 
 export type FrameState = 'active' | 'suspended' | 'merged' | 'popped';
 
+const VALID_EXEC_STATES: readonly ExecutionState[] = ['created', 'ready', 'running', 'suspended', 'finished'];
+const VALID_FRAME_STATES: readonly FrameState[] = ['active', 'suspended', 'merged', 'popped'];
+
+/** 不正な ExecutionState を拒否（属性の破損・不正バイト列からの防御） */
+function isExecState(v: unknown): v is ExecutionState {
+  return typeof v === 'string' && (VALID_EXEC_STATES as readonly string[]).includes(v);
+}
+
+/** 不正な FrameState を拒否（同上） */
+function isFrameState(v: unknown): v is FrameState {
+  return typeof v === 'string' && (VALID_FRAME_STATES as readonly string[]).includes(v);
+}
+
 export interface ReasoningFrame {
   id: number;
   label: string; // 'branchA' | 'branchB' 等
@@ -69,7 +82,7 @@ function toExec(g: AilsmGraph, id: number): ExecutionContext | undefined {
     contextId: typeof n.attrs.contextId === 'number' ? n.attrs.contextId : Number(n.attrs.contextId ?? 0),
     owner: String(n.attrs.owner ?? ''),
     expert: String(n.attrs.expert ?? ''),
-    state: (n.attrs.state as ExecutionState) ?? 'created',
+    state: isExecState(n.attrs.state) ? n.attrs.state : 'created',
     currentPage: cp === undefined || cp === 0 ? null : Number(cp),
     currentChunk: cc === undefined || cc === 0 ? null : Number(cc),
     currentSpan: cs === undefined || cs === 0 ? null : Number(cs),
@@ -91,7 +104,7 @@ function toFrame(g: AilsmGraph, id: number): ReasoningFrame | undefined {
     id: n.id,
     label: String(n.attrs.label ?? ''),
     hypothesis: String(n.attrs.hypothesis ?? ''),
-    state: ((n.attrs.state as FrameState) ?? 'active') as FrameState,
+    state: isFrameState(n.attrs.state) ? n.attrs.state : 'active',
   };
 }
 
