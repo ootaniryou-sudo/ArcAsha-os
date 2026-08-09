@@ -224,7 +224,7 @@ export function runAvmDemo(): AvmDemoResult {
     contextId,
     results,
     totalChars: context.text.length,
-    maxLoadedRatio: Math.max(...results.map((r) => r.stats.loadedRatio)),
+    maxLoadedRatio: results.length > 0 ? Math.max(...results.map((r) => r.stats.loadedRatio)) : 0,
   };
 }
 
