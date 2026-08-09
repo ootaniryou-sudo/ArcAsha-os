@@ -62,7 +62,9 @@ export function makeResult(
   detail: string[],
   tokens?: number,
 ): AttachmentResult {
-  return { ok: true, text, quality: Math.min(1, Math.max(0, quality)), latencyMs, calls, tokens: tokens ?? estimateTokens(text), detail };
+  // quality は有限値のみ受け入れ、NaN / Infinity は 0 にクランプ（不正入力の防御）
+  const q = Number.isFinite(quality) ? Math.min(1, Math.max(0, quality)) : 0;
+  return { ok: true, text, quality: q, latencyMs, calls, tokens: tokens ?? estimateTokens(text), detail };
 }
 
 /** 複数 Attachment の結果を統合（並列実行後のマージ）— 品質は最良の成果を採用 */

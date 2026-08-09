@@ -87,14 +87,18 @@ export class AttachmentManager {
 
   /** 実行（1 つ） */
   async execute(id: string, ctx: AttachmentContext): Promise<AttachmentResult> {
+    if (typeof id !== 'string' || id === '') {
+      throw new Error('AttachmentManager: id は非空文字列が必要');
+    }
     const a = await this.load(id);
     const r = await a.run(ctx);
     this.monitor?.record({ id, name: a.name, latencyMs: r.latencyMs, quality: r.quality, cost: a.estimatedCost, calls: r.calls, tokens: r.tokens });
     return r;
   }
 
-  /** 並列実行（複数 Attachment を同時に走らせ、結果を統合） */
+  /** 並列実行（複数 Attachment を同時に走らせ、結果を統合。空配列は空結果） */
   async executeParallel(ids: string[], ctx: AttachmentContext): Promise<Record<string, AttachmentResult>> {
+    if (ids.length === 0) return {};
     const entries = await Promise.all(ids.map(async (id) => [id, await this.execute(id, ctx)] as const));
     return Object.fromEntries(entries);
   }
