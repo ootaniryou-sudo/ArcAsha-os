@@ -64,8 +64,9 @@ import { expert, expertsOf, expertOf, computeHealth, shouldSplit, shouldMerge, s
 import { runExpertEvolutionDemo, renderExpertEvolution } from './expert-evolution-runtime.js';
 import { AttachmentManager } from '../attachments/manager.js';
 import { AttachmentMonitor } from '../attachments/observability.js';
-import { registerBuiltinAttachments } from '../attachments/builtin.js';
+import { BUILTIN_ATTACHMENT_IDS, registerBuiltinAttachments } from '../attachments/builtin.js';
 import { attachmentScheduler } from '../attachments/scheduler.js';
+import { makeResult } from '../attachments/attachment.js';
 import { runAttachmentBenchmark } from '../attachments/benchmark.js';
 import { resolvePipeline, intelligenceScheduler, runThinking, renderThinking, runThinkingBenchmark } from '../attachments/modes.js';
 import { runModeValidation, runAblation, runRobotSimulation, estimatePower, renderModeValidation, renderAblation, renderRobotSimulation } from '../attachments/validation.js';
@@ -99,6 +100,17 @@ function check(name: string, cond: boolean, detail = ''): void {
 function expectThrow(name: string, fn: () => unknown): void {
   try {
     fn();
+    failed++;
+    console.error(`  ✗ FAIL: ${name}（例外が投げられなかった）`);
+  } catch (e) {
+    console.log(`  ✓ ${name}（${(e as Error).message}）`);
+  }
+}
+
+/** async 関数の例外送出を検証する（Promise の reject を捕捉） */
+async function expectThrowAsync(name: string, fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
     failed++;
     console.error(`  ✗ FAIL: ${name}（例外が投げられなかった）`);
   } catch (e) {
@@ -1410,6 +1422,32 @@ check('numbers=[3,5]', nz4.numbers.length === 2 && nz4.numbers[0] === 3 && nz4.n
 const nz5 = normalize('x^2 を積分して', tokenize('x^2 を積分して'));
 check('rawMath 抽出', nz5.rawMath.includes('x^2'));
 check('ACTION_INTEGRAL', nz5.actions.includes('ACTION_INTEGRAL'));
+
+// [78] Attachment エッジケース（ランタイム検証・不正入力）
+console.log('\n[78] Attachment エッジケース');
+// makeResult の quality クランプ
+check('makeResult: quality 1.5 → 1 にクランプ', makeResult('t', 1.5, 10, 0, []).quality === 1);
+check('makeResult: quality -0.5 → 0 にクランプ', makeResult('t', -0.5, 10, 0, []).quality === 0);
+check('makeResult: quality NaN → 0 にクランプ', makeResult('t', NaN, 10, 0, []).quality === 0);
+check('makeResult: quality 0.7 はそのまま', makeResult('t', 0.7, 10, 0, []).quality === 0.7);
+// attachmentScheduler の不正入力
+const mgr78 = new AttachmentManager();
+registerBuiltinAttachments(mgr78);
+await Promise.all(BUILTIN_ATTACHMENT_IDS.map((id) => mgr78.load(id)));
+check('attachmentScheduler: budget 負数 → 空', attachmentScheduler(mgr78, 'この論文を批判的に評価して', { budget: -1 }).length === 0);
+check('attachmentScheduler: budget NaN → 空', attachmentScheduler(mgr78, 'この論文を批判的に評価して', { budget: NaN }).length === 0);
+check('attachmentScheduler: max=0 → 空', attachmentScheduler(mgr78, 'この論文を批判的に評価して', { max: 0 }).length === 0);
+check('attachmentScheduler: max 負数 → 空', attachmentScheduler(mgr78, 'この論文を批判的に評価して', { max: -1 }).length === 0);
+// AttachmentManager.execute の id 検証と executeParallel の空配列
+const mgr78b = new AttachmentManager();
+registerBuiltinAttachments(mgr78b);
+await mgr78b.load('reflection');
+const boot78 = (await import('./expert-runtime.js')).boot();
+const ctx78: AttachmentContext = { text: '評価して', booted: boot78, attach: (id) => mgr78b.execute(id, ctx78) };
+await expectThrowAsync('execute: 空 id でエラー', () => mgr78b.execute('', ctx78));
+await expectThrowAsync('execute: 未登録 id でエラー', () => mgr78b.execute('unknown-att', ctx78));
+const parEmpty = await mgr78b.executeParallel([], ctx78);
+check('executeParallel: 空配列 → 空オブジェクト', Object.keys(parEmpty).length === 0);
 
 // [79] Bench エッジケース（CSV エスケープ・ゼロ除算防御）
 console.log('\n[79] Bench エッジケース');

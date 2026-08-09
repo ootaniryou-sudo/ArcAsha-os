@@ -34,6 +34,10 @@ export function attachmentScheduler(
 ): ScheduledAttachment[] {
   const budget = opts.budget ?? 1.0;
   const max = opts.max ?? Infinity;
+  // 不正な予算・上限（NaN・負数）は空結果として安全に返す。
+  // ただし max はデフォルト Infinity（上限なし）なので Infinity は許可する。
+  if (Number.isNaN(budget) || budget < 0) return [];
+  if (Number.isNaN(max) || max < 0) return [];
   const pool = manager.list().filter((a) => a.enabled && a.supports(taskText)).sort((a, b) => attachmentPriority(b) - attachmentPriority(a));
   const out: ScheduledAttachment[] = [];
   let remaining = budget;
