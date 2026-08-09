@@ -25,8 +25,8 @@ export interface BenchResultRow {
   configName: string;
   samples: number;
   pass: number;
-  accuracy: number; // pass/samples
-  avgQuality: number;
+  accuracy: number | null; // pass/samples（no-data は null = N/A）
+  avgQuality: number | null; // no-data は null
 }
 
 export function runExternalBenchmarks(suites: BenchSuite[] = ALL_BENCH_SUITES, configs: ModelConfig[] = ALL_CONFIG_IDS): BenchResultRow[] {
@@ -49,21 +49,22 @@ export function runExternalBenchmarks(suites: BenchSuite[] = ALL_BENCH_SUITES, c
         configName: configName(config),
         samples: n,
         pass,
-        accuracy: n > 0 ? pass / n : 0,
-        avgQuality: n > 0 ? qsum / n : 0,
+        // データが無い場合は null（no-data）。0% と実測ゼロを区別する。
+        accuracy: n > 0 ? pass / n : null,
+        avgQuality: n > 0 ? qsum / n : null,
       });
     }
   }
   return rows;
 }
 
-/** 全体（全スイート合算）の構成別正答率 */
-export function overallAccuracy(rows: BenchResultRow[]): { config: ModelConfig; configName: string; accuracy: number }[] {
+/** 全体（全スイート合算）の構成別正答率（データなしは null = N/A） */
+export function overallAccuracy(rows: BenchResultRow[]): { config: ModelConfig; configName: string; accuracy: number | null }[] {
   return ALL_CONFIG_IDS.map((config) => {
     const r = rows.filter((x) => x.config === config);
     const total = r.reduce((s, x) => s + x.pass, 0);
     const samples = r.reduce((s, x) => s + x.samples, 0);
-    return { config, configName: configName(config), accuracy: samples > 0 ? total / samples : 0 };
+    return { config, configName: configName(config), accuracy: samples > 0 ? total / samples : null };
   });
 }
 
@@ -76,12 +77,16 @@ export function renderExternalBenchmarks(rows: BenchResultRow[]): string {
     const suiteRows = rows.filter((r) => r.suite === suite);
     const accs = ALL_CONFIG_IDS.map((c) => {
       const row = suiteRows.find((r) => r.config === c);
-      return `${((row ? row.accuracy : 0) * 100).toFixed(0).padStart(3)}%`;
+      const acc = row ? row.accuracy : null;
+      return acc === null ? '  N/A' : `${(acc * 100).toFixed(0).padStart(3)}%`;
     });
     lines.push(`${suite.padEnd(16)} ${accs.join(' ')}`);
   }
   const overall = overallAccuracy(rows);
-  const ov = ALL_CONFIG_IDS.map((c) => `${(overall.find((o) => o.config === c)!.accuracy * 100).toFixed(0).padStart(3)}%`);
+  const ov = ALL_CONFIG_IDS.map((c) => {
+    const acc = overall.find((o) => o.config === c)!.accuracy;
+    return acc === null ? '  N/A' : `${(acc * 100).toFixed(0).padStart(3)}%`;
+  });
   lines.push(`${'ALL'.padEnd(16)} ${ov.join(' ')}`);
   return lines.join('\n');
 }

@@ -48,7 +48,7 @@ export function buildCsvReport(rows: BenchResultRow[]): string {
   const header = 'suite,suite_name,category,config,config_name,samples,pass,accuracy,avg_quality';
   const lines = [header];
   for (const r of rows) {
-    const vals = [r.suite, r.suiteName, r.category, r.config, r.configName, r.samples, r.pass, r.accuracy.toFixed(4), r.avgQuality.toFixed(4)].map((v) => csvEscape(String(v)));
+    const vals = [r.suite, r.suiteName, r.category, r.config, r.configName, r.samples, r.pass, r.accuracy === null ? 'N/A' : r.accuracy.toFixed(4), r.avgQuality === null ? 'N/A' : r.avgQuality.toFixed(4)].map((v) => csvEscape(String(v)));
     lines.push(vals.join(','));
   }
   return lines.join('\n');
@@ -69,13 +69,14 @@ export function buildMarkdownReport(rows: BenchResultRow[], overhead: OverheadPr
   lines.push(`|-------|${[...new Set(rows.map((r) => r.configName))].map(() => '------|').join('')}`);
   for (const suite of [...new Set(rows.map((r) => r.suite))]) {
     const cells = [...new Set(rows.map((r) => r.configName))].map((cn) => {
-      const row = rows.find((r) => r.suite === suite && r.configName === cn)!;
-      return `${(row.accuracy * 100).toFixed(0)}%`;
+      const row = rows.find((r) => r.suite === suite && r.configName === cn);
+      const acc = row ? row.accuracy : null;
+      return acc === null ? 'N/A' : `${(acc * 100).toFixed(0)}%`;
     });
     lines.push(`| ${suite} | ${cells.join(' | ')} |`);
   }
   const overall = overallAccuracy(rows);
-  lines.push(`| **ALL** | ${overall.map((o) => `${(o.accuracy * 100).toFixed(0)}%`).join(' | ')} |`);
+  lines.push(`| **ALL** | ${overall.map((o) => `${o.accuracy === null ? 'N/A' : (o.accuracy * 100).toFixed(0)}%`).join(' | ')} |`);
   lines.push('');
   lines.push(`## OS Overhead`);
   lines.push('');
