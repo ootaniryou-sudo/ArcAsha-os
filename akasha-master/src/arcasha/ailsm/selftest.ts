@@ -13,6 +13,8 @@ import { AiProgram } from './program.js';
 import { link } from './linker.js';
 import { optimizeInstructions } from './optimizer.js';
 import { compile, compileAndRun, describeGraph, toHex } from './compiler.js';
+import { tokenize } from './lexer.js';
+import { normalize } from './normalizer.js';
 import { execute } from './executor.js';
 import { run } from './runtime.js';
 import { canTransition, believe, plan, reflect, remember } from './state.js';
@@ -1378,6 +1380,33 @@ check('Validation G: 平均遅延が改善（Learned < Naive）', ob76.final.lea
 check('Validation G: 平均品質が改善（Learned > Naive）', ob76.final.learned.avgQuality > ob76.final.naive.avgQuality);
 check('Validation G: 学習が進むほど成功率が高い（late >= warmup）', ob76.learned[3].successRate >= ob76.learned[0].successRate);
 check('Validation G: 改善が正の値', ob76.final.improvement.successRate > 0 && ob76.final.improvement.latencyMs > 0);
+
+// [77] Lexer / Normalizer エッジケース（トークン分類・意図・属性・数値抽出）
+console.log('\n[77] Lexer / Normalizer エッジケース');
+// ── tokenize ──
+check('空文字 → トークンなし', tokenize('').length === 0);
+check('空白のみ → トークンなし', tokenize('   ').length === 0);
+check('記号のみ → トークンなし（読み飛ばし）', tokenize('!!!').length === 0);
+check('小数 → number', (() => { const t = tokenize('3.14'); return t.length === 1 && t[0].type === 'number' && t[0].value === '3.14'; })());
+check('単変数 → variable', (() => { const t = tokenize('x'); return t.length === 1 && t[0].type === 'variable' && t[0].value === 'x'; })());
+check('数式 → math（分割しない）', (() => { const t = tokenize('x+2=5'); return t.length === 1 && t[0].type === 'math' && t[0].value === 'x+2=5'; })());
+check('日本語 → word', (() => { const t = tokenize('円の面積'); return t.length === 1 && t[0].type === 'word' && t[0].value === '円の面積'; })());
+check('数値+演算子+数値を分離', (() => { const t = tokenize('2 + 3'); return t.length === 3 && t[0].type === 'number' && t[1].type === 'math' && t[2].type === 'number'; })());
+// ── normalize ──
+const nz1 = normalize('こんにちは世界', tokenize('こんにちは世界'));
+check('未知入力 → intent=unknown', nz1.intent === 'unknown');
+check('未知入力 → domain=unknown', nz1.domain === 'unknown');
+check('未知入力 → confidence=0', nz1.confidence === 0);
+const nz2 = normalize('足して引いて', tokenize('足して引いて'));
+check('複数アクション抽出', nz2.actions.includes('ACTION_ADD') && nz2.actions.includes('ACTION_SUBTRACT'));
+const nz3 = normalize('半径10の円の面積を求めて', tokenize('半径10の円の面積を求めて'));
+check('属性 radius=10', nz3.attributes.some((a) => a.name === 'radius' && a.value === '10'));
+check('出力 area', nz3.output === 'area');
+const nz4 = normalize('3と5を足して', tokenize('3と5を足して'));
+check('numbers=[3,5]', nz4.numbers.length === 2 && nz4.numbers[0] === 3 && nz4.numbers[1] === 5);
+const nz5 = normalize('x^2 を積分して', tokenize('x^2 を積分して'));
+check('rawMath 抽出', nz5.rawMath.includes('x^2'));
+check('ACTION_INTEGRAL', nz5.actions.includes('ACTION_INTEGRAL'));
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
