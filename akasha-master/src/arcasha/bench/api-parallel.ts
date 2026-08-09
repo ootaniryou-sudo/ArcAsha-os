@@ -96,6 +96,7 @@ async function runRound(
   prompt: string,
   viaAiOs: boolean,
   concurrency: number,
+  aios?: AiOs,
 ): Promise<ApiParallelRound> {
   const caravans = hub.tree().caravans;
   const t0 = Date.now();
@@ -113,7 +114,6 @@ async function runRound(
     try {
       let text: string;
       if (viaAiOs) {
-        const aios: AiOs = (globalThis as any).__apibenchAiOs;
         if (!aios) throw new Error('aios not built');
         const ex = await aiosExecute(aios, `${prompt}\n${task}`, nodeId, {
           forceDelegate: true,
@@ -214,16 +214,18 @@ export async function runApiParallelBench(opts?: ParallelOpts): Promise<ApiParal
     const nodes = hub.experts.map((e) => e.nodeId);
 
     // viaAiOs のときは、この Hub を ModelClient として AI OS を組む（実機テストと同じ構成）
+    // 共有グローバルではなく呼び出しローカルのインスタンスを runRound に渡す
+    // （ベンチが重なっても nodeId→ModelClient の関連が壊れないようにする）
+    let aios: AiOs | undefined;
     if (viaAiOs) {
-      const aios: AiOs = initAiOs({
+      aios = initAiOs({
         listNodes: () => hub.experts.map((e) => ({ nodeId: e.nodeId, modelId: e.modelId, paramsM: e.paramsM })),
         generate: async (nodeId, p, m = maxTokens) => hub.generate(nodeId, String(p), Number(m) || maxTokens),
       });
-      (globalThis as any).__apibenchAiOs = aios;
     }
 
     const tasks = Array.from({ length: n * tasksPerNode }, (_, i) => `タスク${i + 1}: 数字 ${i + 1} を 2 倍にしてください`);
-    const round = await runRound(hub, nodes, tasks, maxTokens, prompt, viaAiOs, concurrency);
+    const round = await runRound(hub, nodes, tasks, maxTokens, prompt, viaAiOs, concurrency, aios);
     rounds.push(round);
     console.log(`     ✅ 完了: ${round.ok}/${round.tasks} 成功・${round.totalMs}ms・${round.throughputPerSec} task/s（キャラバン ${round.caravans}）`);
   }

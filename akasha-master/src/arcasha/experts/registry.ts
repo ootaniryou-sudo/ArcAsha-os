@@ -72,7 +72,7 @@ export interface PeerMessage {
 export class ExpertHub {
   readonly experts: ExpertInfo[] = [];
   /** register 時に送られた生のノード情報 (platform/backend/precision/settings等) */
-  readonly nodeDetails = new Map<string, Record<string, any>>();
+  readonly nodeDetails = new Map<string, Record<string, unknown>>();
   /** ノードごとの動作メトリクス（給電・回線速度） */
   readonly nodeMetrics = new Map<string, NodeMetric>();
   /** キャラバン（中間マスター）階層: caravanId → 配下デバイス */
@@ -105,16 +105,28 @@ export class ExpertHub {
       const clientIp = req.socket?.remoteAddress || 'unknown';
       let nodeId = `unknown-${clientIp}`;
       ws.on('message', (raw: Buffer) => {
-        let msg: any;
-        try { msg = JSON.parse(raw.toString()); } catch { return; }
+        let parsed: unknown;
+        try { parsed = JSON.parse(raw.toString()); } catch { return; }
+        // トップレベルがオブジェクトでなければ無視（null・配列・プリミティブを拒否）
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+        const msg = parsed as Record<string, unknown>;
         if (msg.type === 'register') {
-          nodeId = msg.node.id;
-          const modelId = msg.node.model_id || 'unknown';
+          // msg.node は非 null オブジェクトで、id が非空文字列であることを検証（不正は状態変更せず拒否）
+          const node = msg.node;
+          if (node === null || typeof node !== 'object' || Array.isArray(node)) return;
+          const nodeRec = node as Record<string, unknown>;
+          if (typeof nodeRec.id !== 'string' || nodeRec.id === '') return;
+          nodeId = nodeRec.id;
+          const modelId = typeof nodeRec.model_id === 'string' && nodeRec.model_id !== '' ? nodeRec.model_id : 'unknown';
           const params = paramsOf(modelId);
-          this.nodeDetails.set(nodeId, msg.node);
+          this.nodeDetails.set(nodeId, nodeRec);
           const now = Date.now();
-          const det = (msg.node as Record<string, any>) ?? {};
-          const realBattery = typeof det.battery_pct === 'number' ? det.battery_pct : null;
+          // battery_pct は 0〜100 の有限値のみ受理。それ以外はシミュレーションへフォールバック
+          const rawBattery = nodeRec.battery_pct;
+          const realBattery =
+            typeof rawBattery === 'number' && Number.isFinite(rawBattery) && rawBattery >= 0 && rawBattery <= 100
+              ? rawBattery
+              : null;
           const sim = simMetric(nodeId);
           this.nodeMetrics.set(nodeId, {
             batteryPct: realBattery ?? sim.batteryPct,
