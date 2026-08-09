@@ -9,7 +9,7 @@ import { Opcode } from './opcode.js';
 import { CODE, MATH, getDialect } from './dialect.js';
 import { CodeOpcode, MathOpcode } from './dialect.js';
 import { CodecError, Instruction, encodeVarint, MAX_VARINT_BYTES } from './encoder.js';
-import { decodeVarint } from './decoder.js';
+import { coerceSlotValue, decodeVarint } from './decoder.js';
 import { compile, decode, encode, version } from './codec.js';
 import { validateProgram } from './validator.js';
 
@@ -146,6 +146,16 @@ const enc128 = encodeVarint(128);
 expectCodecError('offset 負数でエラー', () => decodeVarint(enc128, -1));
 expectCodecError('offset 非整数でエラー', () => decodeVarint(enc128, 1.5));
 expectCodecError('offset NaN でエラー', () => decodeVarint(enc128, NaN));
+
+// ── 4.6. coerceSlotValue（valueType 変換・boolean 拒否分岐） ──
+console.log('\n[4.6] coerceSlotValue（valueType 変換）');
+check('boolean true を true に', coerceSlotValue('boolean', 'true') === true);
+check('boolean false を false に', coerceSlotValue('boolean', 'false') === false);
+expectCodecError('boolean に不正値でエラー', () => coerceSlotValue('boolean', 'yes'));
+expectCodecError('boolean に空文字でエラー', () => coerceSlotValue('boolean', ''));
+check('number 変換', coerceSlotValue('number', '42') === 42);
+check('string はそのまま', coerceSlotValue('string', 'abc') === 'abc');
+check('undefined はそのまま', coerceSlotValue(undefined, 'xyz') === 'xyz');
 
 // MAX_VARINT_BYTES と varint 上限の整合（5 バイト = 2^35-1）
 check('MAX_VARINT_BYTES=5', MAX_VARINT_BYTES === 5);

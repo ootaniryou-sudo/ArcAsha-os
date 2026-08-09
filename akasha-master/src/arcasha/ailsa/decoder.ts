@@ -30,16 +30,27 @@ export function decodeVarint(bytes: Uint8Array, offset: number): { value: number
   throw new CodecError(`varint が ${MAX_VARINT_BYTES} バイトを超えた (offset ${offset})`);
 }
 
-function typedValue(slot: number, raw: string): string | number | boolean {
-  const t: ValueType | undefined = valueTypeOf(slot);
+/**
+ * valueType に応じた正準値への変換。
+ * boolean は 'true'/'false' 以外を拒否（不正バイト列を黙って false にしない）。
+ * テスト容易性のため slot ではなく valueType を受け取る（boolean スロットは
+ * 現行 registry に無いため、boolean 分岐はここで直接検証できる）。
+ */
+export function coerceSlotValue(
+  t: ValueType | undefined,
+  raw: string,
+): string | number | boolean {
   if (t === 'number') return Number(raw);
   if (t === 'boolean') {
-    // 不正バイト列から 'true'/'false' 以外が来ても黙って false にしない（防御的）。
     if (raw === 'true') return true;
     if (raw === 'false') return false;
-    throw new CodecError(`boolean スロット 0x${slot.toString(16)} に不正値 "${raw}"`);
+    throw new CodecError(`boolean 値に不正値 "${raw}"`);
   }
   return raw;
+}
+
+function typedValue(slot: number, raw: string): string | number | boolean {
+  return coerceSlotValue(valueTypeOf(slot), raw);
 }
 
 function decodeInstruction(bytes: Uint8Array, offset: number): { instr: Instruction; next: number } {
