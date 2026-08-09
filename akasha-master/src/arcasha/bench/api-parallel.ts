@@ -19,6 +19,12 @@ import { ExpertHub } from '../experts/registry.js';
 import { initAiOs, aiosExecute } from '../ailsm/aios.js';
 import type { AiOs } from '../ailsm/aios.js';
 
+/** ラウンド間で再利用する AI OS インスタンスのグローバル保持（ベンチ専用） */
+declare global {
+  // eslint-disable-next-line no-var
+  var __apibenchAiOs: AiOs | undefined;
+}
+
 export interface ApiParallelNodeResult {
   nodeId: string;
   caravanId: string;
@@ -113,7 +119,7 @@ async function runRound(
     try {
       let text: string;
       if (viaAiOs) {
-        const aios: AiOs = (globalThis as any).__apibenchAiOs;
+        const aios = globalThis.__apibenchAiOs;
         if (!aios) throw new Error('aios not built');
         const ex = await aiosExecute(aios, `${prompt}\n${task}`, nodeId, {
           forceDelegate: true,
@@ -219,7 +225,7 @@ export async function runApiParallelBench(opts?: ParallelOpts): Promise<ApiParal
         listNodes: () => hub.experts.map((e) => ({ nodeId: e.nodeId, modelId: e.modelId, paramsM: e.paramsM })),
         generate: async (nodeId, p, m = maxTokens) => hub.generate(nodeId, String(p), Number(m) || maxTokens),
       });
-      (globalThis as any).__apibenchAiOs = aios;
+      globalThis.__apibenchAiOs = aios;
     }
 
     const tasks = Array.from({ length: n * tasksPerNode }, (_, i) => `タスク${i + 1}: 数字 ${i + 1} を 2 倍にしてください`);

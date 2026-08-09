@@ -72,7 +72,7 @@ export interface PeerMessage {
 export class ExpertHub {
   readonly experts: ExpertInfo[] = [];
   /** register 時に送られた生のノード情報 (platform/backend/precision/settings等) */
-  readonly nodeDetails = new Map<string, Record<string, any>>();
+  readonly nodeDetails = new Map<string, Record<string, unknown>>();
   /** ノードごとの動作メトリクス（給電・回線速度） */
   readonly nodeMetrics = new Map<string, NodeMetric>();
   /** キャラバン（中間マスター）階層: caravanId → 配下デバイス */
@@ -105,16 +105,16 @@ export class ExpertHub {
       const clientIp = req.socket?.remoteAddress || 'unknown';
       let nodeId = `unknown-${clientIp}`;
       ws.on('message', (raw: Buffer) => {
-        let msg: any;
-        try { msg = JSON.parse(raw.toString()); } catch { return; }
+        let msg: Record<string, unknown>;
+        try { msg = JSON.parse(raw.toString()) as Record<string, unknown>; } catch { return; }
         if (msg.type === 'register') {
-          nodeId = msg.node.id;
-          const modelId = msg.node.model_id || 'unknown';
+          const node = (msg.node ?? {}) as Record<string, unknown>;
+          nodeId = String(node.id ?? `unknown-${clientIp}`);
+          const modelId = String(node.model_id ?? 'unknown');
           const params = paramsOf(modelId);
-          this.nodeDetails.set(nodeId, msg.node);
+          this.nodeDetails.set(nodeId, node);
           const now = Date.now();
-          const det = (msg.node as Record<string, any>) ?? {};
-          const realBattery = typeof det.battery_pct === 'number' ? det.battery_pct : null;
+          const realBattery = typeof node.battery_pct === 'number' ? node.battery_pct : null;
           const sim = simMetric(nodeId);
           this.nodeMetrics.set(nodeId, {
             batteryPct: realBattery ?? sim.batteryPct,

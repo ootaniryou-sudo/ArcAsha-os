@@ -44,16 +44,16 @@ async function main(): Promise<void> {
   });
 
   ws.on('message', (raw) => {
-    let msg: any;
-    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    let msg: Record<string, unknown>;
+    try { msg = JSON.parse(raw.toString()) as Record<string, unknown>; } catch { return; }
     if (msg.type === 'register_ack') {
-      console.log(`  ✅ ${nodeId} registered (master=${msg.master})`);
+      console.log(`  ✅ ${nodeId} registered (master=${String(msg.master ?? '')})`);
     } else if (msg.type === 'ping') {
       ws.send(JSON.stringify({ type: 'pong', t: msg.t }));
     } else if (msg.type === 'compute') {
-      const rid = msg.request_id;
-      const prompt = msg.prompt || '';
-      const maxTokens = msg.max_new_tokens ?? 32;
+      const rid = String(msg.request_id ?? '');
+      const prompt = String(msg.prompt ?? '');
+      const maxTokens = typeof msg.max_new_tokens === 'number' ? msg.max_new_tokens : 32;
       console.log(`  📥 [${rid}] ${prompt.slice(0, 40)}...`);
       // 疑似生成: プロンプト末尾をそのまま返す (文字数 = maxTokens 相当)
       const text = `[MOCK ${family}] received "${prompt.slice(0, 60)}" (max_tokens=${maxTokens})`;
