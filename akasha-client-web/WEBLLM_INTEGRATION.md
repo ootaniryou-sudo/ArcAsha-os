@@ -210,4 +210,4 @@ interface WebLlmExpert {
 - MLC-LLM: https://github.com/mlc-ai/mlc-llm / https://llm.mlc.ai
 - MLC Models: https://mlc.ai/models
 - WebGPU (W3C): https://www.w3.org/TR/webgpu/
-- iOS 26 WebGPU: Safari 26 Release Notes
+- iOS 26 WebGPU: [Safari 26 Release Notes](https://developer.apple.com/documentation/safari-release-notes/safari-26-release-notes)

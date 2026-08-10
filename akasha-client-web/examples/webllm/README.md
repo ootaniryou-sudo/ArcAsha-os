@@ -28,8 +28,13 @@ LAN 用証明書を作成して HTTPS で配信してください。
 brew install mkcert
 mkcert -install        # ローカル CA を登録
 
-# 2. 証明書を生成（Mac の LAN IP を自動検出して .cert/ に生成）
-npm run cert
+# 2. 証明書を生成（LAN IP は自動検出。必要なら明示指定も可）
+npm run cert                 # 自動検出（デフォルトルートのインターフェース）
+npm run cert -- 192.168.0.17 # LAN IP を明示指定（推奨）
+
+#    ※ LAN IP の確認方法: システム設定 → Wi-Fi → 詳細、または
+#       `route get default | awk '/interface:/{print $2}'` でインターフェースを
+#       確認し、`ipconfig getifaddr <インターフェース名>` で IP を得る
 
 # 3. HTTPS で配信
 npm run dev            # https://localhost:4174
