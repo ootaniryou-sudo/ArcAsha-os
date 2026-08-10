@@ -6,7 +6,7 @@
  * - OpenAI 互換 chat.completions で推論
  * - 統計（トークン/秒・レイテンシ）をダッシュボード表示
  *
- * iPhone Safari (iOS 18+) で動作確認することを想定。
+ * iPhone Safari (iOS 26+) で動作確認することを想定。
  */
 import { CreateWebWorkerMLCEngine } from '@mlc-ai/web-llm';
 
@@ -44,6 +44,7 @@ const statsEl = $('#stats');
 
 // ─── 状態 ───────────────────────────────────────────────────────────────────
 let engine: Awaited<ReturnType<typeof CreateWebWorkerMLCEngine>> | null = null;
+let worker: Worker | null = null;
 let loading = false;
 
 function setStatus(text: string, cls = ''): void {
@@ -63,7 +64,7 @@ function appendOutput(role: 'user' | 'assistant', text: string): void {
 async function detectWebGpu(): Promise<void> {
   const nav = navigator as Navigator & { gpu?: GPU };
   if (!nav.gpu) {
-    gpuEl.textContent = 'WebGPU: 非対応（iOS 18+ / Safari 26 が必要）';
+    gpuEl.textContent = 'WebGPU: 非対応（iOS 26+ / Safari 26 が必要）';
     gpuEl.className = 'bad';
     return;
   }
@@ -90,12 +91,23 @@ async function loadModel(): Promise<void> {
   progressEl.textContent = '';
   outputEl.textContent = '';
 
+  // 既存エンジンを解放してから再ロード（iPhone の OOM / device lost 防止）
+  if (engine) {
+    try {
+      await engine.unload();
+    } catch (err) {
+      console.warn('unload 失敗', err);
+    }
+    engine = null;
+  }
+  worker?.terminate();
+  worker = null;
+
   const modelId = modelSel.value;
   const started = performance.now();
   try {
-    engine = await CreateWebWorkerMLCEngine(
-      new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }),
-      modelId,
+    worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+    engine = await CreateWebWorkerMLCEngine(worker, modelId,
       {
         initProgressCallback: (p) => {
           const pct = Math.round((p.progress ?? 0) * 100);
@@ -124,6 +136,9 @@ async function send(): Promise<void> {
   if (!text || !engine) return;
   inputEl.value = '';
   appendOutput('user', text);
+  // ストリーム開始前に assistant 用要素を固定（ユーザーメッセージを誤更新しない）
+  appendOutput('assistant', '');
+  const assistantEl = outputEl.lastElementChild as HTMLElement;
 
   const t0 = performance.now();
   let reply = '';
@@ -140,21 +155,19 @@ async function send(): Promise<void> {
     for await (const chunk of chunks) {
       reply += chunk.choices[0]?.delta?.content ?? '';
       if (chunk.usage) tokens = chunk.usage.completion_tokens ?? 0;
-      // リアルタイム表示
-      const last = outputEl.lastElementChild as HTMLElement | null;
-      if (last) last.textContent = `🤖 ${reply}`;
+      // 固定した assistant 要素を更新（直近要素への依存を排除）
+      assistantEl.textContent = `🤖 ${reply}`;
       outputEl.scrollTop = outputEl.scrollHeight;
     }
   } catch (err) {
     console.error(err);
-    appendOutput('assistant', `エラー: ${err instanceof Error ? err.message : String(err)}`);
+    assistantEl.textContent = `🤖 エラー: ${err instanceof Error ? err.message : String(err)}`;
     return;
   }
 
   const ms = performance.now() - t0;
   const tps = ms > 0 && tokens > 0 ? ((tokens / ms) * 1000).toFixed(1) : '—';
   statsEl.textContent = `${tokens} tokens / ${ms.toFixed(0)}ms / ${tps} tok/s`;
-  appendOutput('assistant', reply);
 }
 
 // ─── 初期化 ─────────────────────────────────────────────────────────────────

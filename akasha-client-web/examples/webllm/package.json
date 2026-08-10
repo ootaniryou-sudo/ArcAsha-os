@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "dev": "npx serve public -p 4174",
+    "cert": "mkdir -p .cert && mkcert -cert-file .cert/cert.pem -key-file .cert/key.pem localhost $(ipconfig getifaddr en0)",
+    "dev": "npx serve public -p 4174 --ssl-cert .cert/cert.pem --ssl-key .cert/key.pem",
+    "dev:http": "npx serve public -p 4174",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

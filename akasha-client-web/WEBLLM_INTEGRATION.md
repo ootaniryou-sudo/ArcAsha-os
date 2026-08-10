@@ -2,7 +2,7 @@
 
 > 作成: 2026-08-10
 > 目的: WebLLM (https://webllm.mlc.ai) の技術を ArcAsha に参考・統合し、
-> iPhone (iOS 18+) の Safari 上で WebGPU を使った本物の LLM 推論を実現する設計。
+> iPhone (iOS 26+) の Safari 上で WebGPU を使った本物の LLM 推論を実現する設計。
 
 ---
 
@@ -11,7 +11,7 @@
 - **実現可能**。かつ ArcAsha との相性は非常に良い。
 - 重要な事実修正: `akasha-master/src/arcasha/nodes/ios-metal/README.md` の
   「WebGPU が使えない iOS のため推論は Metal で実行」という記述は**古い**。
-  **iOS 18 / Safari 26（2024年〜）から iPhone/iPad は WebGPU を標準サポート**。
+  **Safari 26 / iOS 26（2025年9月〜）から iPhone/iPad は WebGPU を標準サポート**。
 - WebLLM は **Qwen3-0.6B / Qwen2.5-0.5B / SmolLM2-135M・360M** などを
   標準サポートしており、ArcAsha の実験基盤（`experiments/qwen3_0.6b/`）や
   iOS Metal ノード（SmolLM2-135M）と**モデルが完全に重なる**。
@@ -93,7 +93,7 @@ output[i] = silu(x * w + b);                          // 実モデルの重み�
 `nodes/ios-metal/README.md`:
 > WebGPU が使えない iOS のため、推論は Metal (llama.cpp + ggml-metal) で実行
 
-→ iOS 18+ では WebGPU が使えるため、**この前提は更新が必要**。
+→ iOS 26+ では WebGPU が使えるため、**この前提は更新が必要**。
 WebGPU 版（=WebLLM 統合）が動けば、ネイティブアプリを介さず Safari だけで
 iPhone を実行ノードにできる。
 
@@ -210,4 +210,4 @@ interface WebLlmExpert {
 - MLC-LLM: https://github.com/mlc-ai/mlc-llm / https://llm.mlc.ai
 - MLC Models: https://mlc.ai/models
 - WebGPU (W3C): https://www.w3.org/TR/webgpu/
-- iOS 18 WebGPU: Safari 26 Release Notes
+- iOS 26 WebGPU: Safari 26 Release Notes
