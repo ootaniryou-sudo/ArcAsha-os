@@ -1,0 +1,23 @@
+{
+  "name": "akasha-webllm-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ArcAsha × WebLLM PoC — iPhone Safari で WebGPU LLM 推論",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "cert": "bash scripts/cert.sh",
+    "dev": "npx serve public -p 4174 --ssl-cert .cert/cert.pem --ssl-key .cert/key.pem",
+    "dev:http": "npx serve public -p 4174",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.84"
+  },
+  "devDependencies": {
+    "@webgpu/types": "^0.1.71",
+    "esbuild": "^0.28.1",
+    "serve": "^14.2.0",
+    "typescript": "^5.7.2"
+  }
+}
