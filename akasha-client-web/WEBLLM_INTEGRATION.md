@@ -171,8 +171,20 @@ interface WebLlmExpert {
   - 初回ロード: 38.9s（~360MB ダウンロード）→ キャッシュ後: **0.6s**
   - 推論: **77.0 tok/s**（127 tokens / 1648ms, max_tokens=128 制限）
   - WebGPU 検出: ✅ apple metal-3 / ストリーミング表示 / 統計表示 すべて正常
-- [ ] **iPhone Safari で動作確認**（要実機）: Qwen3-0.6B / SmolLM2-135M
-- [ ] 測定: 初回ロード時間 / トークン/秒 / VRAM / バッテリー影響
+- [x] **iPhone 12 mini 実機で動作確認済み（2026-08-11, iOS 26 Safari）**
+  - セットアップ: mkcert CA 信頼 + HTTPS 配信（詳細は examples/webllm/README.md）
+  - モデル別ベンチマーク:
+
+| モデル | ロード | 速度 | 発熱 | 判定 |
+|---|---|---|---|---|
+| **Qwen2.5-0.5B-q4f16**（~945MB） | ✅ 可 | **23.8 tok/s**（127tok/5338ms） | ほぼなし | **iPhone 最適** |
+| SmolLM2-135M-q0f16（~360MB） | ✅ 可 | 3.9 tok/s | なし | 過剰に小さい |
+| Qwen3-0.6B-q0f32（~3.8GB） | ❌ OOM | — | — | q0f32 は 12 mini の VRAM 超過 |
+
+  - **重要な発見**: モデルが大きいほど計算が支配的になり tok/s が向上
+    （135M: 3.9 → 0.5B: 23.8 = 約6倍）。iPhone のボトルネックは 1トークンあたりの
+    固定オーバーヘッド（WebGPU ディスパッチ/リードバック）
+- [ ] 測定: VRAM / バッテリー消耗の詳細測定
 
 ### Phase 1: エキスパート化
 - [ ] `akasha-client-web/src/webllm-expert.ts` を実装（ExpertMessage 規約適合）
