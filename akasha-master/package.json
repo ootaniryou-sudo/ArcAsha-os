@@ -20,6 +20,7 @@
     "demo:mock-node": "tsx src/arcasha/demo-mock-node.ts",
     "ailsa:selftest": "tsx src/arcasha/ailsa/selftest.ts",
     "ailsm:selftest": "tsx src/arcasha/ailsm/selftest.ts",
+    "harness:selftest": "tsx src/arcasha/harness/selftest.ts",
     "ailsm:golden": "tsx src/arcasha/ailsm/golden.ts",
     "ailsm:visualize": "tsx src/arcasha/ailsm/visualize.ts",
     "benchmark": "tsx src/arcasha/bench/cli.ts",
