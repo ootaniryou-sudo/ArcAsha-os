@@ -46,6 +46,8 @@ export interface Attachment extends AttachmentMeta {
   enabled: boolean;
   supports(taskText: string): boolean;
   run(context: AttachmentContext): Promise<AttachmentResult>;
+  /** 宣言する Capability（H3: 例 `code.execute`）。optional で後方互換。 */
+  capabilities?: readonly string[];
 }
 
 /** トークン推定（文字数ベースの決定論近似） */
