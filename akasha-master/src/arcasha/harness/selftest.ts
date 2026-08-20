@@ -1,16 +1,12 @@
 /**
- * Coding Harness H0 — セルフテスト
+ * Coding Harness — セルフテスト（H0〜H2-A）
  *
  * 実行: npx tsx src/arcasha/harness/selftest.ts
  *
- * 対象（H0 Acceptance Criteria）:
- *   1. Harness を呼び出せる
- *   2. AsyncIterable<HarnessEvent> を逐次観測できる
- *   3. started → completed が成立する
- *   4. failed と iterator throw を区別できる
- *   5. AbortSignal が Harness に伝播する
- *   6. grace period 超過時に execution を detach できる
- *   7. terminal-state 検証
+ * 対象:
+ *   H0 — Harness ABI / executeOnce / failure semantics / cancellation / terminal-state
+ *   H1 — NativeHarness（決定論コーディングロジックの ABI 実装）
+ *   H2-A — DeepSeekHarnessAdapter スケルトン（version pin / プローブ / Native フォールバック）
  */
 import type { Harness } from './harness.js';
 import type { HarnessEvent } from './events.js';
@@ -23,6 +19,9 @@ import type {
 import { HarnessInfrastructureError, HarnessTaskError } from './types.js';
 import { executeOnce } from './execute-once.js';
 import { consumeHarness } from './consume.js';
+import { NativeHarness, generateCode, suggestFunctionName } from './native.js';
+import { DeepSeekHarnessAdapter, DSH_VERSION } from './deepseek.js';
+import { createHarness, resolveHarness } from './registry.js';
 
 let failed = 0;
 
@@ -373,6 +372,112 @@ console.log('\n[7] iterator cleanup');
   const outcome = await consumeHarness(new HangCleanupHarness(), TASK);
   const elapsed = Date.now() - t0;
   check('cleanup がハングしても bounded で completed が返る', outcome.status === 'completed' && elapsed < 5000, `elapsed=${elapsed}ms`);
+}
+
+// ─── [8] Native Harness（H1） ────────────────────────────────────────────────
+console.log('\n[8] Native Harness（H1）');
+{
+  const native = new NativeHarness();
+  const outcome = await consumeHarness(native, TASK);
+  check('NativeHarness: started → completed', outcome.status === 'completed');
+  if (outcome.status === 'completed') {
+    check('completed は生成コードを output に持つ', outcome.result.output.includes('export function'));
+    check('completed は metadata に attempts / functionName を持つ',
+      typeof outcome.result.metadata?.attempts === 'number'
+      && typeof outcome.result.metadata?.functionName === 'string');
+  }
+}
+{
+  // executeOnce 経由でも動作（単発 API との互換）
+  const result = await executeOnce(new NativeHarness(), TASK);
+  check('executeOnce(NativeHarness) → ok', result.ok && result.output.includes('export function'));
+}
+{
+  // 決定論ヘルパー
+  check('suggestFunctionName: 日本語+英語から関数名', suggestFunctionName('バグを修正して solveProblem') === 'solveProblem');
+  check('generateCode: 生成コードは export function を含む', generateCode('hello').includes('export function'));
+}
+{
+  // コメント境界（*/）・改行を含むタスク文でも構文が壊れない（サニタイズの回帰検出）
+  const outcomeEsc = await consumeHarness(new NativeHarness(), {
+    taskId: 'issue-esc',
+    text: 'fix */ then\nreturn input',
+  });
+  check('コメント境界/改行タスクでも completed（サニタイズ）', outcomeEsc.status === 'completed', JSON.stringify(outcomeEsc));
+
+  // 予約語の関数名は solve へフォールバックし、コンパイル可能（回帰検出）
+  check('suggestFunctionName: 予約語 → solve', suggestFunctionName('class') === 'solve');
+  const outcomeRes = await consumeHarness(new NativeHarness(), { taskId: 'issue-res', text: 'class' });
+  check('予約語タスクでも completed（solve フォールバック）', outcomeRes.status === 'completed'
+    && (outcomeRes.status === 'completed' ? outcomeRes.result.metadata?.functionName === 'solve' : false));
+}
+{
+  // AbortSignal 伝播（即時 abort → infrastructure throw）
+  const ac = new AbortController();
+  ac.abort();
+  await expectThrowAsync('NativeHarness: 即時 abort → infrastructure throw', async () => {
+    await consumeHarness(new NativeHarness(), TASK, { signal: ac.signal });
+  }, HarnessInfrastructureError);
+}
+
+// ─── [9] DeepSeek Harness Adapter（H2-A） ────────────────────────────────────
+console.log('\n[9] DeepSeek Harness Adapter（H2-A）');
+{
+  check('DSH_VERSION が pin されている', DSH_VERSION.length > 0 && DSH_VERSION === '0.1.0-rc.7');
+}
+{
+  // dsh 不可（probe=false）→ available()=false → execute は infrastructure throw
+  const adapter = new DeepSeekHarnessAdapter({ probe: async () => false });
+  check('dsh 不可: available()=false', (await adapter.available()) === false);
+  await expectThrowAsync('dsh 不可: execute → infrastructure throw', async () => {
+    await consumeHarness(adapter, TASK);
+  }, HarnessInfrastructureError);
+}
+{
+  // dsh 可（probe=true）だが ACP 実行は H2-B 未実装 → infrastructure throw
+  const adapter = new DeepSeekHarnessAdapter({ probe: async () => true });
+  check('dsh 可: available()=true', (await adapter.available()) === true);
+  await expectThrowAsync('dsh 可: ACP 未実装は infrastructure throw', async () => {
+    await consumeHarness(adapter, TASK);
+  }, HarnessInfrastructureError);
+}
+{
+  // abort で中断された probe はメモ化しない（次回に再プローブさせる）
+  let calls = 0;
+  const adapter = new DeepSeekHarnessAdapter({
+    probe: async (signal) => {
+      calls++;
+      if (signal?.aborted) return false;
+      return true;
+    },
+  });
+  const ac = new AbortController();
+  ac.abort();
+  check('abort 中 probe: available=false', (await adapter.available(ac.signal)) === false);
+  check('abort 中 probe はメモ化されない（再プローブで true）', (await adapter.available()) === true && calls === 2);
+}
+{
+  // Registry: createHarness
+  check('createHarness(native) → NativeHarness', createHarness('native') instanceof NativeHarness);
+  check('createHarness(deepseek) → DeepSeekHarnessAdapter', createHarness('deepseek') instanceof DeepSeekHarnessAdapter);
+}
+{
+  // Registry: resolveHarness — dsh 不可なら Native にフォールバック（Rollback Safety）
+  const resolved = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({ probe: async () => false }));
+  check('resolveHarness: dsh 不可 → Native フォールバック', resolved instanceof NativeHarness);
+
+  // 選択成功経路: dsh 可 → DeepSeekHarnessAdapter を返す
+  const resolvedDsh = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({ probe: async () => true }));
+  check('resolveHarness: dsh 可 → DeepSeekHarnessAdapter', resolvedDsh instanceof DeepSeekHarnessAdapter);
+
+  // probe 例外（reject）でも Native へフォールバック（例外を伝播しない）
+  const resolvedOnThrow = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({
+    probe: async () => { throw new Error('probe failure'); },
+  }));
+  check('resolveHarness: probe 例外 → Native フォールバック', resolvedOnThrow instanceof NativeHarness);
+
+  const resolvedNative = await resolveHarness('native');
+  check('resolveHarness(native) → NativeHarness', resolvedNative instanceof NativeHarness);
 }
 
 // ─── 結果 ────────────────────────────────────────────────────────────────────
