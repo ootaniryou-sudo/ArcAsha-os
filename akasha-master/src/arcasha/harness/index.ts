@@ -9,13 +9,19 @@ export type {
   HarnessResult,
   HarnessExecutionError,
 } from './types.js';
-export { HarnessTaskError, HarnessInfrastructureError } from './types.js';
+export {
+  HarnessTaskError,
+  HarnessCancelledError,
+  HarnessInfrastructureError,
+} from './types.js';
 
 export type {
   HarnessEvent,
   HarnessStartedEvent,
   HarnessCompletedEvent,
   HarnessFailedEvent,
+  HarnessMessageEvent,
+  HarnessCancelledEvent,
 } from './events.js';
 export { assertTerminalState, isHarnessStarted, isHarnessTerminal } from './events.js';
 
@@ -27,8 +33,8 @@ export { consumeHarness } from './consume.js';
 // H1: Native Harness
 export { NativeHarness, suggestFunctionName, generateCode } from './native.js';
 
-// H2-A: DeepSeek Harness Adapter（dsh）
-export { DeepSeekHarnessAdapter, DSH_VERSION } from './deepseek.js';
+// H2-A/B: DeepSeek Harness Adapter（dsh ACP）
+export { DeepSeekHarnessAdapter, DSH_VERSION, ACP_DEMO_VERSION } from './deepseek.js';
 export type { DshAdapterOptions } from './deepseek.js';
 
 // Registry（Native フォールバック）

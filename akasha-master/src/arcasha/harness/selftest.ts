@@ -1,12 +1,13 @@
 /**
- * Coding Harness — セルフテスト（H0〜H2-A）
+ * Coding Harness — セルフテスト（H0〜H2-B）
  *
  * 実行: npx tsx src/arcasha/harness/selftest.ts
  *
  * 対象:
  *   H0 — Harness ABI / executeOnce / failure semantics / cancellation / terminal-state
  *   H1 — NativeHarness（決定論コーディングロジックの ABI 実装）
- *   H2-A — DeepSeekHarnessAdapter スケルトン（version pin / プローブ / Native フォールバック）
+ *   H2-A — DeepSeekHarnessAdapter（version pin / プローブ / Native フォールバック）
+ *   H2-B — ACP 実実行（mock ACP サーバー: message 写像 / failed / cancelled / infra）
  */
 import type { Harness } from './harness.js';
 import type { HarnessEvent } from './events.js';
@@ -16,12 +17,16 @@ import type {
   HarnessExecuteOptions,
   HarnessExecutionError,
 } from './types.js';
-import { HarnessInfrastructureError, HarnessTaskError } from './types.js';
+import { HarnessInfrastructureError, HarnessTaskError, HarnessCancelledError } from './types.js';
 import { executeOnce } from './execute-once.js';
 import { consumeHarness } from './consume.js';
 import { NativeHarness, generateCode, suggestFunctionName } from './native.js';
 import { DeepSeekHarnessAdapter, DSH_VERSION } from './deepseek.js';
 import { createHarness, resolveHarness } from './registry.js';
+import { fileURLToPath } from 'node:url';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 let failed = 0;
 
@@ -279,6 +284,21 @@ const badTerminalFirst: HarnessEvent[] = [
 ];
 check('started なしの completed → HarnessInfrastructureError', (() => { try { assertTerminalState(badTerminalFirst); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
 
+// message が started より前に出現（H2-B の ABI 違反）
+const badMessageFirst: HarnessEvent[] = [
+  { type: 'message', taskId: 't', executionId: 'e', text: 'x', timestamp: 1 },
+  { type: 'completed', taskId: 't', executionId: 'e', result: { ok: true, output: 'x' }, timestamp: 2 },
+];
+check('started 前の message → HarnessInfrastructureError', (() => { try { assertTerminalState(badMessageFirst); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
+// message が terminal の後に出現（H2-B の ABI 違反）
+const badMessageAfterTerminal: HarnessEvent[] = [
+  { type: 'started', taskId: 't', executionId: 'e', timestamp: 1 },
+  { type: 'completed', taskId: 't', executionId: 'e', result: { ok: true, output: 'x' }, timestamp: 2 },
+  { type: 'message', taskId: 't', executionId: 'e', text: 'x', timestamp: 3 },
+];
+check('terminal 後の message → HarnessInfrastructureError', (() => { try { assertTerminalState(badMessageAfterTerminal); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
 // completed → started（順序違反）
 const badOrder: HarnessEvent[] = [
   { type: 'started', taskId: 't', executionId: 'e', timestamp: 1 },
@@ -434,10 +454,10 @@ console.log('\n[9] DeepSeek Harness Adapter（H2-A）');
   }, HarnessInfrastructureError);
 }
 {
-  // dsh 可（probe=true）だが ACP 実行は H2-B 未実装 → infrastructure throw
-  const adapter = new DeepSeekHarnessAdapter({ probe: async () => true });
+  // dsh 可（probe=true）だが ACP サーバー未解決（serverCommand=null）→ infrastructure throw
+  const adapter = new DeepSeekHarnessAdapter({ probe: async () => true, serverCommand: () => null });
   check('dsh 可: available()=true', (await adapter.available()) === true);
-  await expectThrowAsync('dsh 可: ACP 未実装は infrastructure throw', async () => {
+  await expectThrowAsync('dsh 可: ACP サーバー未解決は infrastructure throw', async () => {
     await consumeHarness(adapter, TASK);
   }, HarnessInfrastructureError);
 }
@@ -478,6 +498,111 @@ console.log('\n[9] DeepSeek Harness Adapter（H2-A）');
 
   const resolvedNative = await resolveHarness('native');
   check('resolveHarness(native) → NativeHarness', resolvedNative instanceof NativeHarness);
+}
+
+// ─── [10] DeepSeek Harness Adapter（H2-B: ACP 実実行） ──────────────────────
+console.log('\n[10] DeepSeek Harness Adapter（H2-B: ACP 実実行）');
+{
+  // mock ACP サーバー（実 ACP ワイヤープロトコル）を子プロセスとして起動する
+  const tmp = await mkdtemp(join(tmpdir(), 'arcasha-acp-'));
+  const MOCK_SERVER = fileURLToPath(new URL('./mock-acp-server.mjs', import.meta.url));
+  const mockAdapter = (
+    env: Record<string, string>,
+    opts: { permission?: 'allow' | 'reject' } = {},
+  ): DeepSeekHarnessAdapter => new DeepSeekHarnessAdapter({
+    probe: async () => true,
+    permission: opts.permission ?? 'reject',
+    requestTimeoutMs: 10_000,
+    sessionCwd: tmp,
+    serverCommand: () => ({ command: process.execPath, args: [MOCK_SERVER], env }),
+  });
+
+  {
+    // 正常ターン: started → message → completed（end_turn）
+    const adapter = mockAdapter({ MOCK_TEXT: 'hello from dsh', MOCK_STOP: 'end_turn' });
+    const events: HarnessEvent[] = [];
+    for await (const e of adapter.execute(TASK)) events.push(e);
+    assertTerminalState(events);
+    const types = events.map((e) => e.type).join('→');
+    const texts = events
+      .filter((e): e is Extract<HarnessEvent, { type: 'message' }> => e.type === 'message')
+      .map((e) => e.text)
+      .join('');
+    const completed = events.find((e): e is Extract<HarnessEvent, { type: 'completed' }> => e.type === 'completed');
+    check('H2-B: started→message→completed の順序', types === 'started→message→completed');
+    check('H2-B: message テキスト写像', texts === 'hello from dsh');
+    check('H2-B: completed.output が message 連結', completed?.result.output === 'hello from dsh');
+  }
+  {
+    // 正常ターン: consumeHarness でも completed になる
+    const adapter = mockAdapter({ MOCK_TEXT: 'ok from acp', MOCK_STOP: 'max_tokens' });
+    const outcome = await consumeHarness(adapter, TASK);
+    check('H2-B: max_tokens → completed', outcome.status === 'completed' && outcome.result.output === 'ok from acp');
+  }
+  {
+    // refusal → failed（タスク失敗は failed イベント）
+    const adapter = mockAdapter({ MOCK_STOP: 'refusal' });
+    const outcome = await consumeHarness(adapter, TASK);
+    check(
+      'H2-B: refusal → failed',
+      outcome.status === 'failed' && outcome.error.code === 'REFUSAL' && outcome.error.retryable === false,
+    );
+  }
+  {
+    // prompt の RPC エラー（agent 内部エラー）→ infrastructure throw
+    const adapter = mockAdapter({ MOCK_FAIL: '1' });
+    await expectThrowAsync('H2-B: prompt RPC エラー → infrastructure throw', async () => {
+      await consumeHarness(adapter, TASK);
+    }, HarnessInfrastructureError);
+  }
+  {
+    // サーバーのクラッシュ → infrastructure throw
+    const adapter = mockAdapter({ MOCK_CRASH: '1' });
+    await expectThrowAsync('H2-B: サーバークラッシュ → infrastructure throw', async () => {
+      await consumeHarness(adapter, TASK);
+    }, HarnessInfrastructureError);
+  }
+  {
+    // AbortSignal → session/cancel → cancelled イベント
+    const ac = new AbortController();
+    const adapter = mockAdapter({ MOCK_HANG: '1' });
+    const outcomePromise = consumeHarness(adapter, TASK, { signal: ac.signal, cancelGracePeriodMs: 3_000 });
+    setTimeout(() => ac.abort(), 50);
+    const outcome = await outcomePromise;
+    check('H2-B: abort → cancelled', outcome.status === 'cancelled');
+  }
+  {
+    // executeOnce: cancelled → HarnessCancelledError（cancel ≠ failed）
+    const ac = new AbortController();
+    const adapter = mockAdapter({ MOCK_HANG: '1' });
+    const run = executeOnce(adapter, TASK, { signal: ac.signal });
+    setTimeout(() => ac.abort(), 50);
+    await expectThrowAsync('H2-B: executeOnce → HarnessCancelledError', async () => {
+      await run;
+    }, HarnessCancelledError);
+  }
+  {
+    // 権限要求: reject ポリシー → reject_once を選択 → サーバーが refusal に変換 → failed
+    const adapter = mockAdapter({ MOCK_PERMISSION: '1', MOCK_TEXT: 'should not run' }, { permission: 'reject' });
+    const outcome = await consumeHarness(adapter, TASK);
+    check(
+      'H2-B: 権限 reject → refusal → failed',
+      outcome.status === 'failed' && outcome.error.code === 'REFUSAL' && outcome.error.retryable === false,
+    );
+  }
+  {
+    // 権限要求: allow ポリシー → 最初の allow オプションを選択 → completed
+    const adapter = mockAdapter({ MOCK_PERMISSION: '1', MOCK_TEXT: 'approved', MOCK_STOP: 'end_turn' }, { permission: 'allow' });
+    const outcome = await consumeHarness(adapter, TASK);
+    check('H2-B: 権限 allow → completed', outcome.status === 'completed' && outcome.result.output === 'approved');
+  }
+  {
+    // サーバー未解決（serverCommand=null）→ infrastructure throw（Native フォールバック元）
+    const adapter = new DeepSeekHarnessAdapter({ probe: async () => true, serverCommand: () => null });
+    await expectThrowAsync('H2-B: サーバー未解決 → infrastructure throw', async () => {
+      await consumeHarness(adapter, TASK);
+    }, HarnessInfrastructureError);
+  }
 }
 
 // ─── 結果 ────────────────────────────────────────────────────────────────────

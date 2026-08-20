@@ -9,7 +9,7 @@
  */
 import type { Harness } from './harness.js';
 import type { HarnessTask, HarnessExecuteOptions, HarnessResult } from './types.js';
-import { HarnessTaskError, HarnessInfrastructureError } from './types.js';
+import { HarnessTaskError, HarnessCancelledError, HarnessInfrastructureError } from './types.js';
 
 export async function executeOnce(
   harness: Harness,
@@ -42,6 +42,9 @@ export async function executeOnce(
     }
     if (event.type === 'failed') {
       throw new HarnessTaskError(event.error);
+    }
+    if (event.type === 'cancelled') {
+      throw new HarnessCancelledError(event.reason);
     }
   }
   throw new HarnessInfrastructureError('Harness が terminal event なしに終了');

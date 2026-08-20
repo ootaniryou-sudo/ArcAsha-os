@@ -52,6 +52,14 @@ export class HarnessTaskError extends Error {
   }
 }
 
+/** 明示的キャンセルを表す例外（executeOnce が cancelled を変換して throw）。cancel ≠ task failure。 */
+export class HarnessCancelledError extends Error {
+  constructor(readonly reason: string) {
+    super(reason);
+    this.name = 'HarnessCancelledError';
+  }
+}
+
 /**
  * Harness / Adapter の継続不能障害（iterator throw 側）。
  * - Adapter 初期化失敗
