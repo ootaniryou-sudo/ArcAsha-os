@@ -1,5 +1,5 @@
 /**
- * Coding Harness — 公開 API（H0）
+ * Coding Harness — 公開 API（H0〜H2）
  */
 export type { Harness } from './harness.js';
 
@@ -23,3 +23,14 @@ export { executeOnce } from './execute-once.js';
 
 export type { HarnessOutcome } from './consume.js';
 export { consumeHarness } from './consume.js';
+
+// H1: Native Harness
+export { NativeHarness, suggestFunctionName, generateCode } from './native.js';
+
+// H2-A: DeepSeek Harness Adapter（dsh）
+export { DeepSeekHarnessAdapter, DSH_VERSION } from './deepseek.js';
+export type { DshAdapterOptions } from './deepseek.js';
+
+// Registry（Native フォールバック）
+export { createHarness, resolveHarness } from './registry.js';
+export type { HarnessKind } from './registry.js';
