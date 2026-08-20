@@ -69,8 +69,8 @@ export function generateCode(text: string): string {
 async function compileCheck(code: string, signal?: AbortSignal): Promise<{ ok: boolean; output: string }> {
   const tmpDir = await mkdtemp(join(tmpdir(), 'arcasha-code-'));
   const file = join(tmpDir, 'generated.mjs');
-  await writeFile(file, code, 'utf-8');
   try {
+    await writeFile(file, code, 'utf-8');
     await execFileAsync(process.execPath, ['--check', file], { timeout: 15000, signal });
     return { ok: true, output: 'syntax OK' };
   } catch (e) {
@@ -87,6 +87,7 @@ async function compileCheck(code: string, signal?: AbortSignal): Promise<{ ok: b
     }
     return { ok: false, output: (err.stderr ?? err.message ?? String(e)).slice(0, 300) };
   } finally {
+    // writeFile が失敗しても一時ディレクトリは必ず削除する
     await rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

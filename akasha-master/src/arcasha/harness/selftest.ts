@@ -442,6 +442,21 @@ console.log('\n[9] DeepSeek Harness Adapter（H2-A）');
   }, HarnessInfrastructureError);
 }
 {
+  // abort で中断された probe はメモ化しない（次回に再プローブさせる）
+  let calls = 0;
+  const adapter = new DeepSeekHarnessAdapter({
+    probe: async (signal) => {
+      calls++;
+      if (signal?.aborted) return false;
+      return true;
+    },
+  });
+  const ac = new AbortController();
+  ac.abort();
+  check('abort 中 probe: available=false', (await adapter.available(ac.signal)) === false);
+  check('abort 中 probe はメモ化されない（再プローブで true）', (await adapter.available()) === true && calls === 2);
+}
+{
   // Registry: createHarness
   check('createHarness(native) → NativeHarness', createHarness('native') instanceof NativeHarness);
   check('createHarness(deepseek) → DeepSeekHarnessAdapter', createHarness('deepseek') instanceof DeepSeekHarnessAdapter);

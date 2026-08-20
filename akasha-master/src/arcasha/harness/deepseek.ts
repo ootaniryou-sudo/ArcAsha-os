@@ -47,7 +47,7 @@ const PROBE_TIMEOUT_MS = 15_000;
 
 /** アダプタの差し替え可能な依存（テスト用） */
 export interface DshAdapterOptions {
-  /** dsh が実行可能か（AbortSignal を伝播。既定: ローカル lockfile 解決バイナリ or npx） */
+  /** dsh が実行可能か（AbortSignal を伝播。既定: ローカル lockfile 解決バイナリのみ） */
   probe?: (signal?: AbortSignal) => Promise<boolean>;
   /** コマンド実行（既定: spawn） */
   command?: (cmd: string, args: string[]) => ChildProcess;
@@ -55,7 +55,8 @@ export interface DshAdapterOptions {
 
 /**
  * ローカルの dsh バイナリ（akasha-master/node_modules/.bin/dsh）を解決する。
- * lockfile で固定された依存を優先し、レジストリからの無審査実行（npx）を避ける。
+ * lockfile で固定された依存のみを使用する（CWE-829: レジストリからの無審査実行を排除）。
+ * 存在しなければ unavailable として扱う。
  */
 function localDshBin(): string | null {
   const here = dirname(fileURLToPath(import.meta.url)); // .../src/arcasha/harness
@@ -63,17 +64,18 @@ function localDshBin(): string | null {
   return existsSync(bin) ? bin : null;
 }
 
-/** 既定プローブ: dsh が起動可能かを `--version` の exit code で判定（AbortSignal 対応） */
+/** 既定プローブ: lockfile 解決済みの dsh が起動可能かを `--version` の exit code で判定（AbortSignal 対応） */
 async function defaultProbe(
   command: (cmd: string, args: string[]) => ChildProcess,
   signal?: AbortSignal,
 ): Promise<boolean> {
   const localBin = localDshBin();
-  const [cmd, ...args] = localBin
-    ? [localBin, '--version']
-    : ['npx', '--yes', `@deepseek-ai/dsh@${DSH_VERSION}`, '--version'];
+  if (!localBin) {
+    // ローカルバイナリが無い = 依存未インストール。レジストリ実行（npx）はしない。
+    return false;
+  }
   return new Promise((resolve) => {
-    const child = command(cmd, args);
+    const child = command(localBin, ['--version']);
     signal?.addEventListener('abort', () => {
       child.kill();
       resolve(false);
@@ -95,7 +97,7 @@ async function defaultProbe(
 
 export class DeepSeekHarnessAdapter implements Harness {
   private readonly probe: (signal?: AbortSignal) => Promise<boolean>;
-  private probeResult: Promise<boolean> | null = null;
+  private probeResult: boolean | null = null;
 
   constructor(opts: DshAdapterOptions = {}) {
     const command = opts.command ?? ((cmd: string, args: string[]) => spawn(cmd, args, { stdio: 'ignore' }));
@@ -104,11 +106,16 @@ export class DeepSeekHarnessAdapter implements Harness {
 
   /**
    * dsh が利用可能か。不可なら呼び出し側は Native へフォールバックしてよい。
-   * 結果はインスタンス単位でメモ化（resolveHarness と execute の二重 probe を防止）。
+   * 成功した probe 結果のみインスタンス単位でメモ化（二重 probe を防止）。
+   * abort で中断された結果はメモ化しない（次回に再プローブさせる）。
    */
   async available(signal?: AbortSignal): Promise<boolean> {
-    this.probeResult ??= this.probe(signal);
-    return this.probeResult;
+    if (this.probeResult !== null) return this.probeResult;
+    const result = await this.probe(signal);
+    if (!signal?.aborted) {
+      this.probeResult = result;
+    }
+    return result;
   }
 
   async *execute(task: HarnessTask, options?: HarnessExecuteOptions): AsyncIterable<HarnessEvent> {
