@@ -605,7 +605,8 @@ H3.1 code.execute → H3.2 Coding E2E → H3.3 fallback test
 
 # 47. 最終決定
 
-### 固定する
+## 固定する
+
 - Harness は streaming-first
 - `taskId` と `executionId` を分離
 - `executionId` は Harness が発行
@@ -619,7 +620,8 @@ H3.1 code.execute → H3.2 Coding E2E → H3.3 fallback test
 - Native Harness を維持
 - DSH を外しても ArcAsha は動作可能
 
-### 後で決める
+## 後で決める
+
 - Canonical Capability の完全型
 - Event 永続化
 - DSH Session と ArcAsha Session の統合

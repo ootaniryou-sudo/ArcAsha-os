@@ -17,21 +17,30 @@ export async function executeOnce(
   options?: HarnessExecuteOptions,
 ): Promise<HarnessResult> {
   let sawStarted = false;
+  let executionId: string | null = null;
   for await (const event of harness.execute(task, options)) {
+    // 要求 task との一致を検証（壊れた Adapter が別タスクの結果を返すのを拒否）
+    if (event.taskId !== task.taskId) {
+      throw new HarnessInfrastructureError(`event taskId 不一致: 要求=${task.taskId} 受信=${event.taskId}`);
+    }
+
     if (event.type === 'started') {
+      if (sawStarted) throw new HarnessInfrastructureError('started が複数回');
       sawStarted = true;
+      executionId = event.executionId;
       continue;
     }
+    // terminal 系
+    if (!sawStarted) {
+      throw new HarnessInfrastructureError('terminal event が started より先に出現');
+    }
+    if (executionId !== null && event.executionId !== executionId) {
+      throw new HarnessInfrastructureError(`executionId 不一致: ${executionId} ≠ ${event.executionId}`);
+    }
     if (event.type === 'completed') {
-      if (!sawStarted) {
-        throw new HarnessInfrastructureError('completed が started より先に出現');
-      }
       return event.result;
     }
     if (event.type === 'failed') {
-      if (!sawStarted) {
-        throw new HarnessInfrastructureError('failed が started より先に出現');
-      }
       throw new HarnessTaskError(event.error);
     }
   }

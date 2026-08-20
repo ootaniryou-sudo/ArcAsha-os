@@ -50,29 +50,50 @@ export function isHarnessTerminal(
 }
 
 /**
- * Event 列の terminal-state を検証する。
+ * Event 列の terminal-state を逐次検証する（状態機械）。
  *
  * 不変条件:
- *   - started は 0 または 1 回
+ *   - started は 0 または 1 回。terminal より前にのみ出現する
  *   - terminal event（completed / failed）は 0 または 1 回
- *   - terminal event は started の後にのみ出現する
+ *   - 全イベントの taskId / executionId が一致する
  *
  * 違反は ABI 不整合 = infrastructure failure として HarnessInfrastructureError。
  */
 export function assertTerminalState(events: readonly HarnessEvent[]): void {
   let started = 0;
   let terminals = 0;
+  let taskId: string | null = null;
+  let executionId: string | null = null;
+
   for (const e of events) {
-    if (e.type === 'started') started++;
-    if (isHarnessTerminal(e)) terminals++;
-  }
-  if (started > 1) {
-    throw new HarnessInfrastructureError(`started が複数回: ${started}`);
-  }
-  if (terminals > 1) {
-    throw new HarnessInfrastructureError(`terminal event が複数回: ${terminals}`);
-  }
-  if (terminals === 1 && started === 0) {
-    throw new HarnessInfrastructureError('terminal event が started より先に出現');
+    // ID 一致（全イベントが同一 task / execution を指す）
+    if (taskId === null) {
+      taskId = e.taskId;
+    } else if (taskId !== e.taskId) {
+      throw new HarnessInfrastructureError(`taskId 不一致: ${taskId} ≠ ${e.taskId}`);
+    }
+    if (executionId === null) {
+      executionId = e.executionId;
+    } else if (executionId !== e.executionId) {
+      throw new HarnessInfrastructureError(`executionId 不一致: ${executionId} ≠ ${e.executionId}`);
+    }
+
+    if (e.type === 'started') {
+      started++;
+      if (started > 1) {
+        throw new HarnessInfrastructureError(`started が複数回: ${started}`);
+      }
+      if (terminals > 0) {
+        throw new HarnessInfrastructureError('started が terminal の後に出現');
+      }
+    } else if (isHarnessTerminal(e)) {
+      terminals++;
+      if (terminals > 1) {
+        throw new HarnessInfrastructureError(`terminal event が複数回: ${terminals}`);
+      }
+      if (started === 0) {
+        throw new HarnessInfrastructureError('terminal event が started より先に出現');
+      }
+    }
   }
 }

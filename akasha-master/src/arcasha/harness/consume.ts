@@ -36,28 +36,27 @@ export async function consumeHarness(
   const cancelGracePeriodMs = options?.cancelGracePeriodMs ?? DEFAULT_GRACE_MS;
   const signal = options?.signal;
   let executionId: string | null = null;
+  let sawStarted = false;
 
   const iterator = harness.execute(task, options)[Symbol.asyncIterator]();
 
-  // abort を待つ Promise（signal なし・未発火なら決して resolve しない）
-  const aborted = new Promise<void>((resolve) => {
-    if (!signal) return;
-    if (signal.aborted) resolve();
-    else signal.addEventListener('abort', () => resolve(), { once: true });
+  // abort 時に 1 回だけ作成される grace period deadline。
+  // 以降の iterator.next() との race すべてで同じ deadline を再利用する
+  // （started / 将来の progress イベントで期限が延長されないようにする）。
+  const abortDeadline = new Promise<{ readonly __detached: true }>((resolve) => {
+    if (!signal) return; // signal なし → 決して resolve しない
+    const start = (): void => {
+      void new Promise((r) => setTimeout(r, cancelGracePeriodMs)).then(() =>
+        resolve({ __detached: true }),
+      );
+    };
+    if (signal.aborted) start();
+    else signal.addEventListener('abort', () => start(), { once: true });
   });
 
-  // abort 後に grace period だけ待って detached マーカーを返す
-  const detachedMarker = async (): Promise<{ readonly __detached: true }> => {
-    await new Promise((r) => setTimeout(r, cancelGracePeriodMs));
-    return { __detached: true };
-  };
-
   for (;;) {
-    // 次のイベントを待つ。ただし abort されたら grace period と競わせる。
-    const res = await Promise.race([
-      iterator.next(),
-      aborted.then(() => detachedMarker()),
-    ]);
+    // 次のイベントを待つ。abort されたら grace deadline と競わせる。
+    const res = await Promise.race([iterator.next(), abortDeadline]);
 
     if ('__detached' in res) {
       return {
@@ -71,14 +70,32 @@ export async function consumeHarness(
       throw new HarnessInfrastructureError('Harness が terminal event なしに終了');
     }
     const event: HarnessEvent = res.value;
-    executionId = event.executionId;
+
+    // ── 逐次状態機械: 順序・重複・ID 一致を検証（壊れた Adapter からの防御） ──
+    if (event.taskId !== task.taskId) {
+      throw new HarnessInfrastructureError(`event taskId 不一致: 要求=${task.taskId} 受信=${event.taskId}`);
+    }
+    if (executionId === null) {
+      executionId = event.executionId;
+    } else if (event.executionId !== executionId) {
+      throw new HarnessInfrastructureError(`executionId 不一致: ${executionId} ≠ ${event.executionId}`);
+    }
+
+    if (event.type === 'started') {
+      if (sawStarted) throw new HarnessInfrastructureError('started が複数回');
+      sawStarted = true;
+      continue;
+    }
+    // terminal 系
+    if (!sawStarted) {
+      throw new HarnessInfrastructureError('terminal event が started より先に出現');
+    }
     if (event.type === 'completed') {
       return { status: 'completed', executionId, result: event.result };
     }
     if (event.type === 'failed') {
       return { status: 'failed', executionId, error: event.error };
     }
-    // started → 次のイベントへ
   }
   // NOTE: detached 時、下位イテレータは放置される（H0 では rollback 保証なし）。
 }

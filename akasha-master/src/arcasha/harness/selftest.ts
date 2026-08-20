@@ -35,12 +35,31 @@ function check(name: string, cond: boolean, detail = ''): void {
   }
 }
 
-async function expectThrowAsync(name: string, fn: () => Promise<unknown>): Promise<void> {
+/** 期待する例外型（コンストラクタ or predicate） */
+type ErrorMatcher = (abstract new (...args: never[]) => Error) | ((e: unknown) => boolean);
+
+function matchesError(expected: ErrorMatcher, e: unknown): boolean {
+  if (typeof expected === 'function' && expected.prototype instanceof Error) {
+    return e instanceof (expected as abstract new (...args: never[]) => Error);
+  }
+  return (expected as (e: unknown) => boolean)(e);
+}
+
+async function expectThrowAsync(
+  name: string,
+  fn: () => Promise<unknown>,
+  expected?: ErrorMatcher,
+): Promise<void> {
   try {
     await fn();
     failed++;
     console.error(`  ✗ FAIL: ${name}（例外が投げられなかった）`);
   } catch (e) {
+    if (expected && !matchesError(expected, e)) {
+      failed++;
+      console.error(`  ✗ FAIL: ${name}（期待した例外型ではない: ${(e as Error).constructor?.name}）`);
+      return;
+    }
     console.log(`  ✓ ${name}（${(e as Error).message}）`);
   }
 }
@@ -160,7 +179,7 @@ await expectThrowAsync('fail → HarnessTaskError', async () => {
 
 await expectThrowAsync('infra → 伝播（HarnessInfrastructureError）', async () => {
   await executeOnce(new MockHarness('infra'), TASK);
-});
+}, HarnessInfrastructureError);
 
 // ─── [3] failure semantics ───────────────────────────────────────────────────
 console.log('\n[3] failure semantics（failed ≠ throw）');
@@ -172,7 +191,7 @@ if (failedOutcome.status === 'failed') {
 
 await expectThrowAsync('infrastructure → iterator throw が伝播', async () => {
   await consumeHarness(new MockHarness('infra'), TASK);
-});
+}, HarnessInfrastructureError);
 
 // ─── [4] cancellation ────────────────────────────────────────────────────────
 console.log('\n[4] cancellation（AbortSignal）');
@@ -183,7 +202,7 @@ console.log('\n[4] cancellation（AbortSignal）');
   ac.abort();
   await expectThrowAsync('immediate abort → infrastructure throw', async () => {
     await consumeHarness(new MockHarness('success'), TASK, { signal: ac.signal });
-  });
+  }, HarnessInfrastructureError);
 }
 
 // 4-2 delayed abort（協調的 Harness: abort で停止 → throw）
@@ -194,7 +213,7 @@ console.log('\n[4] cancellation（AbortSignal）');
   ac.abort();
   await expectThrowAsync('delayed abort（協調）→ infrastructure throw', async () => {
     await p;
-  });
+  }, HarnessInfrastructureError);
 }
 
 // 4-3 grace period 超過 → detach（非協調 Harness: abort を無視）
@@ -224,7 +243,7 @@ console.log('\n[4] cancellation（AbortSignal）');
   ac.abort();
   await expectThrowAsync('executeOnce: aborted signal で停止', async () => {
     await executeOnce(new MockHarness('success'), TASK, { signal: ac.signal });
-  });
+  }, HarnessInfrastructureError);
 }
 
 // ─── [5] terminal-state 検証（異常系） ───────────────────────────────────────
@@ -247,6 +266,42 @@ const badTerminalFirst: HarnessEvent[] = [
   { type: 'completed', taskId: 't', executionId: 'e', result: { ok: true, output: '' }, timestamp: 1 },
 ];
 check('started なしの completed → HarnessInfrastructureError', (() => { try { assertTerminalState(badTerminalFirst); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
+// completed → started（順序違反）
+const badOrder: HarnessEvent[] = [
+  { type: 'started', taskId: 't', executionId: 'e', timestamp: 1 },
+  { type: 'completed', taskId: 't', executionId: 'e', result: { ok: true, output: '' }, timestamp: 2 },
+  { type: 'started', taskId: 't', executionId: 'e', timestamp: 3 },
+];
+check('terminal の後の started → HarnessInfrastructureError', (() => { try { assertTerminalState(badOrder); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
+// executionId 不一致
+const badExecId: HarnessEvent[] = [
+  { type: 'started', taskId: 't', executionId: 'e1', timestamp: 1 },
+  { type: 'completed', taskId: 't', executionId: 'e2', result: { ok: true, output: '' }, timestamp: 2 },
+];
+check('executionId 不一致 → HarnessInfrastructureError', (() => { try { assertTerminalState(badExecId); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
+// taskId 不一致
+const badTaskId: HarnessEvent[] = [
+  { type: 'started', taskId: 't1', executionId: 'e', timestamp: 1 },
+  { type: 'completed', taskId: 't2', executionId: 'e', result: { ok: true, output: '' }, timestamp: 2 },
+];
+check('taskId 不一致 → HarnessInfrastructureError', (() => { try { assertTerminalState(badTaskId); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
+// executeOnce / consumeHarness: 要求 task と異なる taskId のイベントを拒否
+class WrongTaskHarness implements Harness {
+  async *execute(_task: HarnessTask): AsyncIterable<HarnessEvent> {
+    yield { type: 'started', taskId: 'other-task', executionId: 'e1', timestamp: 1 };
+    yield { type: 'completed', taskId: 'other-task', executionId: 'e1', result: { ok: true, output: 'x' }, timestamp: 2 };
+  }
+}
+await expectThrowAsync('executeOnce: 要求 taskId と異なるイベントを拒否', async () => {
+  await executeOnce(new WrongTaskHarness(), TASK);
+}, HarnessInfrastructureError);
+await expectThrowAsync('consumeHarness: 要求 taskId と異なるイベントを拒否', async () => {
+  await consumeHarness(new WrongTaskHarness(), TASK);
+}, HarnessInfrastructureError);
 
 // ─── [6] 既存 Attachment への非干渉 ──────────────────────────────────────────
 console.log('\n[6] 既存 Attachment への非干渉');
