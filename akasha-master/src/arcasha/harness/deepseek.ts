@@ -8,8 +8,8 @@
  * DeepSeek Harness（外部プロセス / ACP）
  *
  * H2-A で実装するもの:
- *   - dsh のバージョン pin（developer preview のため手動レビューで更新）
- *   - 起動プローブ（available）と Native フォールバック
+ *   - dsh の固定（lockfile + integrity で解決したローカルパッケージ + 検証済み commit 記録）
+ *   - 起動プローブ（available, AbortSignal 伝播）と Native フォールバック
  *   - 失敗の意味論: dsh 不可 = infrastructure failure（iterator throw）
  *
  * H2-B で実装予定:
@@ -21,29 +21,63 @@
  * ArcAsha ABI に公開しない。
  */
 import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import type { Harness } from './harness.js';
 import type { HarnessEvent } from './events.js';
 import type { HarnessTask, HarnessExecuteOptions } from './types.js';
 import { HarnessInfrastructureError } from './types.js';
 
-/** dsh の固定バージョン（commit pin）。更新は手動レビュー + integration test で検証。 */
+/**
+ * dsh の固定バージョン（lockfile + integrity で解決。更新は手動レビュー）。
+ * §27 の pin 方針に従い、依存は package.json / package-lock.json で宣言し、
+ * 実行時は node_modules/.bin/dsh（lockfile 解決済み）を優先する。
+ */
 export const DSH_VERSION = '0.1.0-rc.7';
+
+/**
+ * dsh の検証済み commit SHA（§27: `DSH_COMMIT=<verified-sha>`）。
+ * H2-B で ACP 実装と integration test を検証した際に確定し、ここへ記録する。
+ */
+export const DSH_COMMIT = 'pending-h2b-verification';
 
 /** 起動プローブの上限時間 */
 const PROBE_TIMEOUT_MS = 15_000;
 
 /** アダプタの差し替え可能な依存（テスト用） */
 export interface DshAdapterOptions {
-  /** dsh が実行可能か（既定: `npx --yes @deepseek-ai/dsh@<pin> --version`） */
-  probe?: () => Promise<boolean>;
-  /** コマンド実行（既定: npx を spawn） */
-  command?: (args: string[]) => ChildProcess;
+  /** dsh が実行可能か（AbortSignal を伝播。既定: ローカル lockfile 解決バイナリ or npx） */
+  probe?: (signal?: AbortSignal) => Promise<boolean>;
+  /** コマンド実行（既定: spawn） */
+  command?: (cmd: string, args: string[]) => ChildProcess;
 }
 
-/** 既定プローブ: pin した dsh が起動可能かを `--version` の exit code で判定 */
-async function defaultProbe(command: (args: string[]) => ChildProcess): Promise<boolean> {
+/**
+ * ローカルの dsh バイナリ（akasha-master/node_modules/.bin/dsh）を解決する。
+ * lockfile で固定された依存を優先し、レジストリからの無審査実行（npx）を避ける。
+ */
+function localDshBin(): string | null {
+  const here = dirname(fileURLToPath(import.meta.url)); // .../src/arcasha/harness
+  const bin = join(here, '..', '..', '..', 'node_modules', '.bin', 'dsh');
+  return existsSync(bin) ? bin : null;
+}
+
+/** 既定プローブ: dsh が起動可能かを `--version` の exit code で判定（AbortSignal 対応） */
+async function defaultProbe(
+  command: (cmd: string, args: string[]) => ChildProcess,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const localBin = localDshBin();
+  const [cmd, ...args] = localBin
+    ? [localBin, '--version']
+    : ['npx', '--yes', `@deepseek-ai/dsh@${DSH_VERSION}`, '--version'];
   return new Promise((resolve) => {
-    const child = command(['--yes', `@deepseek-ai/dsh@${DSH_VERSION}`, '--version']);
+    const child = command(cmd, args);
+    signal?.addEventListener('abort', () => {
+      child.kill();
+      resolve(false);
+    }, { once: true });
     const timer = setTimeout(() => {
       child.kill();
       resolve(false);
@@ -60,16 +94,21 @@ async function defaultProbe(command: (args: string[]) => ChildProcess): Promise<
 }
 
 export class DeepSeekHarnessAdapter implements Harness {
-  private readonly probe: () => Promise<boolean>;
+  private readonly probe: (signal?: AbortSignal) => Promise<boolean>;
+  private probeResult: Promise<boolean> | null = null;
 
   constructor(opts: DshAdapterOptions = {}) {
-    const command = opts.command ?? ((args: string[]) => spawn('npx', args, { stdio: 'ignore' }));
-    this.probe = opts.probe ?? (() => defaultProbe(command));
+    const command = opts.command ?? ((cmd: string, args: string[]) => spawn(cmd, args, { stdio: 'ignore' }));
+    this.probe = opts.probe ?? ((signal) => defaultProbe(command, signal));
   }
 
-  /** dsh が利用可能か。不可なら呼び出し側は Native へフォールバックしてよい。 */
-  async available(): Promise<boolean> {
-    return this.probe();
+  /**
+   * dsh が利用可能か。不可なら呼び出し側は Native へフォールバックしてよい。
+   * 結果はインスタンス単位でメモ化（resolveHarness と execute の二重 probe を防止）。
+   */
+  async available(signal?: AbortSignal): Promise<boolean> {
+    this.probeResult ??= this.probe(signal);
+    return this.probeResult;
   }
 
   async *execute(task: HarnessTask, options?: HarnessExecuteOptions): AsyncIterable<HarnessEvent> {
@@ -81,8 +120,11 @@ export class DeepSeekHarnessAdapter implements Harness {
     }
 
     // dsh が起動できない = infrastructure failure（iterator throw）
-    if (!(await this.available())) {
+    if (!(await this.available(options?.signal))) {
       throw new HarnessInfrastructureError(`DeepSeek Harness を起動できません（DSH v${DSH_VERSION} unavailable）`);
+    }
+    if (options?.signal?.aborted) {
+      throw new HarnessInfrastructureError('aborted during probe');
     }
 
     // H2-B で ACP 実行を実装するまで、available なのに実行できない状態は

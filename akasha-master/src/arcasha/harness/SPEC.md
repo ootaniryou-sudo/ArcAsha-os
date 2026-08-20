@@ -458,16 +458,21 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
 | Phase | ディレクトリ / 内容 | 状態 |
 |---|---|---|
 | H0 | `akasha-master/src/arcasha/harness/` — types / events / harness / execute-once / consume / selftest | ✅ 済（PR #15） |
-| H1 | `harness/native.ts` — 既存 Coding ロジックを NativeHarness 化 | ✅ 済（PR #16 予定） |
-| H2-A | `harness/deepseek.ts` — DSH adapter スケルトン（version pin / プローブ / Native フォールバック） | ✅ 済 |
+| H1 | `harness/native.ts` — 既存 Coding ロジックを NativeHarness 化 | ✅ 済（PR #16） |
+| H2-A | `harness/deepseek.ts` — DSH adapter スケルトン（lockfile pin / プローブ / Native フォールバック） | ✅ 済（PR #16） |
 | H2-B | ACP 接続による実実行（turn/step/tool → HarnessEvent 写像・AbortSignal 伝播） | ⬜ 未着手 |
 | H3 | `CodingAttachment → code.execute → Harness → DSH/Native` | ⬜ 未着手 |
 
-### H2-A 実装メモ（dsh 統合設計）
+## H2-A 実装メモ（dsh 統合設計）
 
 - dsh（@deepseek-ai/dsh）は **MIT**・Cordis ベースの「全員プラグイン」設計。
-  **Developer preview（breaking changes あり）** → `DSH_VERSION = '0.1.0-rc.7'` に pin。
-- 統合方式: dsh を **外部プロセス（npx）として起動**し、アダプタ経由のみで接続
+  **Developer preview（breaking changes あり）** → 固定方式は下記の「pin 方式」を正とする。
+- **pin 方式（§27 と整合）**: `DSH_VERSION = '0.1.0-rc.7'` を package.json の devDependency で宣言し、
+  **package-lock.json（lockfile + integrity）で解決を固定**する。実行時は `node_modules/.bin/dsh`
+  （lockfile 解決済み）を優先し、レジストリからの無審査実行（npx）はフォールバックに限定。
+  さらに §27 の `DSH_COMMIT=<verified-sha>` に従い、H2-B の ACP integration test 検証時に
+  検証済み commit SHA を `harness/deepseek.ts` の `DSH_COMMIT` へ記録する。
+- 統合方式: dsh を **外部プロセスとして起動**し、アダプタ経由のみで接続
   （ArcAsha の boot に影響ゼロ = Rollback Safety）。ACP（Agent Client Protocol）を H2-B で使用。
 - dsh の参考技術（写像パターン）:
   - Waterfall イベント（`agent/pre-step` / `tools/pre-execute` 等）→ HarnessEvent の H2 拡張

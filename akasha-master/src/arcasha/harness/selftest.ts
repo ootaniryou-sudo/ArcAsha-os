@@ -398,6 +398,20 @@ console.log('\n[8] Native Harness（H1）');
   check('generateCode: 生成コードは export function を含む', generateCode('hello').includes('export function'));
 }
 {
+  // コメント境界（*/）・改行を含むタスク文でも構文が壊れない（サニタイズの回帰検出）
+  const outcomeEsc = await consumeHarness(new NativeHarness(), {
+    taskId: 'issue-esc',
+    text: 'fix */ then\nreturn input',
+  });
+  check('コメント境界/改行タスクでも completed（サニタイズ）', outcomeEsc.status === 'completed', JSON.stringify(outcomeEsc));
+
+  // 予約語の関数名は solve へフォールバックし、コンパイル可能（回帰検出）
+  check('suggestFunctionName: 予約語 → solve', suggestFunctionName('class') === 'solve');
+  const outcomeRes = await consumeHarness(new NativeHarness(), { taskId: 'issue-res', text: 'class' });
+  check('予約語タスクでも completed（solve フォールバック）', outcomeRes.status === 'completed'
+    && (outcomeRes.status === 'completed' ? outcomeRes.result.metadata?.functionName === 'solve' : false));
+}
+{
   // AbortSignal 伝播（即時 abort → infrastructure throw）
   const ac = new AbortController();
   ac.abort();
@@ -436,6 +450,17 @@ console.log('\n[9] DeepSeek Harness Adapter（H2-A）');
   // Registry: resolveHarness — dsh 不可なら Native にフォールバック（Rollback Safety）
   const resolved = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({ probe: async () => false }));
   check('resolveHarness: dsh 不可 → Native フォールバック', resolved instanceof NativeHarness);
+
+  // 選択成功経路: dsh 可 → DeepSeekHarnessAdapter を返す
+  const resolvedDsh = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({ probe: async () => true }));
+  check('resolveHarness: dsh 可 → DeepSeekHarnessAdapter', resolvedDsh instanceof DeepSeekHarnessAdapter);
+
+  // probe 例外（reject）でも Native へフォールバック（例外を伝播しない）
+  const resolvedOnThrow = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({
+    probe: async () => { throw new Error('probe failure'); },
+  }));
+  check('resolveHarness: probe 例外 → Native フォールバック', resolvedOnThrow instanceof NativeHarness);
+
   const resolvedNative = await resolveHarness('native');
   check('resolveHarness(native) → NativeHarness', resolvedNative instanceof NativeHarness);
 }
