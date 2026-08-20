@@ -348,12 +348,14 @@ console.log('\n[7] iterator cleanup');
         yield { type: 'started', taskId: task.taskId, executionId: 'tc', timestamp: 1 };
         yield { type: 'completed', taskId: task.taskId, executionId: 'tc', result: { ok: true, output: 'x' }, timestamp: 2 };
       } finally {
-        throw new Error('cleanup failure');
+        // noUnsafeFinally 対策: finally 内の直接 throw を避け、rejected Promise を await する
+        await Promise.reject(new Error('cleanup failure'));
       }
     }
   }
   const outcome = await consumeHarness(new ThrowCleanupHarness(), TASK);
-  check('cleanup が throw しても completed が返る', outcome.status === 'completed');
+  check('cleanup が throw しても completed が返る', outcome.status === 'completed'
+    && (outcome.status === 'completed' ? outcome.executionId === 'tc' && outcome.result.output === 'x' : false));
 }
 {
   // cleanup の finally が無期限に await しても、close はタイムアウトして結果を返す

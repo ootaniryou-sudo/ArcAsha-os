@@ -109,12 +109,21 @@ export async function consumeHarness(
     // cleanup の失敗（reject）や無期限停止を結果経路（HarnessOutcome / 元の例外）に
     // 伝播させない: 失敗は握りつぶし、close には上限時間を設ける。
     if (!skipClose) {
-      await Promise.race([
-        Promise.resolve()
-          .then(() => iterator.return?.())
-          .catch(() => undefined),
-        new Promise<void>((r) => setTimeout(r, CLOSE_TIMEOUT_MS)),
-      ]);
+      // close の失敗（reject）は握りつぶし、タイムアウトは race 完了後に必ず解除する
+      // （iterator.return() が即時完了しても event loop を CLOSE_TIMEOUT_MS 保持しない）。
+      let closeTimeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.resolve()
+            .then(() => iterator.return?.())
+            .catch(() => undefined),
+          new Promise<void>((resolve) => {
+            closeTimeout = setTimeout(resolve, CLOSE_TIMEOUT_MS);
+          }),
+        ]);
+      } finally {
+        if (closeTimeout !== undefined) clearTimeout(closeTimeout);
+      }
     }
   }
 }
