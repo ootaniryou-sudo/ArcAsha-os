@@ -54,48 +54,57 @@ export async function consumeHarness(
     else signal.addEventListener('abort', () => start(), { once: true });
   });
 
-  for (;;) {
-    // 次のイベントを待つ。abort されたら grace deadline と競わせる。
-    const res = await Promise.race([iterator.next(), abortDeadline]);
+  let skipClose = false;
+  try {
+    for (;;) {
+      // 次のイベントを待つ。abort されたら grace deadline と競わせる。
+      const res = await Promise.race([iterator.next(), abortDeadline]);
 
-    if ('__detached' in res) {
-      return {
-        status: 'detached',
-        executionId,
-        reason: `abort 後 ${cancelGracePeriodMs}ms 以内に terminal event が無い`,
-      };
-    }
-    if (res.done) {
-      // 正常終了したのに terminal event が無い = ABI 違反（infrastructure failure）
-      throw new HarnessInfrastructureError('Harness が terminal event なしに終了');
-    }
-    const event: HarnessEvent = res.value;
+      if ('__detached' in res) {
+        // detached: 下位イテレータは放置する（H0 では rollback / cleanup 保証なし）
+        skipClose = true;
+        return {
+          status: 'detached',
+          executionId,
+          reason: `abort 後 ${cancelGracePeriodMs}ms 以内に terminal event が無い`,
+        };
+      }
+      if (res.done) {
+        // 正常終了したのに terminal event が無い = ABI 違反（infrastructure failure）
+        throw new HarnessInfrastructureError('Harness が terminal event なしに終了');
+      }
+      const event: HarnessEvent = res.value;
 
-    // ── 逐次状態機械: 順序・重複・ID 一致を検証（壊れた Adapter からの防御） ──
-    if (event.taskId !== task.taskId) {
-      throw new HarnessInfrastructureError(`event taskId 不一致: 要求=${task.taskId} 受信=${event.taskId}`);
-    }
-    if (executionId === null) {
-      executionId = event.executionId;
-    } else if (event.executionId !== executionId) {
-      throw new HarnessInfrastructureError(`executionId 不一致: ${executionId} ≠ ${event.executionId}`);
-    }
+      // ── 逐次状態機械: 順序・重複・ID 一致を検証（壊れた Adapter からの防御） ──
+      if (event.taskId !== task.taskId) {
+        throw new HarnessInfrastructureError(`event taskId 不一致: 要求=${task.taskId} 受信=${event.taskId}`);
+      }
+      if (executionId === null) {
+        executionId = event.executionId;
+      } else if (event.executionId !== executionId) {
+        throw new HarnessInfrastructureError(`executionId 不一致: ${executionId} ≠ ${event.executionId}`);
+      }
 
-    if (event.type === 'started') {
-      if (sawStarted) throw new HarnessInfrastructureError('started が複数回');
-      sawStarted = true;
-      continue;
+      if (event.type === 'started') {
+        if (sawStarted) throw new HarnessInfrastructureError('started が複数回');
+        sawStarted = true;
+        continue;
+      }
+      // terminal 系
+      if (!sawStarted) {
+        throw new HarnessInfrastructureError('terminal event が started より先に出現');
+      }
+      if (event.type === 'completed') {
+        return { status: 'completed', executionId, result: event.result };
+      }
+      if (event.type === 'failed') {
+        return { status: 'failed', executionId, error: event.error };
+      }
     }
-    // terminal 系
-    if (!sawStarted) {
-      throw new HarnessInfrastructureError('terminal event が started より先に出現');
-    }
-    if (event.type === 'completed') {
-      return { status: 'completed', executionId, result: event.result };
-    }
-    if (event.type === 'failed') {
-      return { status: 'failed', executionId, error: event.error };
+  } finally {
+    // 非 detached の経路では AsyncGenerator を close し、finally / リソース解放を実行する
+    if (!skipClose) {
+      await iterator.return?.();
     }
   }
-  // NOTE: detached 時、下位イテレータは放置される（H0 では rollback 保証なし）。
 }

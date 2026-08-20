@@ -128,6 +128,19 @@ class MockHarness implements Harness {
 
 const TASK: HarnessTask = { taskId: 'issue-123', text: 'src/foo.ts のバグを修正してテストを通す' };
 
+/** generator の finally（cleanup）実行を追跡する Harness */
+class CleanupTrackingHarness implements Harness {
+  cleaned = false;
+  async *execute(task: HarnessTask): AsyncIterable<HarnessEvent> {
+    try {
+      yield { type: 'started', taskId: task.taskId, executionId: 'cleanup-1', timestamp: Date.now() };
+      yield { type: 'completed', taskId: task.taskId, executionId: 'cleanup-1', result: { ok: true, output: 'x' }, timestamp: Date.now() };
+    } finally {
+      this.cleaned = true;
+    }
+  }
+}
+
 // ─── [1] 基本 ABI ────────────────────────────────────────────────────────────
 console.log('\n[1] 基本 ABI');
 const basic = new MockHarness('success', { output: 'patched' });
@@ -309,6 +322,24 @@ console.log('\n[6] 既存 Attachment への非干渉');
 // ここでは Harness を未使用でもモジュールが import / 動作することを確認。
 const untouched = await executeOnce(new MockHarness('success', { output: 'standalone' }), { taskId: 'no-dep', text: '依存しない' });
 check('Harness は単独で動作（既存コードに未依存）', untouched.ok && untouched.output === 'standalone');
+
+// ─── [7] iterator cleanup ────────────────────────────────────────────────────
+console.log('\n[7] iterator cleanup');
+{
+  // consumeHarness 完了時に generator が close され、finally（cleanup）が実行される
+  const cleanupHarness = new CleanupTrackingHarness();
+  const outcome = await consumeHarness(cleanupHarness, TASK);
+  check('完了後に generator が close される（cleanup 実行）', outcome.status === 'completed' && cleanupHarness.cleaned === true);
+}
+{
+  // detached 経路では generator は放置される（close を await してハングしない）
+  const ac = new AbortController();
+  const p = consumeHarness(new MockHarness('stall'), TASK, { signal: ac.signal, cancelGracePeriodMs: 100 });
+  await delay(20);
+  ac.abort();
+  const outcome = await p;
+  check('detached 経路でもハングしない', outcome.status === 'detached');
+}
 
 // ─── 結果 ────────────────────────────────────────────────────────────────────
 console.log('\n' + '═'.repeat(60));
