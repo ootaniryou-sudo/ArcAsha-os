@@ -696,6 +696,26 @@ console.log('\n[11] code.execute Capability（H3）');
   check('CodingAttachment.run: ok（Harness 委譲）', res.ok === true);
   check('CodingAttachment.run: 成果は生成コード', res.text.includes('export function'));
   check('CodingAttachment.run: CAPABILITY ログ', res.detail.some((d) => d.startsWith('CAPABILITY: code.execute')));
+  check('CodingAttachment.run: 検証済みコードのみ ok', res.detail.some((d) => d.startsWith('VERIFY: 成功')) && res.ok === true);
+}
+{
+  // DSH 出力が構文エラー → 検証で拒否 → ok=false（Harness の completed ≠ コンパイル成功）
+  const tmp = await mkdtemp(join(tmpdir(), 'arcasha-h3-'));
+  const MOCK_SERVER = fileURLToPath(new URL('./mock-acp-server.mjs', import.meta.url));
+  const dsh = new DeepSeekHarnessAdapter({
+    probe: async () => true,
+    requestTimeoutMs: 10_000,
+    sessionCwd: tmp,
+    serverCommand: () => ({ command: process.execPath, args: [MOCK_SERVER], env: { MOCK_TEXT: 'this is not valid js {{', MOCK_STOP: 'end_turn' } }),
+  });
+  const attachment = new CodingAttachment(async () => dsh);
+  const res = await attachment.run({
+    text: 'sort関数を実装して',
+    booted: {} as unknown as AttachmentContext['booted'],
+    attach: async () => null,
+  });
+  check('CodingAttachment: DSH 構文エラー出力 → ok=false（検証で拒否）', res.ok === false);
+  check('CodingAttachment: VERIFY: 失敗 が detail にある', res.detail.some((d) => d.startsWith('VERIFY: 失敗')));
 }
 
 // ─── 結果 ────────────────────────────────────────────────────────────────────
