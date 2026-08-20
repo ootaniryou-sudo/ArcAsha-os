@@ -340,6 +340,38 @@ console.log('\n[7] iterator cleanup');
   const outcome = await p;
   check('detached 経路でもハングしない', outcome.status === 'detached');
 }
+{
+  // cleanup の finally が throw しても、結果経路（HarnessOutcome）を置き換えない
+  class ThrowCleanupHarness implements Harness {
+    async *execute(task: HarnessTask): AsyncIterable<HarnessEvent> {
+      try {
+        yield { type: 'started', taskId: task.taskId, executionId: 'tc', timestamp: 1 };
+        yield { type: 'completed', taskId: task.taskId, executionId: 'tc', result: { ok: true, output: 'x' }, timestamp: 2 };
+      } finally {
+        throw new Error('cleanup failure');
+      }
+    }
+  }
+  const outcome = await consumeHarness(new ThrowCleanupHarness(), TASK);
+  check('cleanup が throw しても completed が返る', outcome.status === 'completed');
+}
+{
+  // cleanup の finally が無期限に await しても、close はタイムアウトして結果を返す
+  class HangCleanupHarness implements Harness {
+    async *execute(task: HarnessTask): AsyncIterable<HarnessEvent> {
+      try {
+        yield { type: 'started', taskId: task.taskId, executionId: 'hc', timestamp: 1 };
+        yield { type: 'completed', taskId: task.taskId, executionId: 'hc', result: { ok: true, output: 'x' }, timestamp: 2 };
+      } finally {
+        await new Promise<void>(() => {});
+      }
+    }
+  }
+  const t0 = Date.now();
+  const outcome = await consumeHarness(new HangCleanupHarness(), TASK);
+  const elapsed = Date.now() - t0;
+  check('cleanup がハングしても bounded で completed が返る', outcome.status === 'completed' && elapsed < 5000, `elapsed=${elapsed}ms`);
+}
 
 // ─── 結果 ────────────────────────────────────────────────────────────────────
 console.log('\n' + '═'.repeat(60));

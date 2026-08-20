@@ -28,6 +28,9 @@ export type HarnessOutcome =
 
 const DEFAULT_GRACE_MS = 3000;
 
+/** generator close（iterator.return）の上限時間。cleanup が無期限に settle しない場合の保険。 */
+const CLOSE_TIMEOUT_MS = 1000;
+
 export async function consumeHarness(
   harness: Harness,
   task: HarnessTask,
@@ -102,9 +105,16 @@ export async function consumeHarness(
       }
     }
   } finally {
-    // 非 detached の経路では AsyncGenerator を close し、finally / リソース解放を実行する
+    // 非 detached の経路では AsyncGenerator を close し、finally / リソース解放を実行する。
+    // cleanup の失敗（reject）や無期限停止を結果経路（HarnessOutcome / 元の例外）に
+    // 伝播させない: 失敗は握りつぶし、close には上限時間を設ける。
     if (!skipClose) {
-      await iterator.return?.();
+      await Promise.race([
+        Promise.resolve()
+          .then(() => iterator.return?.())
+          .catch(() => undefined),
+        new Promise<void>((r) => setTimeout(r, CLOSE_TIMEOUT_MS)),
+      ]);
     }
   }
 }
