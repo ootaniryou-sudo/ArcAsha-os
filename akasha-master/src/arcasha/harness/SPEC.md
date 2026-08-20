@@ -4,7 +4,7 @@
 **対象:** ArcAsha Master Runtime の Coding Attachment / Harness Execution Layer
 **対象フェーズ:** H0〜H3 を実装可能な最小仕様 + H4以降の拡張契約
 **作成日:** 2026-08-20
-**ステータス:** Implementation Ready（H0 着手可能）→ H0 実装済み（2026-08-20）
+**ステータス:** H0 実装済み（PR #15）→ H1/H2-A 実装済み（PR #16）→ H2-B 実装済み（PR #17）
 
 ---
 
@@ -460,7 +460,7 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
 | H0 | `akasha-master/src/arcasha/harness/` — types / events / harness / execute-once / consume / selftest | ✅ 済（PR #15） |
 | H1 | `harness/native.ts` — 既存 Coding ロジックを NativeHarness 化 | ✅ 済（PR #16） |
 | H2-A | `harness/deepseek.ts` — DSH adapter スケルトン（lockfile pin / プローブ / Native フォールバック） | ✅ 済（PR #16） |
-| H2-B | ACP 接続による実実行（turn/step/tool → HarnessEvent 写像・AbortSignal 伝播） | ⬜ 未着手 |
+| H2-B | ACP 接続による実実行（turn/step/tool → HarnessEvent 写像・AbortSignal 伝播） | ✅ 済（PR #17） |
 | H3 | `CodingAttachment → code.execute → Harness → DSH/Native` | ⬜ 未着手 |
 
 ## H2-A 実装メモ（dsh 統合設計）
@@ -480,6 +480,28 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
   - Capability Seam（Definition / Provider / Consumer）→ H4 Canonical Capability
 - 失敗意味論: dsh 起動不能 = **infrastructure throw** / タスク失敗 = **failed** / 不可時は Native フォールバック
 
+## H2-B 実装メモ（ACP 実実行）
+
+- **ACP クライアント**: `harness/acp.ts` — `@agentclientprotocol/sdk`（v1.3.0, Apache-2.0）の
+  `ClientSideConnection` + `ndJsonStream` を dsh の ACP サーバー子プロセスの stdio に接続。
+  ワイヤーは ACP v1（JSON-RPC over stdio / NDJSON）。`PROTOCOL_VERSION = 1`。
+- **実行フロー**: `initialize` → `session/new({cwd})` → `session/prompt({sessionId, prompt})` →
+  `session/cancel`（abort 時）。`agent_message_chunk`（テキスト）を `message` イベントへ写像。
+- **stopReason 写像**: `end_turn` / `max_tokens` / `max_turn_requests` → `completed` /
+  `refusal` → `failed`（code=REFUSAL, retryable=false）/ `cancelled` → `cancelled` イベント。
+- **AbortSignal**: adapter が `session/cancel` 通知へ変換。起動中（initialize/newSession 前）の
+  abort はプロンプト未開始なので `cancelled` を直接返す。協力的でない子プロセスには
+  猶予 5s 後に強制終了（generator が detach されてもプロセスを leak させない）。
+- **権限要求**: `session/request_permission` はポリシーで自動応答。`reject`（既定, fail closed）
+  は `cancelled`、`allow` は最初の allow オプションを選択。
+- **検証**: `selftest [10]` — 実 ACP ワイヤープロトコルを話す mock サーバー
+  （`harness/mock-acp-server.mjs`）を子プロセスとして起動し、API キー不要で検証。
+  正常ターン / message 写像 / refusal→failed / RPC エラー→infra / クラッシュ→infra /
+  abort→cancelled / 権限 reject→cancelled / 権限 allow→completed。
+- **実 dsh との接続**: 実行時は `node_modules/.bin/dsh-acp-demo`（lockfile 固定）を起動する。
+  現在は未インストールのため `available()=false` → Native フォールバック。
+  実サーバーでの integration test 完了時に §27 の `DSH_COMMIT` を確定する。
+
 ---
 
 # 32. H0 Acceptance Criteria（実装済み・selftest で検証）
@@ -498,7 +520,7 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
 # 33-35. H1〜H3 Acceptance Criteria
 
 - H1: 既存 Coding 主要ケースが NativeHarness 経由で成功 / failure が `failed` / `started → completed` / AbortSignal 停止 / NativeHarness を disable しても他 Attachment は動く / Legacy と意味論一致
-- H2: 固定 DSH commit で起動 / completed / failed / throw / AbortSignal / grace 内停止 / detach / Native 切戻し
+- H2: 固定 DSH commit で起動 / completed / failed / throw / AbortSignal / grace 内停止 / detach / Native 切戻し（H2-A）+ ACP 実実行: message 写像 / stopReason 写像 / abort→cancelled / 権限ポリシー / infra 分離（H2-B・selftest [10] で検証済み）
 - H3: `code.execute` 経路 / progress 観測 / 中途失敗 `failed` / infra `throw` / 同一 taskId 複数 executionId / DSH 無効化で Native 戻し
 
 ---

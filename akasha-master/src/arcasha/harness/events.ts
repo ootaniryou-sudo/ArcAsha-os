@@ -1,8 +1,10 @@
 /**
- * Coding Harness — Event ABI（H0 の最小 event set）
+ * Coding Harness — Event ABI
  *
  * Event Stream first: 正式 ABI は AsyncIterable<HarnessEvent>。
- * H2 以降で progress / tool_call / tool_result / model_call / message / cancelled を追加できる。
+ *
+ * H0: started / completed / failed
+ * H2-B: message（中間テキスト）/ cancelled（明示的キャンセル）を追加。
  */
 import type { HarnessResult, HarnessExecutionError } from './types.js';
 import { HarnessInfrastructureError } from './types.js';
@@ -33,20 +35,41 @@ export interface HarnessFailedEvent {
   timestamp: number;
 }
 
-/** H0 の最小 event set。 */
+/** 実行中の中間メッセージ（assistant テキスト断片など）。非終端。 */
+export interface HarnessMessageEvent {
+  type: 'message';
+  taskId: string;
+  executionId: string;
+  text: string;
+  timestamp: number;
+}
+
+/** 明示的キャンセル（AbortSignal → 下位実行の停止確認）。終端イベント。cancel ≠ failed。 */
+export interface HarnessCancelledEvent {
+  type: 'cancelled';
+  taskId: string;
+  executionId: string;
+  reason: string;
+  timestamp: number;
+}
+
+/** Harness の event set。 */
 export type HarnessEvent =
   | HarnessStartedEvent
   | HarnessCompletedEvent
-  | HarnessFailedEvent;
+  | HarnessFailedEvent
+  | HarnessMessageEvent
+  | HarnessCancelledEvent;
 
 export function isHarnessStarted(e: HarnessEvent): e is HarnessStartedEvent {
   return e.type === 'started';
 }
 
+/** 終端イベント（completed / failed / cancelled）。 */
 export function isHarnessTerminal(
   e: HarnessEvent,
-): e is HarnessCompletedEvent | HarnessFailedEvent {
-  return e.type === 'completed' || e.type === 'failed';
+): e is HarnessCompletedEvent | HarnessFailedEvent | HarnessCancelledEvent {
+  return e.type === 'completed' || e.type === 'failed' || e.type === 'cancelled';
 }
 
 /**
@@ -54,7 +77,8 @@ export function isHarnessTerminal(
  *
  * 不変条件:
  *   - started は 0 または 1 回。terminal より前にのみ出現する
- *   - terminal event（completed / failed）は 0 または 1 回
+ *   - terminal event（completed / failed / cancelled）は 0 または 1 回
+ *   - 非終端 event（started / message）は terminal の後に出現しない
  *   - 全イベントの taskId / executionId が一致する
  *
  * 違反は ABI 不整合 = infrastructure failure として HarnessInfrastructureError。
@@ -94,6 +118,9 @@ export function assertTerminalState(events: readonly HarnessEvent[]): void {
       if (started === 0) {
         throw new HarnessInfrastructureError('terminal event が started より先に出現');
       }
+    } else if (terminals > 0) {
+      // 非終端 event（message など）が terminal の後に出現 = ABI 違反
+      throw new HarnessInfrastructureError(`非終端 event（${e.type}）が terminal の後に出現`);
     }
   }
 }

@@ -24,6 +24,7 @@ import type { HarnessEvent } from './events.js';
 export type HarnessOutcome =
   | { status: 'completed'; executionId: string; result: HarnessResult }
   | { status: 'failed'; executionId: string; error: HarnessExecutionError }
+  | { status: 'cancelled'; executionId: string; reason: string }
   | { status: 'detached'; executionId: string | null; reason: string };
 
 const DEFAULT_GRACE_MS = 3000;
@@ -102,6 +103,9 @@ export async function consumeHarness(
       }
       if (event.type === 'failed') {
         return { status: 'failed', executionId, error: event.error };
+      }
+      if (event.type === 'cancelled') {
+        return { status: 'cancelled', executionId, reason: event.reason };
       }
     }
   } finally {
