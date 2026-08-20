@@ -492,15 +492,19 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
 - **AbortSignal**: adapter が `session/cancel` 通知へ変換。起動中（initialize/newSession 前）の
   abort はプロンプト未開始なので `cancelled` を直接返す。協力的でない子プロセスには
   猶予 5s 後に強制終了（generator が detach されてもプロセスを leak させない）。
-- **権限要求**: `session/request_permission` はポリシーで自動応答。`reject`（既定, fail closed）
-  は `cancelled`、`allow` は最初の allow オプションを選択。
+- **権限要求**: `session/request_permission` はポリシーで自動応答。`reject`（既定, fail closed）は
+  `reject_once` オプションを `selected` で明示選択し、サーバー側が `refusal` → `failed` に変換。
+  `allow` は最初の allow オプションを選択。該当オプションが無い場合のみ protocol レベルの
+  `cancelled` で応答する。
 - **検証**: `selftest [10]` — 実 ACP ワイヤープロトコルを話す mock サーバー
   （`harness/mock-acp-server.mjs`）を子プロセスとして起動し、API キー不要で検証。
   正常ターン / message 写像 / refusal→failed / RPC エラー→infra / クラッシュ→infra /
-  abort→cancelled / 権限 reject→cancelled / 権限 allow→completed。
-- **実 dsh との接続**: 実行時は `node_modules/.bin/dsh-acp-demo`（lockfile 固定）を起動する。
-  現在は未インストールのため `available()=false` → Native フォールバック。
-  実サーバーでの integration test 完了時に §27 の `DSH_COMMIT` を確定する。
+  abort→cancelled / 権限 reject→refusal→failed / 権限 allow→completed。
+- **実 dsh との接続**: `@deepseek-ai/dsh-acp-demo@0.1.0-rc.8`（bin `dsh-acp-demo`）を
+  devDependency + lockfile で固定。実行時は `node_modules/.bin/dsh-acp-demo` を起動する。
+  既定プローブはサーバーを実際に起動して initialize できるか（= cordis.yml 設定済みか）を確認し、
+  未設定なら `available()=false` → Native フォールバック。実サーバーでの integration test 完了時に
+  §27 の `DSH_COMMIT` を確定する。
 
 ---
 

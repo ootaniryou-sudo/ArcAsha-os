@@ -101,14 +101,25 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 class AsyncQueue<T> {
   private readonly items: T[] = [];
   private readonly waiters: Array<(v: IteratorResult<T>) => void> = [];
+  private ended = false;
 
   push(item: T): void {
+    if (this.ended) return;
     const waiter = this.waiters.shift();
     if (waiter !== undefined) {
       waiter({ value: item, done: false });
       return;
     }
     this.items.push(item);
+  }
+
+  /** 終端。待機中の next() を done:true で解放する。 */
+  end(): void {
+    if (this.ended) return;
+    this.ended = true;
+    for (const waiter of this.waiters.splice(0)) {
+      waiter({ value: undefined, done: true });
+    }
   }
 
   /** 待たずに取得。空なら null。 */
@@ -121,6 +132,7 @@ class AsyncQueue<T> {
   next(): Promise<IteratorResult<T>> {
     const item = this.items.shift();
     if (item !== undefined) return Promise.resolve({ value: item, done: false });
+    if (this.ended) return Promise.resolve({ value: undefined, done: true });
     return new Promise((resolve) => {
       this.waiters.push(resolve);
     });
@@ -137,6 +149,7 @@ export class AcpClient {
   private readonly messages = new AsyncQueue<string>();
   private readonly childExited: Promise<void>;
   private sessionId: string | null = null;
+  private lastWrite: Promise<void> | null = null;
   private closed = false;
 
   private constructor(opts: AcpClientOptions, child: ChildProcess) {
@@ -146,6 +159,8 @@ export class AcpClient {
       child.once('exit', () => resolve());
       child.once('error', () => resolve());
     });
+    // 子プロセス終了時はメッセージキューを終端し、待機中の next() を解放する
+    void this.childExited.then(() => this.messages.end());
     this.conn = new ClientSideConnection(
       (_agent: AcpAgent): Client => ({
         sessionUpdate: (params: SessionNotification): Promise<void> => {
@@ -162,8 +177,14 @@ export class AcpClient {
             if (allow !== undefined) {
               return Promise.resolve({ outcome: { outcome: 'selected', optionId: allow.optionId } });
             }
+          } else {
+            // 拒否は protocol レベルの cancelled ではなく、reject オプションの明示選択で返す
+            const reject = params.options.find((o) => o.kind === 'reject_once' || o.kind === 'reject_always');
+            if (reject !== undefined) {
+              return Promise.resolve({ outcome: { outcome: 'selected', optionId: reject.optionId } });
+            }
           }
-          // fail closed: 許可できない場合はキャンセルで応答する
+          // 該当オプションが無い場合のみ fail closed として cancelled で応答する
           return Promise.resolve({ outcome: { outcome: 'cancelled' } });
         },
       }),
@@ -239,11 +260,19 @@ export class AcpClient {
     );
   }
 
-  /** 進行中ターンのキャンセル通知（best-effort）。 */
+  /** 進行中ターンのキャンセル通知（best-effort）。close() が EOF 前に書き込み完了を待てるよう記録する。 */
   cancel(): void {
     const sessionId = this.sessionId;
     if (sessionId === null || this.closed) return;
-    void this.conn.cancel({ sessionId }).catch(() => undefined);
+    this.lastWrite = this.conn.cancel({ sessionId }).then(
+      () => undefined,
+      () => undefined,
+    );
+  }
+
+  /** メッセージキューを終端し、待機中の nextMessage() を done:true で解放する。 */
+  endMessages(): void {
+    this.messages.end();
   }
 
   /** 次の agent_message_chunk テキストを待って返す。 */
@@ -259,12 +288,18 @@ export class AcpClient {
 
   /**
    * 子プロセスを終了する（graceful: stdin EOF → SIGTERM → SIGKILL）。冪等。
+   * cancel などの保留中の ACP 書き込みが完了してから EOF を送る（ERR_STREAM_WRITE_AFTER_END 防止）。
    */
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    this.messages.end();
     const child = this.child;
     if (child.exitCode !== null || child.signalCode !== null) return;
+    // 保留中の書き込み（session/cancel など）を EOF より先に完了させる
+    if (this.lastWrite !== null) {
+      await this.lastWrite;
+    }
     // ACP サーバーは stdin EOF で graceful に dispose する（dsh-acp-demo の契約）
     try {
       child.stdin?.end();

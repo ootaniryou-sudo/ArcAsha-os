@@ -34,7 +34,7 @@ export { consumeHarness } from './consume.js';
 export { NativeHarness, suggestFunctionName, generateCode } from './native.js';
 
 // H2-A/B: DeepSeek Harness Adapter（dsh ACP）
-export { DeepSeekHarnessAdapter, DSH_VERSION } from './deepseek.js';
+export { DeepSeekHarnessAdapter, DSH_VERSION, ACP_DEMO_VERSION } from './deepseek.js';
 export type { DshAdapterOptions } from './deepseek.js';
 
 // Registry（Native フォールバック）

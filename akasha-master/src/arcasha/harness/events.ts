@@ -121,6 +121,9 @@ export function assertTerminalState(events: readonly HarnessEvent[]): void {
     } else if (terminals > 0) {
       // 非終端 event（message など）が terminal の後に出現 = ABI 違反
       throw new HarnessInfrastructureError(`非終端 event（${e.type}）が terminal の後に出現`);
+    } else if (started === 0) {
+      // 非終端 event（message など）が started より前に出現 = ABI 違反
+      throw new HarnessInfrastructureError(`非終端 event（${e.type}）が started より前に出現`);
     }
   }
 }

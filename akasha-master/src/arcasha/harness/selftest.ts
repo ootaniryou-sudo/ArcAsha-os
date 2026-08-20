@@ -284,6 +284,21 @@ const badTerminalFirst: HarnessEvent[] = [
 ];
 check('started なしの completed → HarnessInfrastructureError', (() => { try { assertTerminalState(badTerminalFirst); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
 
+// message が started より前に出現（H2-B の ABI 違反）
+const badMessageFirst: HarnessEvent[] = [
+  { type: 'message', taskId: 't', executionId: 'e', text: 'x', timestamp: 1 },
+  { type: 'completed', taskId: 't', executionId: 'e', result: { ok: true, output: 'x' }, timestamp: 2 },
+];
+check('started 前の message → HarnessInfrastructureError', (() => { try { assertTerminalState(badMessageFirst); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
+// message が terminal の後に出現（H2-B の ABI 違反）
+const badMessageAfterTerminal: HarnessEvent[] = [
+  { type: 'started', taskId: 't', executionId: 'e', timestamp: 1 },
+  { type: 'completed', taskId: 't', executionId: 'e', result: { ok: true, output: 'x' }, timestamp: 2 },
+  { type: 'message', taskId: 't', executionId: 'e', text: 'x', timestamp: 3 },
+];
+check('terminal 後の message → HarnessInfrastructureError', (() => { try { assertTerminalState(badMessageAfterTerminal); return false; } catch (e) { return e instanceof HarnessInfrastructureError; } })());
+
 // completed → started（順序違反）
 const badOrder: HarnessEvent[] = [
   { type: 'started', taskId: 't', executionId: 'e', timestamp: 1 },
@@ -439,8 +454,8 @@ console.log('\n[9] DeepSeek Harness Adapter（H2-A）');
   }, HarnessInfrastructureError);
 }
 {
-  // dsh 可（probe=true）だが ACP サーバー未解決（dsh-acp-demo 未インストール）→ infrastructure throw
-  const adapter = new DeepSeekHarnessAdapter({ probe: async () => true });
+  // dsh 可（probe=true）だが ACP サーバー未解決（serverCommand=null）→ infrastructure throw
+  const adapter = new DeepSeekHarnessAdapter({ probe: async () => true, serverCommand: () => null });
   check('dsh 可: available()=true', (await adapter.available()) === true);
   await expectThrowAsync('dsh 可: ACP サーバー未解決は infrastructure throw', async () => {
     await consumeHarness(adapter, TASK);
@@ -567,10 +582,13 @@ console.log('\n[10] DeepSeek Harness Adapter（H2-B: ACP 実実行）');
     }, HarnessCancelledError);
   }
   {
-    // 権限要求: reject ポリシー → fail closed → cancelled
+    // 権限要求: reject ポリシー → reject_once を選択 → サーバーが refusal に変換 → failed
     const adapter = mockAdapter({ MOCK_PERMISSION: '1', MOCK_TEXT: 'should not run' }, { permission: 'reject' });
     const outcome = await consumeHarness(adapter, TASK);
-    check('H2-B: 権限 reject → cancelled', outcome.status === 'cancelled');
+    check(
+      'H2-B: 権限 reject → refusal → failed',
+      outcome.status === 'failed' && outcome.error.code === 'REFUSAL' && outcome.error.retryable === false,
+    );
   }
   {
     // 権限要求: allow ポリシー → 最初の allow オプションを選択 → completed

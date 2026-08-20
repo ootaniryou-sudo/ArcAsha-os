@@ -61,9 +61,15 @@ new AgentSideConnection(
             { optionId: 'no', name: 'Reject', kind: 'reject_once' },
           ],
         });
-        if (decision.outcome.outcome === 'cancelled') {
+        const out = decision.outcome;
+        if (out.outcome === 'cancelled') {
           return { stopReason: 'cancelled' };
         }
+        if (out.outcome === 'selected' && out.optionId === 'no') {
+          // 拒否は失敗結果（refusal）として変換する
+          return { stopReason: 'refusal' };
+        }
+        // selected && optionId === 'yes' → 許可して続行
       }
       if (FAIL) {
         throw new Error('mock task failure');
