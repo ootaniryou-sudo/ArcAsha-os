@@ -8,9 +8,10 @@
   - `caravan-verifier.ts`（成果物検証 + AILSA validator 接続 / `verifyArtifactOnly`）
   - `caravan-loop.ts`（PLAN → EXECUTE → OBSERVE → VERIFY → REPLAN 閉ループ + Budget）
   - `recovery-harness.ts`（Recovery Harness: Notebook=状態とする検証駆動エラー回復閉ループ）
+  - `memory-harness.ts`（Memory Harness: Oasis 長期記憶 → 検索・注入・実行・記録の閉ループ）
   - `oasis.ts`（Knowledge Oasis 拡張: 完成 Notebook snapshot 保存）
   - `demo.ts --caravan`（CLI）
-  - selftest: AILSM selftest `[81]〜[85]`
+  - selftest: AILSM selftest `[81]〜[86]`
 
 ---
 
@@ -120,7 +121,30 @@ EXECUTE（buildAttemptTask で Notebook 状態を注入）→ ANALYSIS に成果
 失敗履歴（failure history）は Notebook.ERRORS に集約され、
 snapshot（v0→vN）が決定論的に積み上がる（Decision Replay）。
 
-## 6. Oasis 保存 + Decision Replay
+## 6. Memory Harness（Oasis 長期記憶 → 検索・注入・実行・記録・PR 2）
+
+> Knowledge Oasis を長期記憶とする「記憶の検索 → 注入 → 実行 → 記録」の閉ループを
+> 構成できることを証明する。性能改善は主張しない（Ablation は PR 3）。
+
+- **Notebook が実行時状態、KnowledgeOasis が長期記憶。** MemoryHarness は状態遷移を
+  実行する機械で、Oasis を直接書き換えず、記録は明示的な `recordBack` 経由。
+- **閉ループ**:
+  `RETRIEVE（oasis.recommend）→ INJECT（タスク文へ合成 + Notebook.context に memory IR）→ EXECUTE → RECORD（Oasis へ成功/失敗を記録）`
+- **既存 Harness ABI を実装する decorator**（`Harness`）。RecoveryHarness と合成できる
+  （Memory が文脈供給、Recovery が検証・回復）。
+- **メモリ IR は Notebook.context に記録**（`memory: [retrieved=N, sources=[...] lessons=[...]]`）。
+  基盤 Harness は `task.metadata.memory`（`parseInjectedMemory`）で参照できる。
+
+### パラメータ
+
+| 項目 | 既定 | 意味 |
+|---|---|---|
+| `maxMemory` | 3 | 検索で取得する経験の上限 |
+| `retriever` | `defaultMemoryRetriever`（recommend） | 検索関数（差し替え可） |
+| `recordBack` | true | 実行結果を Oasis へ記録するか（false = 読み取り専用） |
+| `notebook` | なし | あれば `context.memory` を追記し `recordCaravan` で記録 |
+
+## 7. Oasis 保存 + Decision Replay
 
 `runCaravan` 完了時、Knowledge Oasis に以下を保存する（次回推薦材料 / Decision Replay）。
 
@@ -130,18 +154,18 @@ snapshot（v0→vN）が決定論的に積み上がる（Decision Replay）。
 
 `notebook.history()` が v0 → vN の全スナップショットを返し、「なぜこの結論に到達したか」を再生できる。
 
-## 7. Phase C 接続口（Dynamic Expert Formation）
+## 8. Phase C 接続口（Dynamic Expert Formation）
 
 - `runCaravan` は `team: NotebookExpert[]` を受け取る。Phase C ではここを
   `composeTeam` / Oasis 推奨で動的に編成する。
 - 本実装（Phase A+B）は**固定 Caravan + 固定 Expert**（`fixedCaravan`）で行う。
 - `notebookExpertFromPool`（notebook.ts）が PoolExpert → NotebookExpert の変換口を提供する。
 
-## 8. 実装ガード
+## 9. 実装ガード
 
-- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness も例外ではない）
+- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness も例外ではない）
 - 既存機能を壊さない（ailsm / ailsa / harness / golden の回帰を維持）
-- selftest `[81]〜[85]` で検証
+- selftest `[81]〜[86]` で検証
 - `npm run build` / `npm run ailsm:selftest` / `npm run ailsa:selftest` / `npm run golden` / dist まで確認
 
 ---
@@ -153,6 +177,6 @@ snapshot（v0→vN）が決定論的に積み上がる（Decision Replay）。
 cd akasha-master
 npx tsx src/arcasha/cognitive/demo.ts --caravan
 
-# セルフテスト（[81]〜[85] を含む）
+# セルフテスト（[81]〜[86] を含む）
 npm run ailsm:selftest
 ```
