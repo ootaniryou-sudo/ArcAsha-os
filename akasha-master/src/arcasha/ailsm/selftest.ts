@@ -1592,6 +1592,9 @@ const { HarnessTaskError } = await import('../harness/types.js');
 check('Recovery: ドメイン別アーティファクトキー', artifactKeyFor('coding') === 'program' && artifactKeyFor('math') === 'solution' && artifactKeyFor('generic') === 'analysis');
 check('Recovery: formatDecision は IR（根拠を保持）', formatDecision({ action: 'Replan', reason: 'plan が検証を満たさない' }) === 'decision: [action=Replan, reason="plan が検証を満たさない"]');
 check('Recovery: AddExpert は addedCapability を保持', formatDecision({ action: 'AddExpert', reason: '能力追加', addedCapability: 'coding' }).includes('addedCapability=coding'));
+// カスタム selectStrategy が構造文字（" / [ / ]）を含む理由を返しても IR が壊れない
+const dec85 = formatDecision({ action: 'Retry', reason: 'quoted "reason" [x]', addedCapability: 'a]b' });
+check('Recovery: formatDecision は構造文字をサニタイズ（" / [ / ]）', dec85.includes('reason="quoted \\"reason\\" (x)"') && dec85.includes('addedCapability=a)b') && !dec85.includes('[x]'));
 const ctxUnit85 = (verifier: string, message: string): Parameters<typeof defaultRecoveryPolicy>[0] => ({
   notebook: new CaravanNotebook('テスト'),
   attempt: 1,

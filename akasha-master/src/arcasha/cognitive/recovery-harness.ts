@@ -126,10 +126,18 @@ export function buildAttemptTask(
   };
 }
 
-/** 決定を Notebook.DECISIONS に書ける IR 文字列へ整形する */
+/** IR 文字列へ埋め込む値の構造文字（\ " [ ]）を、IR 構造を壊さない形へ変換する */
+function irEscape(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\[/g, '(').replace(/\]/g, ')');
+}
+
+/** 決定を Notebook.DECISIONS に書ける IR 文字列へ整形する（理由は構造文字をサニタイズ） */
 export function formatDecision(d: RecoveryDecision): string {
-  const cap = d.addedCapability !== undefined ? `, addedCapability=${d.addedCapability}` : '';
-  return `decision: [action=${d.action}, reason="${d.reason}"${cap}]`;
+  const cap =
+    d.addedCapability !== undefined
+      ? `, addedCapability=${irEscape(d.addedCapability)}`
+      : '';
+  return `decision: [action=${d.action}, reason="${irEscape(d.reason)}"${cap}]`;
 }
 
 /** 失敗履歴から何の能力が足りないかを推測（AddExpert の addedCapability 用。決定論） */
