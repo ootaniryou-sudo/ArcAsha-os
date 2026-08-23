@@ -89,14 +89,54 @@ function irKey(ir: string): string {
   return m ? m[1] : 'note';
 }
 
-/** 1 Expert を実行し、結果 IR を writeSections[0] に書く */
+/** タイムアウト付き promise。未解決の Expert 実行を強制終了させる。 */
+function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let done = false;
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(new Error(`${what} がタイムアウト（${ms}ms）`));
+    }, ms);
+    p.then(
+      (v) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+/**
+ * 1 Expert を実行し、結果 IR を writeSections[0] に書く。
+ * execute の例外・タイムアウトは Loop を中断せず、実行失敗（ok=false）として返す
+ * （呼び出し側が notebook.fail() + REPLAN へ変換する）。
+ */
 async function runExpert(
   notebook: CaravanNotebook,
   expert: NotebookExpert,
   round: number,
+  timeoutMs: number,
 ): Promise<{ ms: number; ir: string; ok: boolean }> {
   const view = notebook.view(expert);
-  const r = await expert.execute!({ task: notebook.task, round, view });
+  let r: { ms: number; ir: string; ok: boolean };
+  try {
+    r = await withTimeout(
+      expert.execute!({ task: notebook.task, round, view }),
+      Math.max(100, timeoutMs),
+      `expert ${expert.id}`,
+    );
+  } catch (e) {
+    return { ms: 0, ir: `error: ${(e as Error).message.slice(0, 60)}`, ok: false };
+  }
   if (r.ok) {
     const section: NotebookSection = expert.writeSections[0];
     notebook.append(section, irKey(r.ir), r.ir, expert.id, { round, writer: expert });
@@ -106,6 +146,9 @@ async function runExpert(
 
 /**
  * Caravan 閉ループを実行する。完了後、Oasis / Team Learning へ結果を永続化する。
+ *
+ * 予算判定: PLAN / EXECUTE の全 Expert 呼び出し直後に、Expert 予算と全体予算の両方を
+ * 判定する（VERIFY より前に超過したら budget-exhausted で停止）。
  */
 export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunResult> {
   const budget: CaravanBudget = { ...DEFAULT_CARAVAN_BUDGET, ...opts.budget };
@@ -123,29 +166,29 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
   const t0 = Date.now();
 
   outer: for (let round = 1; round <= budget.maxRounds; round++) {
-    // ── PLAN ──
+    // ── PLAN + EXECUTE ──
+    // チーム順（planning が先頭）で実行し、phase は writeSections で判定する。
+    // 各呼び出し直後に Expert 予算と全体予算の両方を判定する。
     for (const ex of opts.team) {
-      if (!ex.writeSections.includes('plan') || !ex.execute) continue;
-      const r = await runExpert(notebook, ex, round);
+      if (!ex.execute) continue;
+      const phase: CaravanPhase = ex.writeSections.includes('plan') ? 'PLAN' : 'EXECUTE';
+      const r = await runExpert(notebook, ex, round, budget.thinkingBudgetMs - spentMs);
       spentMs += r.ms;
-      rounds.push({ round, phase: 'PLAN', note: `${ex.id}: ${r.ir.slice(0, 48)}`, spentMs: r.ms });
-    }
-
-    // ── EXECUTE ──
-    for (const ex of opts.team) {
-      if (ex.writeSections.includes('plan') || !ex.execute) continue;
-      const r = await runExpert(notebook, ex, round);
-      spentMs += r.ms;
-      rounds.push({ round, phase: 'EXECUTE', note: `${ex.id}: ${r.ir.slice(0, 48)}`, spentMs: r.ms });
+      rounds.push({ round, phase, note: `${ex.id}: ${r.ir.slice(0, 48)}`, spentMs: r.ms });
       if (!r.ok) {
         notebook.fail(ex.id, `実行失敗: ${r.ir.slice(0, 60)}`, { round });
         rounds.push({ round, phase: 'REPLAN', note: `${ex.id} 実行失敗 → 再計画`, spentMs: 0 });
       }
       const prior = expertSpent.get(ex.id) ?? 0;
       expertSpent.set(ex.id, prior + r.ms);
-      if (prior + r.ms > budget.expertBudgetMs) {
+      if (prior + r.ms > budget.expertBudgetMs || spentMs > budget.thinkingBudgetMs) {
         stopReason = 'budget-exhausted';
-        rounds.push({ round, phase: 'REPLAN', note: `expert ${ex.id} の予算超過`, spentMs: 0 });
+        rounds.push({
+          round,
+          phase: 'REPLAN',
+          note: `予算超過（expert=${ex.id}: ${prior + r.ms}ms / total=${spentMs}ms）`,
+          spentMs: 0,
+        });
         break outer;
       }
     }

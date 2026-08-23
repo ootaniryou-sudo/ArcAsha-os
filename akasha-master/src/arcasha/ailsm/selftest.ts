@@ -1509,6 +1509,7 @@ check('Notebook: セクションが 10 種（TASK〜FINAL_DIAGNOSIS）', NOTEBOO
 const nb81 = new CaravanNotebook('ロボットの制御を実装して');
 check('Notebook: v0 初期化（TASK に objective）', nb81.version === 0 && nb81.entriesOf('task').length === 1);
 check('Notebook: snapshot は immutable な v0（entries が frozen）', Object.isFrozen(nb81.snapshot().entries) && nb81.snapshot().entries.length === 1);
+check('Notebook: snapshot 本体も frozen（Decision Replay 保護）', Object.isFrozen(nb81.snapshot()));
 nb81.append('plan', 'plan', 'plan: [steps=2]', 'planning', { round: 1 });
 check('Notebook: append で v1 へ', nb81.version === 1 && nb81.entriesOf('plan').length === 1);
 check('Notebook: 過去 snapshot は不変（v0 はそのまま / Decision Replay）', nb81.snapshot(0).entries.length === 1 && nb81.snapshot(1).entries.length === 2);
@@ -1531,6 +1532,9 @@ check('Loop: Round 上限で停止（max-rounds / success=false）', !max82.succ
 const bgt82 = await runCaravan({ task: '絶対に失敗して', team: fixedCaravan('絶対に失敗して'), budget: { thinkingBudgetMs: 1 } });
 check('Loop: 思考予算枯渇で停止（budget-exhausted）', !bgt82.success && bgt82.stopReason === 'budget-exhausted');
 check('Loop: remainingBudgetMs は 0 以上', bgt82.remainingBudgetMs >= 0);
+const thr82 = { id: 'throwing', name: 'Throwing', role: 'coding', readSections: ['task'] as const, writeSections: ['analysis'] as const, execute: async () => { throw new Error('boom'); } };
+const thrRun82 = await runCaravan({ task: 'コードを実装して', team: [thr82] });
+check('Loop: execute 例外 → 中断せず失敗状態（ERRORS / 最終診断）', !thrRun82.success && thrRun82.notebook.entriesOf('errors').length >= 1 && thrRun82.finalDiagnosis !== undefined);
 
 // [83] Caravan Verifier（成果物検証 + AILSA validator 接続）
 console.log('\n[83] Caravan Verifier（成果物検証 + AILSA validator 接続）');
@@ -1545,8 +1549,17 @@ nbm83.append('plan', 'plan', 'plan: [steps=2]', 'planning', { round: 1 });
 nbm83.append('analysis', 'solution', 'solution: x=5', 'math', { round: 1 });
 check('Verifier: math の正しい solution → ok', verifyCaravanArtifact(nbm83, 'math').ok);
 nbm83.append('analysis', 'solution', 'solution: y=5', 'math', { round: 2 });
-check('Verifier: math の不正 solution → fail', !verifyCaravanArtifact(nbm83, 'math').ok);
-check('Verifier: detectCaravanDomain（coding/math）', detectCaravanDomain('コードを実装して') === 'coding' && detectCaravanDomain('x^2=4を解いて') === 'math');
+check('Verifier: math の不正 solution（x= でない）→ fail', !verifyCaravanArtifact(nbm83, 'math').ok);
+nbm83.append('analysis', 'solution', 'solution: x=--', 'math', { round: 3 });
+check('Verifier: math の非数値 solution（x=--）→ fail', !verifyCaravanArtifact(nbm83, 'math').ok);
+nbm83.append('analysis', 'solution', 'solution: x=3.14', 'math', { round: 4 });
+check('Verifier: math の小数 solution（x=3.14）→ ok', verifyCaravanArtifact(nbm83, 'math').ok);
+check('Verifier: detectCaravanDomain（coding/math・大文字小文字非依存）', detectCaravanDomain('コードを実装して') === 'coding' && detectCaravanDomain('Implement a function') === 'coding' && detectCaravanDomain('x^2=4を解いて') === 'math');
+// セクション制約: plan セクションに program があっても analysis になければ fail
+const nbs83 = new CaravanNotebook('sort関数を実装して');
+nbs83.append('plan', 'plan', 'plan: [steps=2]', 'planning', { round: 1 });
+nbs83.append('plan', 'program', 'program: [plan=x, lines=1]', 'planning', { round: 1 });
+check('Verifier: program は analysis セクションから（plan は不可）→ fail', !verifyCaravanArtifact(nbs83, 'coding').ok);
 const call83 = (id: string): Instruction => ({ opcode: Opcode.CALL, slots: [{ slot: Slot.EXPERT, value: 'reasoning' }, { slot: Slot.TASK_ID, value: id }] });
 const ret83 = (id: string): Instruction => ({ opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: id }, { slot: Slot.OUTPUT, value: 'ok' }] });
 check('Verifier: AILSA 有効 program → ok', verifyAilsaProgram([call83('1'), call83('2'), ret83('1')]).ok);

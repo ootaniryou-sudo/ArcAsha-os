@@ -26,10 +26,10 @@ export interface CaravanVerificationResult {
   issues: CaravanVerificationIssue[];
 }
 
-/** タスク文から Caravan ドメインを判定（決定論） */
+/** タスク文から Caravan ドメインを判定（決定論。英語キーワードは大文字小文字非依存） */
 export function detectCaravanDomain(task: string): CaravanDomain {
-  if (/計算|方程式|解いて|求めて|math|solve|equation|sum/.test(task)) return 'math';
-  if (/実装|コード|プログラミング|関数|バグ|作って|coding|implement|program/.test(task)) return 'coding';
+  if (/計算|方程式|解いて|求めて|math|solve|equation|sum/i.test(task)) return 'math';
+  if (/実装|コード|プログラミング|関数|バグ|作って|coding|implement|program/i.test(task)) return 'coding';
   return 'generic';
 }
 
@@ -42,10 +42,24 @@ export function verifyAilsaProgram(instructions: readonly Instruction[]): Carava
   };
 }
 
+/** 指定セクション内で指定 key の最新エントリを返す（セクション境界を強制） */
+function latestInSection(
+  notebook: CaravanNotebook,
+  section: 'plan' | 'analysis',
+  key: string,
+): { value: string } | undefined {
+  const es = notebook.entriesOf(section);
+  for (let i = es.length - 1; i >= 0; i--) {
+    if (es[i].key === key) return es[i];
+  }
+  return undefined;
+}
+
 /**
  * Notebook の成果物を構造検証する。
  * - PLAN セクションに plan が存在し、IR 形式（plan: ...）であること
- * - ドメイン別のアーティファクト（program / solution / analysis）が存在し、IR 形式であること
+ * - ドメイン別のアーティファクト（program / solution / analysis）が ANALYSIS セクションに
+ *   存在し、IR 形式であること（key だけでなくセクションでも制約）
  */
 export function verifyCaravanArtifact(
   notebook: CaravanNotebook,
@@ -53,33 +67,38 @@ export function verifyCaravanArtifact(
 ): CaravanVerificationResult {
   const issues: CaravanVerificationIssue[] = [];
 
-  // 1. PLAN が必要（実行組織としての最低契約）
-  const plan = notebook.latest('plan');
+  // 1. PLAN が必要（実行組織としての最低契約）。plan は plan セクションから取得
+  const plan = latestInSection(notebook, 'plan', 'plan');
   if (!plan) {
     issues.push({ verifier: 'Plan', message: 'PLAN セクションに plan が無い' });
   } else if (!/^plan:\s*\[/.test(plan.value)) {
     issues.push({ verifier: 'Plan', message: `plan が IR 形式でない: ${plan.value.slice(0, 40)}` });
   }
 
-  // 2. ドメイン別のアーティファクト検査（成果物検証）
+  // 2. ドメイン別のアーティファクト検査（成果物検証）。program / solution / analysis は analysis セクションから
   if (domain === 'coding') {
-    const program = notebook.latest('program');
+    const program = latestInSection(notebook, 'analysis', 'program');
     if (!program) {
-      issues.push({ verifier: 'Artifact', message: 'coding: program アーティファクトが無い' });
+      issues.push({ verifier: 'Artifact', message: 'coding: analysis セクションに program が無い' });
     } else if (!/^program:\s*\[[^\]]*\]$/.test(program.value)) {
       issues.push({ verifier: 'Artifact', message: `program が閉じた IR 形式でない: ${program.value.slice(0, 40)}` });
     }
   } else if (domain === 'math') {
-    const solution = notebook.latest('solution');
+    const solution = latestInSection(notebook, 'analysis', 'solution');
     if (!solution) {
-      issues.push({ verifier: 'Artifact', message: 'math: solution アーティファクトが無い' });
-    } else if (!/^solution:\s*x=[0-9.+-]+$/.test(solution.value)) {
-      issues.push({ verifier: 'Artifact', message: `solution が数値 IR 形式でない: ${solution.value.slice(0, 40)}` });
+      issues.push({ verifier: 'Artifact', message: 'math: analysis セクションに solution が無い' });
+    } else {
+      // 実際に数値として検証する（空値・非数値を拒否）
+      const m = /^solution:\s*x=([0-9.+-]+)$/.exec(solution.value);
+      const raw = m?.[1];
+      if (!m || raw === undefined || raw.trim() === '' || !Number.isFinite(Number(raw))) {
+        issues.push({ verifier: 'Artifact', message: `solution が数値 IR 形式でない: ${solution.value.slice(0, 40)}` });
+      }
     }
   } else {
-    const analysis = notebook.latest('analysis');
+    const analysis = latestInSection(notebook, 'analysis', 'analysis');
     if (!analysis) {
-      issues.push({ verifier: 'Artifact', message: 'generic: analysis が無い' });
+      issues.push({ verifier: 'Artifact', message: 'generic: analysis セクションに analysis が無い' });
     } else if (!/^analysis:\s*\[[^\]]*\]$/.test(analysis.value)) {
       issues.push({ verifier: 'Artifact', message: `analysis が閉じた IR 形式でない: ${analysis.value.slice(0, 40)}` });
     }

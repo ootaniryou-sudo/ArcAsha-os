@@ -55,12 +55,12 @@ export interface NotebookEntry {
   refId?: number;
 }
 
-/** immutable なバージョン付きスナップショット */
+/** immutable なバージョン付きスナップショット（本体・entries とも不変） */
 export interface NotebookSnapshot {
-  version: number;
-  at: number;
-  task: string;
-  entries: ReadonlyArray<Readonly<NotebookEntry>>;
+  readonly version: number;
+  readonly at: number;
+  readonly task: string;
+  readonly entries: ReadonlyArray<Readonly<NotebookEntry>>;
 }
 
 /** Expert の Notebook I/O 契約（部分供給 = Need-to-know） */
@@ -245,12 +245,13 @@ export class CaravanNotebook {
   }
 
   private pushSnapshot(): void {
-    this.snapshots.push({
+    // スナップショット本体も freeze（Decision Replay の結果を呼び出し側が破壊できないように）
+    this.snapshots.push(Object.freeze({
       version: this.snapshots.length,
       at: Date.now(),
       task: this.task,
       entries: Object.freeze(this.entries.map(freezeEntry)),
-    });
+    }));
   }
 }
 
