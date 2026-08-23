@@ -1499,6 +1499,74 @@ check('execute: 2+3=5（value 属性を優先・min をオペランドにしな�
 const avmDemo80 = runAvmDemo();
 check('AVM デモ: maxLoadedRatio は 0〜1', avmDemo80.maxLoadedRatio > 0 && avmDemo80.maxLoadedRatio <= 1, String(avmDemo80.maxLoadedRatio));
 
+// [81] Caravan Notebook（Single Source of Truth for Task State）
+console.log('\n[81] Caravan Notebook（Single Source of Truth）');
+const { CaravanNotebook, NOTEBOOK_SECTIONS } = await import('../cognitive/notebook.js');
+const { verifyCaravanArtifact, detectCaravanDomain, verifyAilsaProgram } = await import('../cognitive/caravan-verifier.js');
+const { runCaravan, fixedCaravan } = await import('../cognitive/caravan-loop.js');
+// TeamLearner / KnowledgeOasis は [75] で import 済み
+check('Notebook: セクションが 10 種（TASK〜FINAL_DIAGNOSIS）', NOTEBOOK_SECTIONS.length === 10 && NOTEBOOK_SECTIONS.includes('task') && NOTEBOOK_SECTIONS.includes('final-diagnosis'));
+const nb81 = new CaravanNotebook('ロボットの制御を実装して');
+check('Notebook: v0 初期化（TASK に objective）', nb81.version === 0 && nb81.entriesOf('task').length === 1);
+check('Notebook: snapshot は immutable な v0（entries が frozen）', Object.isFrozen(nb81.snapshot().entries) && nb81.snapshot().entries.length === 1);
+nb81.append('plan', 'plan', 'plan: [steps=2]', 'planning', { round: 1 });
+check('Notebook: append で v1 へ', nb81.version === 1 && nb81.entriesOf('plan').length === 1);
+check('Notebook: 過去 snapshot は不変（v0 はそのまま / Decision Replay）', nb81.snapshot(0).entries.length === 1 && nb81.snapshot(1).entries.length === 2);
+check('Notebook: 不正 IR キーを拒否', (() => { try { nb81.append('plan', 'BadKey', 'plan: [x]', 'planning'); return false; } catch { return true; } })());
+const restricted81 = { id: 'coding', name: 'Coding', role: 'coding', readSections: ['task', 'plan'] as const, writeSections: ['analysis'] as const };
+check('Notebook: writeSections 契約違反を拒否', (() => { try { nb81.append('plan', 'plan', 'plan: [x]', 'coding', { writer: restricted81 }); return false; } catch { return true; } })());
+check('Notebook: view は readSections だけ（Need-to-know）', nb81.view(restricted81).every((e) => e.section === 'task' || e.section === 'plan'));
+check('Notebook: history が v0→vN を積む', nb81.history().length === 2 && nb81.history()[0].version === 0 && nb81.history()[1].version === 1);
+
+// [82] Caravan Loop（PLAN → EXECUTE → OBSERVE → VERIFY → REPLAN）
+console.log('\n[82] Caravan Loop（PLAN→EXECUTE→OBSERVE→VERIFY→REPLAN）');
+const ok82 = await runCaravan({ task: '自律飛行ドローンの制御コードを実装して', team: fixedCaravan('自律飛行ドローンの制御コードを実装して') });
+check('Loop: 成功（verified / rounds=1）', ok82.success && ok82.stopReason === 'verified' && ok82.rounds.filter((x) => x.phase === 'PLAN').length === 1);
+check('Loop: 全状態が Notebook に（Single Source of Truth）', ok82.notebook.entriesOf('plan').length >= 1 && ok82.notebook.entriesOf('final-diagnosis').length === 1);
+const rep82 = await runCaravan({ task: 'ドローンの衝突回避コードを再試行して', team: fixedCaravan('ドローンの衝突回避コードを再試行して') });
+check('Loop: FAIL→ERRORS→REPLAN→PASS（rounds=2）', rep82.success && rep82.rounds.some((x) => x.phase === 'REPLAN') && rep82.notebook.entriesOf('errors').length >= 1);
+check('Loop: 2 ラウンド目で成功（failFirst）', rep82.rounds.filter((x) => x.phase === 'PLAN').length === 2);
+const max82 = await runCaravan({ task: '絶対に失敗して', team: fixedCaravan('絶対に失敗して'), budget: { maxRounds: 1 } });
+check('Loop: Round 上限で停止（max-rounds / success=false）', !max82.success && max82.stopReason === 'max-rounds');
+const bgt82 = await runCaravan({ task: '絶対に失敗して', team: fixedCaravan('絶対に失敗して'), budget: { thinkingBudgetMs: 1 } });
+check('Loop: 思考予算枯渇で停止（budget-exhausted）', !bgt82.success && bgt82.stopReason === 'budget-exhausted');
+check('Loop: remainingBudgetMs は 0 以上', bgt82.remainingBudgetMs >= 0);
+
+// [83] Caravan Verifier（成果物検証 + AILSA validator 接続）
+console.log('\n[83] Caravan Verifier（成果物検証 + AILSA validator 接続）');
+const nbv83 = new CaravanNotebook('sort関数を実装して');
+nbv83.append('plan', 'plan', 'plan: [steps=2]', 'planning', { round: 1 });
+nbv83.append('analysis', 'program', 'program: [plan=motor-control-v1, lines=8]', 'coding', { round: 1 });
+check('Verifier: coding の正しい program → ok', verifyCaravanArtifact(nbv83, 'coding').ok);
+nbv83.append('analysis', 'program', 'program: [broken', 'coding', { round: 2 });
+check('Verifier: coding の壊れた program → fail', !verifyCaravanArtifact(nbv83, 'coding').ok);
+const nbm83 = new CaravanNotebook('x^2+3x+2=0を解いて');
+nbm83.append('plan', 'plan', 'plan: [steps=2]', 'planning', { round: 1 });
+nbm83.append('analysis', 'solution', 'solution: x=5', 'math', { round: 1 });
+check('Verifier: math の正しい solution → ok', verifyCaravanArtifact(nbm83, 'math').ok);
+nbm83.append('analysis', 'solution', 'solution: y=5', 'math', { round: 2 });
+check('Verifier: math の不正 solution → fail', !verifyCaravanArtifact(nbm83, 'math').ok);
+check('Verifier: detectCaravanDomain（coding/math）', detectCaravanDomain('コードを実装して') === 'coding' && detectCaravanDomain('x^2=4を解いて') === 'math');
+const call83 = (id: string): Instruction => ({ opcode: Opcode.CALL, slots: [{ slot: Slot.EXPERT, value: 'reasoning' }, { slot: Slot.TASK_ID, value: id }] });
+const ret83 = (id: string): Instruction => ({ opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: id }, { slot: Slot.OUTPUT, value: 'ok' }] });
+check('Verifier: AILSA 有効 program → ok', verifyAilsaProgram([call83('1'), call83('2'), ret83('1')]).ok);
+check('Verifier: AILSA 無効 program（RETURN RETURN）→ fail', !verifyAilsaProgram([ret83('1'), ret83('2')]).ok);
+
+// [84] Oasis 保存 + Decision Replay（完成 Notebook snapshot / 成功・失敗 Team・Plan・最終診断）
+console.log('\n[84] Oasis 保存 + Decision Replay');
+const oasis84 = new KnowledgeOasis();
+const learner84 = new TeamLearner();
+await runCaravan({ task: '自律飛行ドローンの制御コードを実装して', team: fixedCaravan('自律飛行ドローンの制御コードを実装して'), oasis: oasis84, learner: learner84 });
+await runCaravan({ task: '絶対に失敗して', team: fixedCaravan('絶対に失敗して'), budget: { maxRounds: 1 }, oasis: oasis84, learner: learner84 });
+check('Oasis: 完成 Notebook snapshot が保存される', oasis84.all().some((e) => e.notebookSnapshot !== undefined && e.notebookSnapshot.version >= 0));
+check('Oasis: Plan と最終診断が保存される', oasis84.all().some((e) => e.plan !== undefined && e.diagnosis !== undefined));
+check('Oasis: 成功/失敗が記録される', oasis84.all().some((e) => e.result === 'success') && oasis84.all().some((e) => e.result === 'fail'));
+check('Oasis: recommend が成功を優先（次回推薦材料）', oasis84.recommend('ドローン').length > 0 && oasis84.recommend('ドローン')[0].result === 'success');
+const ok84 = await runCaravan({ task: '自律飛行ドローンの制御コードを実装して', team: fixedCaravan('自律飛行ドローンの制御コードを実装して') });
+check('Decision Replay: notebook.history() が v0→vN を返す', ok84.notebook.history().length >= 3 && ok84.notebook.history()[0].version === 0);
+check('Decision Replay: 最終 snapshot が確定状態を持つ', ok84.finalSnapshot.entries.length >= 4);
+check('Team Learning: 完了後に記録される', learner84.samples('planning>coding') >= 1);
+
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
   console.log('  ✅ ALL PASS — AILSM Phase 0.5（Stage 1 決定論 + Stage 3 決定論Verifier）');
