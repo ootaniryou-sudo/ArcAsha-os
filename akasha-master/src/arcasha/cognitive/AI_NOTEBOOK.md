@@ -5,11 +5,12 @@
 
 - 実装: `akasha-master/src/arcasha/cognitive/`
   - `notebook.ts`（CaravanNotebook: セクション / immutable snapshot / Expert I/O 契約）
-  - `caravan-verifier.ts`（成果物検証 + AILSA validator 接続）
+  - `caravan-verifier.ts`（成果物検証 + AILSA validator 接続 / `verifyArtifactOnly`）
   - `caravan-loop.ts`（PLAN → EXECUTE → OBSERVE → VERIFY → REPLAN 閉ループ + Budget）
+  - `recovery-harness.ts`（Recovery Harness: Notebook=状態とする検証駆動エラー回復閉ループ）
   - `oasis.ts`（Knowledge Oasis 拡張: 完成 Notebook snapshot 保存）
   - `demo.ts --caravan`（CLI）
-  - selftest: AILSM selftest `[81]〜[84]`
+  - selftest: AILSM selftest `[81]〜[85]`
 
 ---
 
@@ -70,7 +71,51 @@
 - math: `solution` アーティファクトの構造検証（数値検証相当）
 - AILSA 接続: `Instruction[]` は `ailsa/validator.validateProgram` で検証（`verifyAilsaProgram`）
 
-## 5. Oasis 保存 + Decision Replay
+## 5. Recovery Harness（Notebook=状態 / 検証駆動エラー回復閉ループ・PR 1）
+
+> 同一タスクに対し、**Verifier による失敗検出 → 回復戦略選択 → 再実行**で完了可能な
+> 閉ループを構成できることを証明する。性能改善は主張しない（Ablation は PR 3）。
+
+- **Notebook が状態、RecoveryHarness は状態遷移を実行する機械。**
+  RecoveryHarness は独自の Task State / Notebook 改竄を行わない。
+  全ての観測（ERRORS）と決定（DECISIONS）は Notebook に追記される。
+- **Recovery Strategy は型として固定**: `Retry / Replan / AddExpert / Abort`。
+- **Strategy 選択の根拠（reason）を必ず Notebook.DECISIONS に残す**（Decision Explanation /
+  Policy Learning への接続点）。`addedCapability` で不足能力を明示（AddExpert 時）。
+- **既存 Harness ABI を実装する decorator**（`Harness`）。base executor には
+  Native / DSH / 実モデル / 決定論 Simulation（`createAttemptArtifactHarness`）を渡せる。
+
+### 閉ループ
+
+```text
+EXECUTE（buildAttemptTask で Notebook 状態を注入）→ ANALYSIS に成果物追記
+  → VERIFY（verifyArtifactOnly: plan 不要のアーティファクト検証）
+    → PASS: FINAL_DIAGNOSIS + completed
+    → FAIL: ERRORS 追記 → selectStrategy → DECISIONS 追記 → recover（再 EXECUTE）
+```
+
+### 既定の回復戦略ポリシー（決定論）
+
+| 検証結果 | 戦略 | 根拠（DECISIONS に残る） |
+|---|---|---|
+| Plan 検証失敗 | `Replan` | plan が検証を満たさない |
+| 実行基盤の失敗 / 形式不良 | `Retry` | 一時障害・形式不良は再実行で回復 |
+| アーティファクト欠落 | `AddExpert` | 不足能力を追加（addedCapability） |
+| 回復不能 / 上限到達 | `Abort` | RECOVERY_EXHAUSTED（retryable） |
+
+### パラメータ
+
+| 項目 | 既定 | 意味 |
+|---|---|---|
+| `maxAttempts` | 3 | 最大試行回数（超過 = RECOVERY_EXHAUSTED） |
+| `roundBudgetMs` | 5000 | 1 回の EXECUTE の予算（超過 = round-timeout → 回復） |
+| `verify` | `verifyArtifactOnly` | アーティファクト検証（差し替え可） |
+| `selectStrategy` | `defaultRecoveryPolicy` | 回復戦略選択（差し替え可） |
+
+失敗履歴（failure history）は Notebook.ERRORS に集約され、
+snapshot（v0→vN）が決定論的に積み上がる（Decision Replay）。
+
+## 6. Oasis 保存 + Decision Replay
 
 `runCaravan` 完了時、Knowledge Oasis に以下を保存する（次回推薦材料 / Decision Replay）。
 
@@ -80,18 +125,18 @@
 
 `notebook.history()` が v0 → vN の全スナップショットを返し、「なぜこの結論に到達したか」を再生できる。
 
-## 6. Phase C 接続口（Dynamic Expert Formation）
+## 7. Phase C 接続口（Dynamic Expert Formation）
 
 - `runCaravan` は `team: NotebookExpert[]` を受け取る。Phase C ではここを
   `composeTeam` / Oasis 推奨で動的に編成する。
 - 本実装（Phase A+B）は**固定 Caravan + 固定 Expert**（`fixedCaravan`）で行う。
 - `notebookExpertFromPool`（notebook.ts）が PoolExpert → NotebookExpert の変換口を提供する。
 
-## 7. 実装ガード
+## 8. 実装ガード
 
-- Notebook 外にタスク状態を持つ新規実装を作らない
+- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness も例外ではない）
 - 既存機能を壊さない（ailsm / ailsa / harness / golden の回帰を維持）
-- selftest `[81]〜[84]` で検証
+- selftest `[81]〜[85]` で検証
 - `npm run build` / `npm run ailsm:selftest` / `npm run ailsa:selftest` / `npm run golden` / dist まで確認
 
 ---
@@ -103,6 +148,6 @@
 cd akasha-master
 npx tsx src/arcasha/cognitive/demo.ts --caravan
 
-# セルフテスト（[81]〜[84] を含む）
+# セルフテスト（[81]〜[85] を含む）
 npm run ailsm:selftest
 ```
