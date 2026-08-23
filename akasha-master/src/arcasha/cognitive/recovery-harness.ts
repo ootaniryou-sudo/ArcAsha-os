@@ -230,26 +230,41 @@ export class RecoveryHarness implements Harness {
       }
 
       // --- EXECUTE: Notebook の現在状態から attempt タスクを組み立て、基盤で実行する ---
+      // round budget を強制しつつ、超過時は基盤へ abort を伝播する（可能なら停止させる）
       const attemptTask = buildAttemptTask(task, this.notebook, attempt);
       let result: HarnessResult | null = null;
       let executorError: string | null = null;
+      let timedOut = false;
+      const attemptSignal = new AbortController();
+      const onOuterAbort = () => attemptSignal.abort();
+      if (options?.signal) {
+        if (options.signal.aborted) throw new HarnessInfrastructureError('RecoveryHarness: aborted before attempt');
+        options.signal.addEventListener('abort', onOuterAbort);
+      }
+      const budgetTimer = setTimeout(() => {
+        timedOut = true;
+        attemptSignal.abort(); // 基盤へ中断を伝播
+      }, this.roundBudgetMs);
       try {
         result = await withTimeout(
-          executeOnce(this.executor, attemptTask, { signal: options?.signal }),
+          executeOnce(this.executor, attemptTask, { signal: attemptSignal.signal }),
           this.roundBudgetMs,
           `round#${attempt}`,
         );
       } catch (e) {
-        if (e instanceof HarnessInfrastructureError || e instanceof HarnessCancelledError) {
-          throw e; // 基盤の継続不能障害・キャンセルは回復対象にしない
+        if (!timedOut && (e instanceof HarnessInfrastructureError || e instanceof HarnessCancelledError)) {
+          throw e; // 基盤の継続不能障害・明示的キャンセルは回復対象にしない
         }
         executorError = e instanceof Error ? e.message : String(e);
+      } finally {
+        clearTimeout(budgetTimer);
+        options?.signal?.removeEventListener('abort', onOuterAbort);
       }
 
       // --- Round 予算 / 実行失敗の検出 ---
       if (result === null) {
         const kind: RecoveryFailure['kind'] =
-          executorError !== null && /round timeout/.test(executorError)
+          timedOut || (executorError !== null && /round timeout/.test(executorError))
             ? 'round-timeout'
             : 'executor-failed';
         const issue = `${kind}: ${executorError?.slice(0, 80) ?? 'unknown'}`;
@@ -264,17 +279,24 @@ export class RecoveryHarness implements Harness {
         this.recordDecision(decision, attempt);
         yield this.messageEvent(task.taskId, executionId, `recover[${attempt}]: ${decision.action} — ${decision.reason}`);
         if (decision.action === 'Abort' || attempt >= this.maxAttempts) {
-          yield this.failedEvent(task.taskId, executionId, attempt);
+          yield this.failedEvent(task.taskId, executionId, attempt, decision.action !== 'Abort');
           return;
         }
         continue;
       }
 
       // --- ANALYSIS: 成果物を Notebook に確定する（Single Source of Truth への書き込み） ---
-      this.notebook.append('analysis', artifactKey, result.output, 'recovery-executor', { round: attempt });
-
-      // --- VERIFY: アーティファクト検証（100% 決定論） ---
-      const verification = this.verify(this.notebook);
+      // 外部由来の成果物が IR 制約（"key: ..."）を満たさない場合は reject して形式不良として回復する
+      let verification: CaravanVerificationResult;
+      try {
+        this.notebook.append('analysis', artifactKey, result.output, 'recovery-executor', { round: attempt });
+        // --- VERIFY: アーティファクト検証（100% 決定論） ---
+        verification = this.verify(this.notebook);
+      } catch {
+        this.notebook.fail('recovery', `成果物が IR 形式でない（reject）: ${result.output.slice(0, 40)}`, { round: attempt });
+        failureHistory.push({ attempt, kind: 'verify-fail', issue: '成果物が IR 形式でない', at: Date.now() });
+        verification = { ok: false, issues: [{ verifier: 'Artifact', message: 'アーティファクトが IR 形式でない' }] };
+      }
       if (verification.ok) {
         this.notebook.diagnose('recovery', '検証済みの成果物を確定', 0.9, [], { round: attempt });
         yield {
@@ -312,7 +334,7 @@ export class RecoveryHarness implements Harness {
       yield this.messageEvent(task.taskId, executionId, `recover[${attempt}]: ${decision.action} — ${decision.reason}`);
 
       if (decision.action === 'Abort' || attempt >= this.maxAttempts) {
-        yield this.failedEvent(task.taskId, executionId, attempt);
+        yield this.failedEvent(task.taskId, executionId, attempt, decision.action !== 'Abort');
         return;
       }
       // Retry / Replan / AddExpert は次の attempt で再 EXECUTE する
@@ -333,15 +355,15 @@ export class RecoveryHarness implements Harness {
     return { type: 'message', taskId, executionId, text, timestamp: Date.now() };
   }
 
-  private failedEvent(taskId: string, executionId: string, attempts: number): HarnessEvent {
+  private failedEvent(taskId: string, executionId: string, attempts: number, retryable = true): HarnessEvent {
     return {
       type: 'failed',
       taskId,
       executionId,
       error: {
         code: 'RECOVERY_EXHAUSTED',
-        message: `回復不能（attempts=${attempts} / maxAttempts=${this.maxAttempts}）`,
-        retryable: true,
+        message: `回復不能（attempts=${attempts} / maxAttempts=${this.maxAttempts}${retryable ? '' : ' / non-retryable: Abort'}）`,
+        retryable,
       },
       timestamp: Date.now(),
     };

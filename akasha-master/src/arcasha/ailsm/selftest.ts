@@ -1677,9 +1677,9 @@ let abortThrew85 = false;
 try {
   await runRecoveryOnce(rhAbort85, { taskId: 'abort', text: 'ドローン制御を実装して' });
 } catch (e) {
-  abortThrew85 = e instanceof HarnessTaskError && e.error.code === 'RECOVERY_EXHAUSTED';
+  abortThrew85 = e instanceof HarnessTaskError && e.error.code === 'RECOVERY_EXHAUSTED' && e.error.retryable === false;
 }
-check('Recovery: Abort → failed(RECOVERY_EXHAUSTED)', abortThrew85);
+check('Recovery: Abort → failed(RECOVERY_EXHAUSTED / non-retryable)', abortThrew85);
 check('Recovery: Abort 時も根拠が DECISIONS に残る', nbAbort85.entriesOf('decisions').some((e) => e.value.includes('action=Abort')));
 
 // --- maxAttempts 上限（既定ポリシー・毎回形式不良） ---
@@ -1715,6 +1715,17 @@ try {
 check('Recovery: round-timeout で失敗（予算超過）', budgetThrew85);
 check('Recovery: round-timeout が ERRORS に記録', nbBudget85.entriesOf('errors').some((e) => e.value.includes('round-timeout')));
 
+// --- IR 制約外の成果物（外部由来の生テキスト）→ reject → 形式不良として Retry → 成功 ---
+const nbIr85 = new CaravanNotebook('ドローン制御を実装して');
+const irExecutor85 = createAttemptArtifactHarness({
+  domain: 'coding',
+  produce: (attempt) => (attempt === 1 ? 'プログラム: 生テキスト（IR ではない）' : 'program: [plan=v4, lines=8]'),
+});
+const rhIr85 = new RecoveryHarness({ executor: irExecutor85, notebook: nbIr85, domain: 'coding' });
+const resIr85 = await runRecoveryOnce(rhIr85, { taskId: 'ir', text: 'ドローン制御を実装して' });
+check('Recovery: IR 制約外の成果物 → reject → Retry → 成功', resIr85.ok && resIr85.metadata?.attempts === 2);
+check('Recovery: IR 制約外が ERRORS に記録', nbIr85.entriesOf('errors').some((e) => e.value.includes('IR 形式でない')));
+
 // --- Harness ABI 互換性（Harness として event stream を消費できる） ---
 const nbAbi85 = new CaravanNotebook('ドローン制御を実装して');
 const abiExecutor85 = createAttemptArtifactHarness({ domain: 'coding', produce: (attempt) => (attempt === 1 ? 'program: [broken' : 'program: [plan=v1, lines=8]') });
@@ -1725,7 +1736,12 @@ for await (const ev of rhAbi85.execute({ taskId: 'abi', text: 'ドローン制�
 }
 check('Recovery: Harness ABI（started→…→completed）', events85[0] === 'started' && events85[events85.length - 1] === 'completed');
 check('Recovery: 中間に message（recover[1]: …）', events85.some((t) => t === 'message'));
-check('Recovery: verifyArtifactOnly は plan を要求しない', verifyArtifactOnly(new CaravanNotebook('x')).ok === false || verifyArtifactOnly(nbRetry85, 'coding').ok);
+
+// verifyArtifactOnly: plan が無くてもアーティファクトがあれば ok（plan を要求しない）
+const nbNoPlan85 = new CaravanNotebook('ドローン制御を実装して');
+nbNoPlan85.append('analysis', 'program', 'program: [plan=none, lines=1]', 'coding', { round: 1 });
+check('Recovery: verifyArtifactOnly は plan を要求しない（アーティファクトのみで ok）', verifyArtifactOnly(nbNoPlan85, 'coding').ok);
+check('Recovery: verifyArtifactOnly は成果物なしで fail', !verifyArtifactOnly(new CaravanNotebook('x'), 'coding').ok);
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {

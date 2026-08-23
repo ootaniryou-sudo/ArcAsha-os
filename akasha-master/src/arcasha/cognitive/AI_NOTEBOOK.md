@@ -96,12 +96,17 @@ EXECUTE（buildAttemptTask で Notebook 状態を注入）→ ANALYSIS に成果
 
 ### 既定の回復戦略ポリシー（決定論）
 
+
 | 検証結果 | 戦略 | 根拠（DECISIONS に残る） |
 |---|---|---|
 | Plan 検証失敗 | `Replan` | plan が検証を満たさない |
-| 実行基盤の失敗 / 形式不良 | `Retry` | 一時障害・形式不良は再実行で回復 |
+| 実行基盤の失敗 / 形式不良 / IR 制約外 | `Retry` | 一時障害・形式不良は再実行で回復 |
 | アーティファクト欠落 | `AddExpert` | 不足能力を追加（addedCapability） |
-| 回復不能 / 上限到達 | `Abort` | RECOVERY_EXHAUSTED（retryable） |
+| 未分類 | `Retry` | フォールバック |
+
+> `Abort` は `defaultRecoveryPolicy` は返さない。`maxAttempts` 上限到達
+> （RECOVERY_EXHAUSTED）時にループ側が `failed` を発行する。`Abort` 決定・上限到達時は
+> `retryable: false` になる（回復不能の明示）。
 
 ### パラメータ
 
