@@ -4,7 +4,7 @@
 **対象:** ArcAsha Master Runtime の Coding Attachment / Harness Execution Layer
 **対象フェーズ:** H0〜H3 を実装可能な最小仕様 + H4以降の拡張契約
 **作成日:** 2026-08-20
-**ステータス:** H0 実装済み（PR #15）→ H1/H2-A 実装済み（PR #16）→ H2-B 実装済み（PR #17）
+**ステータス:** H0 実装済み（PR #15）→ H1/H2-A 実装済み（PR #16）→ H2-B 実装済み（PR #17）→ H3 実装済み（PR #18）
 
 ---
 
@@ -461,7 +461,7 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
 | H1 | `harness/native.ts` — 既存 Coding ロジックを NativeHarness 化 | ✅ 済（PR #16） |
 | H2-A | `harness/deepseek.ts` — DSH adapter スケルトン（lockfile pin / プローブ / Native フォールバック） | ✅ 済（PR #16） |
 | H2-B | ACP 接続による実実行（turn/step/tool → HarnessEvent 写像・AbortSignal 伝播） | ✅ 済（PR #17） |
-| H3 | `CodingAttachment → code.execute → Harness → DSH/Native` | ⬜ 未着手 |
+| H3 | `CodingAttachment → code.execute → Harness → DSH/Native` | ✅ 済（PR #18） |
 
 ## H2-A 実装メモ（dsh 統合設計）
 
@@ -506,6 +506,25 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
   未設定なら `available()=false` → Native フォールバック。実サーバーでの integration test 完了時に
   §27 の `DSH_COMMIT` を確定する。
 
+## H3 実装メモ（code.execute）
+
+- **Capability**: `harness/capability.ts` — 最初の固定 Capability 名 `code.execute`。
+  Capability Resolver / Router は導入しない（§23, §42）。
+- **実行経路**: `CodingAttachment → codeExecute → Harness → NativeHarness / DeepSeekHarnessAdapter`。
+  既定は `resolveHarness('deepseek')`（DSH 不可なら Native にフォールバック = Rollback Safety）。
+- **結果写像**: completed → ok=true / failed → ok=false + error / cancelled → ok=false + code=CANCELLED
+  / detached → HarnessInfrastructureError / iterator throw → そのまま伝播。
+- **観測**: `consumeHarness` に `onEvent` フックを追加し、`codeExecute` が全イベント列を
+  `CodeExecuteResult.events` で返す（progress 観測 / トレース）。同一 task で複数回実行すると
+  executionId は毎回異なる。
+- **Coding Attachment 委譲**: `attachments/coding.ts` を Harness 委譲にリファクタ。
+  - 宣言: `capabilities = ['code.execute']`（Attachment に optional な `capabilities` フィールドを追加）。
+  - 実行基盤（生成・レビュー・実コンパイル）は Harness（NativeHarness）に委譲。
+  - Harness は遅延解決 + メモ化（DSH 不可なら Native を 1 回だけ解決）。
+  - 観測イベント → `detail` ログ、`HarnessResult` → `AttachmentResult` へ変換。
+- **検証**: `selftest [11]` — Native / DSH mock / fallback / failed / infra / 同一 taskId
+  複数 executionId / message 観測 / CodingAttachment E2E（計 18 件）。
+
 ---
 
 # 32. H0 Acceptance Criteria（実装済み・selftest で検証）
@@ -525,7 +544,7 @@ H2では upstream branch 追従を禁止。特定 commit SHA を記録し、inte
 
 - H1: 既存 Coding 主要ケースが NativeHarness 経由で成功 / failure が `failed` / `started → completed` / AbortSignal 停止 / NativeHarness を disable しても他 Attachment は動く / Legacy と意味論一致
 - H2: 固定 DSH commit で起動 / completed / failed / throw / AbortSignal / grace 内停止 / detach / Native 切戻し（H2-A）+ ACP 実実行: message 写像 / stopReason 写像 / abort→cancelled / 権限ポリシー / infra 分離（H2-B・selftest [10] で検証済み）
-- H3: `code.execute` 経路 / progress 観測 / 中途失敗 `failed` / infra `throw` / 同一 taskId 複数 executionId / DSH 無効化で Native 戻し
+- H3: `code.execute` 経路 / progress 観測 / 中途失敗 `failed` / infra `throw` / 同一 taskId 複数 executionId / DSH 無効化で Native 戻し（H3・selftest [11] で検証済み）
 
 ---
 

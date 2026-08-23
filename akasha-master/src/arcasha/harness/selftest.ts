@@ -23,6 +23,9 @@ import { consumeHarness } from './consume.js';
 import { NativeHarness, generateCode, suggestFunctionName } from './native.js';
 import { DeepSeekHarnessAdapter, DSH_VERSION } from './deepseek.js';
 import { createHarness, resolveHarness } from './registry.js';
+import { codeExecute, CODE_EXECUTE } from './capability.js';
+import { CodingAttachment } from '../attachments/coding.js';
+import type { AttachmentContext } from '../attachments/attachment.js';
 import { fileURLToPath } from 'node:url';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -337,8 +340,9 @@ await expectThrowAsync('consumeHarness: 要求 taskId と異なるイベント�
 
 // ─── [6] 既存 Attachment への非干渉 ──────────────────────────────────────────
 console.log('\n[6] 既存 Attachment への非干渉');
-// H0 では coding.ts 等の既存 Attachment は変更しない（Harness は独立モジュール）。
-// ここでは Harness を未使用でもモジュールが import / 動作することを確認。
+// H0 では coding.ts 等の既存 Attachment は変更しなかった（Harness は独立モジュール）。
+// H3 で coding.ts は code.execute 委譲に変更済み。ここでは Harness を未使用でも
+// モジュールが import / 動作することを確認。
 const untouched = await executeOnce(new MockHarness('success', { output: 'standalone' }), { taskId: 'no-dep', text: '依存しない' });
 check('Harness は単独で動作（既存コードに未依存）', untouched.ok && untouched.output === 'standalone');
 
@@ -603,6 +607,115 @@ console.log('\n[10] DeepSeek Harness Adapter（H2-B: ACP 実実行）');
       await consumeHarness(adapter, TASK);
     }, HarnessInfrastructureError);
   }
+}
+
+// ─── [11] code.execute Capability（H3） ──────────────────────────────────────
+console.log('\n[11] code.execute Capability（H3）');
+{
+  check('CODE_EXECUTE が固定名', CODE_EXECUTE === 'code.execute');
+}
+{
+  // Native Harness で実行 → ok / 出力は生成コード / started→completed を観測
+  const result = await codeExecute(
+    { taskId: 'h3-native', text: 'sort関数を実装して' },
+    { harness: new NativeHarness() },
+  );
+  check('codeExecute(native): ok', result.ok === true);
+  check('codeExecute(native): 出力は生成コード', result.output.includes('export function'));
+  check('codeExecute(native): harnessKind=native', result.harnessKind === 'native');
+  const types = result.events.map((e) => e.type);
+  check('codeExecute(native): started→completed を観測', types.includes('started') && types.includes('completed'));
+  check('codeExecute(native): latencyMs は非負', result.latencyMs >= 0);
+}
+{
+  // 同一 taskId で 2 回実行 → executionId が異なる（実行試行単位の観測）
+  const task = { taskId: 'h3-same', text: 'add関数を実装して' };
+  const r1 = await codeExecute(task, { harness: new NativeHarness() });
+  const r2 = await codeExecute(task, { harness: new NativeHarness() });
+  check('codeExecute: 同一 taskId / 複数 executionId', r1.executionId !== null && r2.executionId !== null && r1.executionId !== r2.executionId);
+}
+{
+  // DSH（mock ACP サーバー）で同一タスク → harnessKind=deepseek / message（progress）を観測
+  const tmp = await mkdtemp(join(tmpdir(), 'arcasha-h3-'));
+  const MOCK_SERVER = fileURLToPath(new URL('./mock-acp-server.mjs', import.meta.url));
+  const dsh = new DeepSeekHarnessAdapter({
+    probe: async () => true,
+    permission: 'reject',
+    requestTimeoutMs: 10_000,
+    sessionCwd: tmp,
+    serverCommand: () => ({ command: process.execPath, args: [MOCK_SERVER], env: { MOCK_TEXT: 'ok from dsh', MOCK_STOP: 'end_turn' } }),
+  });
+  const result = await codeExecute({ taskId: 'h3-dsh', text: 'sort関数を実装して' }, { harness: dsh });
+  check('codeExecute(dsh mock): ok', result.ok === true);
+  check('codeExecute(dsh mock): harnessKind=deepseek', result.harnessKind === 'deepseek');
+  check('codeExecute(dsh mock): message（progress）を観測', result.events.some((e) => e.type === 'message'));
+}
+{
+  // DSH 不可 → Native フォールバック（Rollback Safety）
+  const harness = await resolveHarness('deepseek', () => new DeepSeekHarnessAdapter({ probe: async () => false }));
+  check('resolveHarness: DSH 不可 → Native', harness instanceof NativeHarness);
+  const result = await codeExecute({ taskId: 'h3-fallback', text: 'sort関数を実装して' }, { harness });
+  check('codeExecute(fallback): harnessKind=native で成功', result.harnessKind === 'native' && result.ok === true);
+}
+{
+  // タスク失敗（refusal）→ ok=false + error.code=REFUSAL
+  const tmp = await mkdtemp(join(tmpdir(), 'arcasha-h3-'));
+  const MOCK_SERVER = fileURLToPath(new URL('./mock-acp-server.mjs', import.meta.url));
+  const dsh = new DeepSeekHarnessAdapter({
+    probe: async () => true,
+    requestTimeoutMs: 10_000,
+    sessionCwd: tmp,
+    serverCommand: () => ({ command: process.execPath, args: [MOCK_SERVER], env: { MOCK_STOP: 'refusal' } }),
+  });
+  const result = await codeExecute({ taskId: 'h3-fail', text: 'x' }, { harness: dsh });
+  check('codeExecute: refusal → ok=false / error.code=REFUSAL', result.ok === false && result.error?.code === 'REFUSAL');
+}
+{
+  // infrastructure（サーバークラッシュ）→ throw
+  const tmp = await mkdtemp(join(tmpdir(), 'arcasha-h3-'));
+  const MOCK_SERVER = fileURLToPath(new URL('./mock-acp-server.mjs', import.meta.url));
+  const dsh = new DeepSeekHarnessAdapter({
+    probe: async () => true,
+    requestTimeoutMs: 10_000,
+    sessionCwd: tmp,
+    serverCommand: () => ({ command: process.execPath, args: [MOCK_SERVER], env: { MOCK_CRASH: '1' } }),
+  });
+  await expectThrowAsync('codeExecute: サーバークラッシュ → infrastructure throw', async () => {
+    await codeExecute({ taskId: 'h3-infra', text: 'x' }, { harness: dsh });
+  }, HarnessInfrastructureError);
+}
+{
+  // CodingAttachment E2E: code.execute 経由で Harness 実行（Native フォールバック）
+  const attachment = new CodingAttachment();
+  check('CodingAttachment: code.execute を宣言', attachment.capabilities?.includes('code.execute') === true);
+  const res = await attachment.run({
+    text: 'sort関数を実装して',
+    booted: {} as unknown as AttachmentContext['booted'],
+    attach: async () => null,
+  });
+  check('CodingAttachment.run: ok（Harness 委譲）', res.ok === true);
+  check('CodingAttachment.run: 成果は生成コード', res.text.includes('export function'));
+  check('CodingAttachment.run: CAPABILITY ログ', res.detail.some((d) => d.startsWith('CAPABILITY: code.execute')));
+  check('CodingAttachment.run: 検証済みコードのみ ok', res.detail.some((d) => d.startsWith('VERIFY: 成功')) && res.ok === true);
+}
+{
+  // DSH 出力が構文エラー → 検証で拒否 → ok=false（Harness の completed ≠ コンパイル成功）
+  const tmp = await mkdtemp(join(tmpdir(), 'arcasha-h3-'));
+  const MOCK_SERVER = fileURLToPath(new URL('./mock-acp-server.mjs', import.meta.url));
+  const dsh = new DeepSeekHarnessAdapter({
+    probe: async () => true,
+    requestTimeoutMs: 10_000,
+    sessionCwd: tmp,
+    serverCommand: () => ({ command: process.execPath, args: [MOCK_SERVER], env: { MOCK_TEXT: 'this is not valid js {{', MOCK_STOP: 'end_turn' } }),
+  });
+  const attachment = new CodingAttachment(async () => dsh);
+  const res = await attachment.run({
+    text: 'sort関数を実装して',
+    booted: {} as unknown as AttachmentContext['booted'],
+    attach: async () => null,
+  });
+  check('CodingAttachment: DSH 構文エラー出力 → ok=false（検証で拒否）', res.ok === false);
+  check('CodingAttachment: VERIFY: 失敗 が detail にある', res.detail.some((d) => d.startsWith('VERIFY: 失敗')));
 }
 
 // ─── 結果 ────────────────────────────────────────────────────────────────────

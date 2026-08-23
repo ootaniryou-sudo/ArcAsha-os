@@ -40,3 +40,7 @@ export type { DshAdapterOptions } from './deepseek.js';
 // Registry（Native フォールバック）
 export { createHarness, resolveHarness } from './registry.js';
 export type { HarnessKind } from './registry.js';
+
+// H3: code.execute Capability
+export { codeExecute, CODE_EXECUTE } from './capability.js';
+export type { CodeExecuteOptions, CodeExecuteResult } from './capability.js';

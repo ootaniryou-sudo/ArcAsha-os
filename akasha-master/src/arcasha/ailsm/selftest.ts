@@ -1037,8 +1037,8 @@ check('Simulation: 分岐実行→統合', sim65.text.includes('前提A') && sim
 const ctx65e: AttachmentContext = { text: 'コードを実装して', booted: boot65, attach: (id) => mgr65.execute(id, ctx65e) };
 await mgr65.load('coding');
 const cod65 = await mgr65.execute('coding', ctx65e);
-check('Coding: 解析→パッチ→レビュー→コンパイル', cod65.detail.some((d) => d.startsWith('ANALYZE')) && cod65.detail.some((d) => d.startsWith('COMPILE')) && cod65.ok);
-check('Coding: 実コンパイル（node --check）成功', cod65.detail.some((d) => d.includes('node --check')) && cod65.detail.some((d) => d.includes('COMPILE: 成功')));
+check('Coding: code.execute 経由で Harness 委譲', cod65.detail.some((d) => d.startsWith('CAPABILITY: code.execute')) && cod65.detail.some((d) => d.startsWith('HARNESS:')) && cod65.ok);
+check('Coding: 検証済みコードのみ成功', cod65.detail.some((d) => d.startsWith('VERIFY: 成功')) && cod65.ok);
 const supports65 = (task: string): string => mgr65.list().filter((a) => a.enabled && a.supports(task)).map((a) => a.id).sort().join(',');
 check('supports: 批判的評価 → reflection+debate', supports65('この論文を批判的に評価して') === 'debate,reflection');
 check('supports: 実装 → coding', supports65('コードを実装して') === 'coding');

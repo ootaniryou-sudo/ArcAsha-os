@@ -32,10 +32,16 @@ const DEFAULT_GRACE_MS = 3000;
 /** generator close（iterator.return）の上限時間。cleanup が無期限に settle しない場合の保険。 */
 const CLOSE_TIMEOUT_MS = 1000;
 
+/** consumeHarness 専用のオプション（HarnessExecuteOptions に観測フックを追加）。 */
+export interface ConsumeOptions extends HarnessExecuteOptions {
+  /** 受信した各イベントを観測するためのフック（H3 の progress 観測 / トレース用）。 */
+  onEvent?: (event: HarnessEvent) => void;
+}
+
 export async function consumeHarness(
   harness: Harness,
   task: HarnessTask,
-  options?: HarnessExecuteOptions,
+  options?: ConsumeOptions,
 ): Promise<HarnessOutcome> {
   const cancelGracePeriodMs = options?.cancelGracePeriodMs ?? DEFAULT_GRACE_MS;
   const signal = options?.signal;
@@ -78,6 +84,7 @@ export async function consumeHarness(
         throw new HarnessInfrastructureError('Harness が terminal event なしに終了');
       }
       const event: HarnessEvent = res.value;
+      options?.onEvent?.(event);
 
       // ── 逐次状態機械: 順序・重複・ID 一致を検証（壊れた Adapter からの防御） ──
       if (event.taskId !== task.taskId) {
