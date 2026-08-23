@@ -55,27 +55,9 @@ function latestInSection(
   return undefined;
 }
 
-/**
- * Notebook の成果物を構造検証する。
- * - PLAN セクションに plan が存在し、IR 形式（plan: ...）であること
- * - ドメイン別のアーティファクト（program / solution / analysis）が ANALYSIS セクションに
- *   存在し、IR 形式であること（key だけでなくセクションでも制約）
- */
-export function verifyCaravanArtifact(
-  notebook: CaravanNotebook,
-  domain: CaravanDomain = 'generic',
-): CaravanVerificationResult {
+/** ドメイン別のアーティファクト検査（program / solution / analysis を analysis セクションから検証） */
+function verifyArtifactIssues(notebook: CaravanNotebook, domain: CaravanDomain): CaravanVerificationIssue[] {
   const issues: CaravanVerificationIssue[] = [];
-
-  // 1. PLAN が必要（実行組織としての最低契約）。plan は plan セクションから取得
-  const plan = latestInSection(notebook, 'plan', 'plan');
-  if (!plan) {
-    issues.push({ verifier: 'Plan', message: 'PLAN セクションに plan が無い' });
-  } else if (!/^plan:\s*\[/.test(plan.value)) {
-    issues.push({ verifier: 'Plan', message: `plan が IR 形式でない: ${plan.value.slice(0, 40)}` });
-  }
-
-  // 2. ドメイン別のアーティファクト検査（成果物検証）。program / solution / analysis は analysis セクションから
   if (domain === 'coding') {
     const program = latestInSection(notebook, 'analysis', 'program');
     if (!program) {
@@ -103,6 +85,44 @@ export function verifyCaravanArtifact(
       issues.push({ verifier: 'Artifact', message: `analysis が閉じた IR 形式でない: ${analysis.value.slice(0, 40)}` });
     }
   }
+  return issues;
+}
+
+/**
+ * アーティファクトのみの検証（Recovery Harness など、plan を必須にしない検証器）。
+ * ドメイン別の成果物（program / solution / analysis）が ANALYSIS セクションに存在し、
+ * IR 形式であることを検査する。
+ */
+export function verifyArtifactOnly(
+  notebook: CaravanNotebook,
+  domain: CaravanDomain = 'generic',
+): CaravanVerificationResult {
+  const issues = verifyArtifactIssues(notebook, domain);
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * Notebook の成果物を構造検証する（Caravan Loop 向け）。
+ * - PLAN セクションに plan が存在し、IR 形式（plan: ...）であること
+ * - ドメイン別のアーティファクト（program / solution / analysis）が ANALYSIS セクションに
+ *   存在し、IR 形式であること（key だけでなくセクションでも制約）
+ */
+export function verifyCaravanArtifact(
+  notebook: CaravanNotebook,
+  domain: CaravanDomain = 'generic',
+): CaravanVerificationResult {
+  const issues: CaravanVerificationIssue[] = [];
+
+  // 1. PLAN が必要（実行組織としての最低契約）。plan は plan セクションから取得
+  const plan = latestInSection(notebook, 'plan', 'plan');
+  if (!plan) {
+    issues.push({ verifier: 'Plan', message: 'PLAN セクションに plan が無い' });
+  } else if (!/^plan:\s*\[/.test(plan.value)) {
+    issues.push({ verifier: 'Plan', message: `plan が IR 形式でない: ${plan.value.slice(0, 40)}` });
+  }
+
+  // 2. アーティファクト検査（成果物検証）
+  issues.push(...verifyArtifactIssues(notebook, domain));
 
   return { ok: issues.length === 0, issues };
 }

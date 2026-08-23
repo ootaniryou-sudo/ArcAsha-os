@@ -85,6 +85,7 @@ import { captureReplay, renderReplay, renderReplayStep, replayStepCount } from '
 import { runCli } from '../cli.js';
 import type { AttachmentContext } from '../attachments/attachment.js';
 import type { Hypothesis } from './reasoning.js';
+import type { Harness } from '../harness/harness.js';
 
 let failed = 0;
 
@@ -1579,6 +1580,171 @@ const ok84 = await runCaravan({ task: '自律飛行ドローンの制御コー�
 check('Decision Replay: notebook.history() が v0→vN を返す', ok84.notebook.history().length >= 3 && ok84.notebook.history()[0].version === 0);
 check('Decision Replay: 最終 snapshot が確定状態を持つ', ok84.finalSnapshot.entries.length >= 4);
 check('Team Learning: 完了後に記録される', learner84.samples('planning>coding') >= 1);
+
+// [85] Recovery Harness（Notebook=状態 / 検証駆動エラー回復閉ループ。性能改善は主張しない）
+console.log('\n[85] Recovery Harness（Notebook=状態 / 検証駆動エラー回復閉ループ）');
+const { RecoveryHarness, createAttemptArtifactHarness, defaultRecoveryPolicy, buildAttemptTask, formatDecision, artifactKeyFor, runRecoveryOnce } = await import('../cognitive/recovery-harness.js');
+const { verifyArtifactOnly } = await import('../cognitive/caravan-verifier.js');
+// CaravanNotebook は [81] で import 済み
+const { HarnessTaskError } = await import('../harness/types.js');
+
+// --- 型 / 純関数（決定論） ---
+check('Recovery: ドメイン別アーティファクトキー', artifactKeyFor('coding') === 'program' && artifactKeyFor('math') === 'solution' && artifactKeyFor('generic') === 'analysis');
+check('Recovery: formatDecision は IR（根拠を保持）', formatDecision({ action: 'Replan', reason: 'plan が検証を満たさない' }) === 'decision: [action=Replan, reason="plan が検証を満たさない"]');
+check('Recovery: AddExpert は addedCapability を保持', formatDecision({ action: 'AddExpert', reason: '能力追加', addedCapability: 'coding' }).includes('addedCapability=coding'));
+// カスタム selectStrategy が構造文字（" / [ / ]）を含む理由を返しても IR が壊れない
+const dec85 = formatDecision({ action: 'Retry', reason: 'quoted "reason" [x]', addedCapability: 'a]b' });
+check('Recovery: formatDecision は構造文字をサニタイズ（" / [ / ]）', dec85.includes('reason="quoted \\"reason\\" (x)"') && dec85.includes('addedCapability=a)b') && !dec85.includes('[x]'));
+const ctxUnit85 = (verifier: string, message: string): Parameters<typeof defaultRecoveryPolicy>[0] => ({
+  notebook: new CaravanNotebook('テスト'),
+  attempt: 1,
+  verification: { ok: false, issues: [{ verifier, message }] },
+  failureHistory: [],
+});
+check('Recovery: Plan 検証失敗 → Replan', defaultRecoveryPolicy(ctxUnit85('Plan', 'PLAN セクションに plan が無い')).action === 'Replan');
+check('Recovery: 形式不良 → Retry', defaultRecoveryPolicy(ctxUnit85('Artifact', 'program が閉じた IR 形式でない: x')).action === 'Retry');
+check('Recovery: アーティファクト欠落 → AddExpert(coding)', defaultRecoveryPolicy(ctxUnit85('Artifact', 'coding: analysis セクションに program が無い')).action === 'AddExpert');
+check('Recovery: 実行基盤の失敗 → Retry', defaultRecoveryPolicy({ ...ctxUnit85('Executor', 'executor-failed: boom'), failureHistory: [{ attempt: 1, kind: 'executor-failed', issue: 'executor-failed: boom', at: 0 }] }).action === 'Retry');
+
+// --- buildAttemptTask: attempt / recoveryContext を注入（Notebook 状態を task へ合成） ---
+const nbctx85 = new CaravanNotebook('ドローン制御を実装して');
+nbctx85.append('errors', 'error', 'error: "verify: Artifact 形式不良"', 'recovery', { round: 1 });
+const attemptTask85 = buildAttemptTask({ taskId: 't1', text: 'ドローン制御を実装して' }, nbctx85, 2);
+check('Recovery: buildAttemptTask が attempt=2 を注入', attemptTask85.metadata?.attempt === 2);
+check('Recovery: buildAttemptTask が recoveryContext を注入', typeof attemptTask85.metadata?.recoveryContext === 'string' && attemptTask85.text.includes('recovery context'));
+
+// --- 閉ループ: attempt1 形式不良 → Retry → attempt2 成功 ---
+const nbRetry85 = new CaravanNotebook('ドローン制御を実装して');
+const retryExecutor85 = createAttemptArtifactHarness({
+  domain: 'coding',
+  produce: (attempt) => (attempt === 1 ? 'program: [broken' : 'program: [plan=motor-control-v1, lines=8]'),
+});
+const rhRetry85 = new RecoveryHarness({ executor: retryExecutor85, notebook: nbRetry85, domain: 'coding' });
+const resRetry85 = await runRecoveryOnce(rhRetry85, { taskId: 'retry', text: 'ドローン制御を実装して' });
+check('Recovery: Retry 閉ループで完了（attempts=2）', resRetry85.ok && resRetry85.metadata?.attempts === 2);
+check('Recovery: Notebook に DECISIONS(action=Retry) が記録', nbRetry85.entriesOf('decisions').some((e) => e.value.includes('action=Retry')));
+check('Recovery: Notebook に ERRORS が記録', nbRetry85.entriesOf('errors').length === 1);
+check('Recovery: 最終診断（FINAL_DIAGNOSIS）が確定', nbRetry85.entriesOf('final-diagnosis').length === 1);
+check('Recovery: snapshot が決定論的に v0→vN を積む（Decision Replay）', nbRetry85.history().length >= 5 && nbRetry85.history()[0].version === 0);
+
+// --- 実行基盤の失敗（failed イベント）→ Retry → 成功 ---
+const nbExec85 = new CaravanNotebook('ドローン制御を実装して');
+const execFail85 = createAttemptArtifactHarness({
+  domain: 'coding',
+  produce: (attempt) => (attempt === 1 ? undefined : 'program: [plan=v2, lines=8]'),
+});
+const rhExec85 = new RecoveryHarness({ executor: execFail85, notebook: nbExec85, domain: 'coding' });
+const resExec85 = await runRecoveryOnce(rhExec85, { taskId: 'exec', text: 'ドローン制御を実装して' });
+check('Recovery: 実行失敗→Retry→成功（attempts=2）', resExec85.ok && resExec85.metadata?.attempts === 2);
+check('Recovery: 実行失敗が ERRORS に executor-failed で記録', nbExec85.entriesOf('errors').some((e) => e.value.includes('executor-failed')));
+
+// --- Replan 戦略（検証失敗 → 再計画 → 成功） ---
+const nbReplan85 = new CaravanNotebook('ドローン制御を実装して');
+const replanExecutor85 = createAttemptArtifactHarness({ domain: 'coding', produce: (attempt) => (attempt === 1 ? 'program: [broken' : 'program: [plan=v2, lines=8]') });
+const rhReplan85 = new RecoveryHarness({
+  executor: replanExecutor85,
+  notebook: nbReplan85,
+  domain: 'coding',
+  selectStrategy: (ctx) => (ctx.attempt === 1 ? { action: 'Replan', reason: 'plan が検証を満たさない', addedCapability: 'planning' } : defaultRecoveryPolicy(ctx)),
+});
+const resReplan85 = await runRecoveryOnce(rhReplan85, { taskId: 'replan', text: 'ドローン制御を実装して' });
+check('Recovery: Replan 戦略で完了', resReplan85.ok);
+check('Recovery: DECISIONS に Replan（根拠付き）', nbReplan85.entriesOf('decisions').some((e) => e.value.includes('action=Replan') && e.value.includes('plan が検証を満たさない')));
+
+// --- AddExpert 戦略（不足能力を追加 → recoveryContext 経由で基盤に反映） ---
+const nbAdd85 = new CaravanNotebook('ドローン制御を実装して');
+const addExecutor85 = createAttemptArtifactHarness({
+  domain: 'coding',
+  produce: (attempt, task) => (attempt === 1 || !String(task.metadata?.recoveryContext ?? '').includes('addedCapability=coding') ? undefined : 'program: [plan=v3, lines=8]'),
+});
+const rhAdd85 = new RecoveryHarness({
+  executor: addExecutor85,
+  notebook: nbAdd85,
+  domain: 'coding',
+  selectStrategy: (ctx) => (ctx.attempt === 1 ? { action: 'AddExpert', reason: 'アーティファクトを生成できていないため能力を追加する', addedCapability: 'coding' } : defaultRecoveryPolicy(ctx)),
+});
+const resAdd85 = await runRecoveryOnce(rhAdd85, { taskId: 'add', text: 'ドローン制御を実装して' });
+check('Recovery: AddExpert（addedCapability=coding）で完了', resAdd85.ok && resAdd85.metadata?.attempts === 2);
+check('Recovery: DECISIONS に addedCapability=coding', nbAdd85.entriesOf('decisions').some((e) => e.value.includes('action=AddExpert') && e.value.includes('addedCapability=coding')));
+
+// --- Abort 戦略（回復不能 → failed） ---
+const nbAbort85 = new CaravanNotebook('ドローン制御を実装して');
+const abortExecutor85 = createAttemptArtifactHarness({ domain: 'coding', produce: () => undefined });
+const rhAbort85 = new RecoveryHarness({
+  executor: abortExecutor85,
+  notebook: nbAbort85,
+  domain: 'coding',
+  selectStrategy: () => ({ action: 'Abort', reason: '回復不能と判断' }),
+});
+let abortThrew85 = false;
+try {
+  await runRecoveryOnce(rhAbort85, { taskId: 'abort', text: 'ドローン制御を実装して' });
+} catch (e) {
+  abortThrew85 = e instanceof HarnessTaskError && e.error.code === 'RECOVERY_EXHAUSTED' && e.error.retryable === false;
+}
+check('Recovery: Abort → failed(RECOVERY_EXHAUSTED / non-retryable)', abortThrew85);
+check('Recovery: Abort 時も根拠が DECISIONS に残る', nbAbort85.entriesOf('decisions').some((e) => e.value.includes('action=Abort')));
+
+// --- maxAttempts 上限（既定ポリシー・毎回形式不良） ---
+const nbMax85 = new CaravanNotebook('ドローン制御を実装して');
+const badExecutor85 = createAttemptArtifactHarness({ domain: 'coding', produce: () => 'program: [broken' });
+const rhMax85 = new RecoveryHarness({ executor: badExecutor85, notebook: nbMax85, domain: 'coding', maxAttempts: 2 });
+let maxThrew85 = false;
+try {
+  await runRecoveryOnce(rhMax85, { taskId: 'max', text: 'ドローン制御を実装して' });
+} catch (e) {
+  maxThrew85 = e instanceof HarnessTaskError && e.error.code === 'RECOVERY_EXHAUSTED' && /maxAttempts=2/.test(e.error.message);
+}
+check('Recovery: maxAttempts=2 で停止（RECOVERY_EXHAUSTED）', maxThrew85);
+check('Recovery: maxAttempts 上限で ERRORS/DECISIONS が 2 回', nbMax85.entriesOf('errors').length === 2 && nbMax85.entriesOf('decisions').length === 2);
+
+// --- Round 予算（round-timeout → Retry） ---
+const nbBudget85 = new CaravanNotebook('ドローン制御を実装して');
+const slowExecutor85: Harness = {
+  async *execute(task, options) {
+    if (options?.signal?.aborted) throw new Error('slow: aborted');
+    yield { type: 'started', taskId: task.taskId, executionId: `slow-${Date.now()}`, timestamp: Date.now() };
+    await new Promise((r) => setTimeout(r, 30));
+    yield { type: 'completed', taskId: task.taskId, executionId: `slow-${Date.now()}`, result: { ok: true, output: 'program: [plan=slow, lines=1]' }, timestamp: Date.now() };
+  },
+};
+const rhBudget85 = new RecoveryHarness({ executor: slowExecutor85, notebook: nbBudget85, domain: 'coding', roundBudgetMs: 5, maxAttempts: 2 });
+let budgetThrew85 = false;
+try {
+  await runRecoveryOnce(rhBudget85, { taskId: 'budget', text: 'ドローン制御を実装して' });
+} catch (e) {
+  budgetThrew85 = e instanceof HarnessTaskError && e.error.code === 'RECOVERY_EXHAUSTED';
+}
+check('Recovery: round-timeout で失敗（予算超過）', budgetThrew85);
+check('Recovery: round-timeout が ERRORS に記録', nbBudget85.entriesOf('errors').some((e) => e.value.includes('round-timeout')));
+
+// --- IR 制約外の成果物（外部由来の生テキスト）→ reject → 形式不良として Retry → 成功 ---
+const nbIr85 = new CaravanNotebook('ドローン制御を実装して');
+const irExecutor85 = createAttemptArtifactHarness({
+  domain: 'coding',
+  produce: (attempt) => (attempt === 1 ? 'プログラム: 生テキスト（IR ではない）' : 'program: [plan=v4, lines=8]'),
+});
+const rhIr85 = new RecoveryHarness({ executor: irExecutor85, notebook: nbIr85, domain: 'coding' });
+const resIr85 = await runRecoveryOnce(rhIr85, { taskId: 'ir', text: 'ドローン制御を実装して' });
+check('Recovery: IR 制約外の成果物 → reject → Retry → 成功', resIr85.ok && resIr85.metadata?.attempts === 2);
+check('Recovery: IR 制約外が ERRORS に記録', nbIr85.entriesOf('errors').some((e) => e.value.includes('IR 形式でない')));
+
+// --- Harness ABI 互換性（Harness として event stream を消費できる） ---
+const nbAbi85 = new CaravanNotebook('ドローン制御を実装して');
+const abiExecutor85 = createAttemptArtifactHarness({ domain: 'coding', produce: (attempt) => (attempt === 1 ? 'program: [broken' : 'program: [plan=v1, lines=8]') });
+const rhAbi85 = new RecoveryHarness({ executor: abiExecutor85, notebook: nbAbi85, domain: 'coding' });
+const events85: string[] = [];
+for await (const ev of rhAbi85.execute({ taskId: 'abi', text: 'ドローン制御を実装して' })) {
+  events85.push(ev.type);
+}
+check('Recovery: Harness ABI（started→…→completed）', events85[0] === 'started' && events85[events85.length - 1] === 'completed');
+check('Recovery: 中間に message（recover[1]: …）', events85.some((t) => t === 'message'));
+
+// verifyArtifactOnly: plan が無くてもアーティファクトがあれば ok（plan を要求しない）
+const nbNoPlan85 = new CaravanNotebook('ドローン制御を実装して');
+nbNoPlan85.append('analysis', 'program', 'program: [plan=none, lines=1]', 'coding', { round: 1 });
+check('Recovery: verifyArtifactOnly は plan を要求しない（アーティファクトのみで ok）', verifyArtifactOnly(nbNoPlan85, 'coding').ok);
+check('Recovery: verifyArtifactOnly は成果物なしで fail', !verifyArtifactOnly(new CaravanNotebook('x'), 'coding').ok);
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
