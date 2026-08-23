@@ -1746,6 +1746,82 @@ nbNoPlan85.append('analysis', 'program', 'program: [plan=none, lines=1]', 'codin
 check('Recovery: verifyArtifactOnly は plan を要求しない（アーティファクトのみで ok）', verifyArtifactOnly(nbNoPlan85, 'coding').ok);
 check('Recovery: verifyArtifactOnly は成果物なしで fail', !verifyArtifactOnly(new CaravanNotebook('x'), 'coding').ok);
 
+// [86] Memory Harness（Knowledge Oasis 長期記憶 → 検索・注入・実行・記録の閉ループ。性能改善は主張しない）
+console.log('\n[86] Memory Harness（Oasis 長期記憶 → 検索・注入・実行・記録の閉ループ）');
+const { MemoryHarness, buildMemoryTask, formatMemory, parseInjectedMemory, createMemoryAwareExecutor, runMemoryOnce } = await import('../cognitive/memory-harness.js');
+// KnowledgeOasis / makeLesson は [75] で import 済み。CaravanNotebook / RecoveryHarness / runRecoveryOnce は [81]/[85] で import 済み
+
+// --- 純関数（決定論） ---
+check('Memory: formatMemory は IR（retrieved/sources/lessons）', formatMemory({ task: 't', retrieved: 2, sources: ['a', 'b'], lessons: ['L1', 'L2'] }) === 'memory: [retrieved=2, sources=[a ; b] lessons=[L1 ; L2]]');
+check('Memory: formatMemory は retrieved=0 でも IR を返す', formatMemory({ task: 't', retrieved: 0, sources: [], lessons: [] }) === 'memory: [retrieved=0, sources=[]]');
+const memTask86 = buildMemoryTask({ taskId: 't1', text: 'ドローン制御を実装して' }, { task: 'x', retrieved: 1, sources: ['過去タスク'], lessons: ['LESSON: 成功パターン'] });
+check('Memory: buildMemoryTask が memory context を注入', memTask86.text.includes('memory context') && parseInjectedMemory(memTask86).retrieved === 1 && parseInjectedMemory(memTask86).lessons.length === 1);
+const memEmpty86 = buildMemoryTask({ taskId: 't2', text: 'ドローン制御を実装して' }, { task: 'x', retrieved: 0, sources: [], lessons: [] });
+check('Memory: メモリなしのときは retrieved=0 が注入される', parseInjectedMemory(memEmpty86).retrieved === 0);
+
+// メモリ依存の決定論 Executor: 注入メモリに retrieved>0 かつ LESSON があれば成功する
+const memExec86 = createMemoryAwareExecutor({
+  domain: 'coding',
+  produce: (task) => {
+    const m = parseInjectedMemory(task);
+    return m.retrieved > 0 && m.lessons.length > 0 ? 'program: [plan=memo-v1, lines=8]' : undefined;
+  },
+});
+
+// --- Oasis が空 → メモリなし → 実行失敗 → RECORD(fail) ---
+const oasis86 = new KnowledgeOasis();
+const nb86a = new CaravanNotebook('ドローン制御を実装して');
+const mh86a = new MemoryHarness({ executor: memExec86, oasis: oasis86, notebook: nb86a });
+let failThrew86 = false;
+try {
+  await runMemoryOnce(mh86a, { taskId: 'm1', text: 'ドローン制御を実装して' });
+} catch (e) {
+  failThrew86 = e instanceof HarnessTaskError && e.error.code === 'MEMORY_SCRIPTED_FAIL';
+}
+check('Memory: Oasis 空 → メモリなし → 実行失敗', failThrew86);
+check('Memory: 失敗が Oasis に記録（recordBack）', oasis86.size === 1 && oasis86.all()[0].result === 'fail');
+check('Memory: Notebook.context に memory IR（retrieved=0）', nb86a.entriesOf('context').some((e) => e.key === 'memory' && e.value.includes('retrieved=0')));
+
+// --- 成功実績を Oasis に蓄積 → 2 回目: メモリ注入 → 成功（閉ループ） ---
+oasis86.recordCaravan({
+  task: 'ドローン制御を実装して', team: ['coding'], result: 'success', quality: 0.9,
+  lesson: 'LESSON: ドローン制御を実装して success', confidence: 0.8, notebookSnapshot: nb86a.snapshot(),
+});
+const nb86b = new CaravanNotebook('ドローン制御を実装して');
+const mh86b = new MemoryHarness({ executor: memExec86, oasis: oasis86, notebook: nb86b });
+const res86b = await runMemoryOnce(mh86b, { taskId: 'm2', text: 'ドローン制御を実装して' });
+check('Memory: 2 回目は過去実績を検索・注入して成功（閉ループ）', res86b.ok && Number(res86b.metadata?.memory) >= 1);
+check('Memory: 注入メモリが metadata に反映（sources）', Array.isArray(res86b.metadata?.sources) && res86b.metadata?.sources.length >= 1);
+check('Memory: 2 回目も Notebook.context に memory IR（retrieved>0）', nb86b.entriesOf('context').some((e) => e.key === 'memory' && /retrieved=[1-9]/.test(e.value)));
+check('Memory: Oasis が成長（fail + 手動 success + 2 回目の記録）', oasis86.size >= 3);
+
+// --- maxMemory 上限 / recordBack:false / Harness ABI ---
+const oasis86c = new KnowledgeOasis();
+for (let i = 0; i < 5; i++) oasis86c.record({ task: `類似タスク${i}`, team: [], graph: [], hypothesis: [], result: 'success', quality: 0.9, lesson: `L${i}`, confidence: 0.8, at: Date.now() });
+const mh86c = new MemoryHarness({ executor: createMemoryAwareExecutor({ domain: 'coding', produce: () => 'program: [x]' }), oasis: oasis86c, maxMemory: 2 });
+const res86c = await runMemoryOnce(mh86c, { taskId: 'c', text: '類似タスク' });
+check('Memory: maxMemory で検索件数を上限（2）', res86c.metadata?.memory === 2);
+const oasis86d = new KnowledgeOasis();
+const mh86d = new MemoryHarness({ executor: createMemoryAwareExecutor({ domain: 'coding', produce: () => 'program: [x]' }), oasis: oasis86d, recordBack: false });
+const res86d = await runMemoryOnce(mh86d, { taskId: 'd', text: 'ドローン制御を実装して' });
+check('Memory: recordBack=false は Oasis を汚さない', res86d.ok && oasis86d.size === 0);
+const events86: string[] = [];
+for await (const ev of mh86b.execute({ taskId: 'abi', text: 'ドローン制御を実装して' })) events86.push(ev.type);
+check('Memory: Harness ABI（started→message→completed）', events86[0] === 'started' && events86.includes('message') && events86[events86.length - 1] === 'completed');
+
+// --- RecoveryHarness との合成（Memory が文脈供給、Recovery が検証・回復。decorator 合成可能） ---
+const oasis86e = new KnowledgeOasis();
+oasis86e.recordCaravan({
+  task: 'ドローン制御を実装して', team: ['coding'], result: 'success', quality: 0.9,
+  lesson: 'LESSON: ドローン制御を実装して success', confidence: 0.8, notebookSnapshot: nb86a.snapshot(),
+});
+const memInner86 = new MemoryHarness({ executor: memExec86, oasis: oasis86e });
+const nb86e = new CaravanNotebook('ドローン制御を実装して');
+const rh86 = new RecoveryHarness({ executor: memInner86, notebook: nb86e, domain: 'coding' });
+const res86e = await runRecoveryOnce(rh86, { taskId: 'compose', text: 'ドローン制御を実装して' });
+check('Memory+Recovery: Harness decorator として合成可能（閉ループ）', res86e.ok);
+check('Memory+Recovery: Memory の記録が Oasis に反映', oasis86e.size >= 2 && oasis86e.all().some((e) => e.result === 'success'));
+
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
   console.log('  ✅ ALL PASS — AILSM Phase 0.5（Stage 1 決定論 + Stage 3 決定論Verifier）');
