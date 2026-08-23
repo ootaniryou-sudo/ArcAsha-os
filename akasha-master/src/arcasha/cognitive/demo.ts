@@ -15,6 +15,7 @@ import { composeTeam, renderComposition } from './capability-graph.js';
 import { runCognitive, renderCognitive } from './runtime.js';
 import { TeamLearner, renderTeamLearning } from './team-learning.js';
 import { KnowledgeOasis, makeLesson, renderOasis } from './oasis.js';
+import { runCaravan, fixedCaravan, renderCaravan } from './caravan-loop.js';
 
 export async function runCognitiveDemo(): Promise<string> {
   const learner = new TeamLearner();
@@ -85,11 +86,57 @@ export async function runCognitiveDemo(): Promise<string> {
   return lines.join('\n');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runCognitiveDemo()
-    .then((s) => console.log(s))
-    .catch((e) => {
-      console.error(e);
-      process.exitCode = 1;
-    });
+/**
+ * Caravan Loop デモ — Notebook を Single Source of Truth にしたタスク実行組織
+ *
+ * 1. 固定 Caravan（planning + ドメイン Expert）を編成
+ * 2. runCaravan: PLAN → EXECUTE → OBSERVE → VERIFY → (PASS: DIAGNOSIS | FAIL: REPLAN)
+ * 3. 完了 Notebook snapshot を Oasis へ保存 → 次回の推奨材料に
+ *
+ * 実行: npx tsx src/arcasha/cognitive/demo.ts --caravan
+ */
+export async function runCaravanDemo(): Promise<string> {
+  const oasis = new KnowledgeOasis();
+  const learner = new TeamLearner();
+  const lines: string[] = [];
+
+  const tasks = [
+    '自律飛行ドローンの制御コードを実装して',
+    'x^2+3x+2=0を解いて',
+    'ドローンの衝突回避コードを再試行して', // failFirst → REPLAN → PASS
+  ];
+
+  for (const task of tasks) {
+    const team = fixedCaravan(task);
+    const r = await runCaravan({ task, team, oasis, learner });
+    lines.push(renderCaravan(r));
+    lines.push('');
+  }
+
+  lines.push('■ Team Learning（チーム編成の成功率を学習）');
+  lines.push(renderTeamLearning(learner));
+  lines.push('');
+
+  lines.push('■ Knowledge Oasis（Caravan 完了記録 + 完成 Notebook snapshot）');
+  lines.push(renderOasis(oasis, 'master'));
+  lines.push('');
+
+  lines.push('■ Oasis から類似経験を推奨（Runtime Knowledge Base）');
+  const recs = oasis.recommend('ドローン');
+  for (const rec of recs.slice(0, 3)) {
+    const snap = rec.notebookSnapshot ? ` / snap=v${rec.notebookSnapshot.version}` : '';
+    lines.push(`  → ${rec.task}（team [${rec.team.join('>')}] · ${rec.result} · q=${(rec.quality * 100).toFixed(0)}%${snap}）`);
+  }
+
+  return lines.join('\n');
 }
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  // --caravan で Caravan Loop デモ、既定は Cognitive Graph デモ
+  const run = process.argv.includes('--caravan') ? runCaravanDemo() : runCognitiveDemo();
+  run.then((s) => console.log(s)).catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  });
+}
+
