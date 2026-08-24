@@ -9,9 +9,10 @@
   - `caravan-loop.ts`（PLAN → EXECUTE → OBSERVE → VERIFY → REPLAN 閉ループ + Budget）
   - `recovery-harness.ts`（Recovery Harness: Notebook=状態とする検証駆動エラー回復閉ループ）
   - `memory-harness.ts`（Memory Harness: Oasis 長期記憶 → 検索・注入・実行・記録の閉ループ）
+  - `expert-formation.ts`（Expert Formation: 不足能力推定 → Pool から Expert を動的編成）
   - `oasis.ts`（Knowledge Oasis 拡張: 完成 Notebook snapshot 保存）
   - `demo.ts --caravan`（CLI）
-  - selftest: AILSM selftest `[81]〜[86]`
+  - selftest: AILSM selftest `[81]〜[87]`
 
 ---
 
@@ -154,18 +155,43 @@ snapshot（v0→vN）が決定論的に積み上がる（Decision Replay）。
 
 `notebook.history()` が v0 → vN の全スナップショットを返し、「なぜこの結論に到達したか」を再生できる。
 
-## 8. Phase C 接続口（Dynamic Expert Formation）
+## 8. Expert Formation（Dynamic Expert Formation・PR 3）
 
-- `runCaravan` は `team: NotebookExpert[]` を受け取る。Phase C ではここを
-  `composeTeam` / Oasis 推奨で動的に編成する。
-- 本実装（Phase A+B）は**固定 Caravan + 固定 Expert**（`fixedCaravan`）で行う。
-- `notebookExpertFromPool`（notebook.ts）が PoolExpert → NotebookExpert の変換口を提供する。
+> 「浮動している専門 AI の凸凹を Caravan が組み合わせ、一時的なタスク専用 AI を作る」構想の実装。
+> 検証失敗から不足能力を推定し、Pool から Expert を選んで Caravan を動的に変形できることを証明する。
+
+```text
+Failure
+  ↓
+Notebook（ERRORS / DECISIONS / 検証結果）
+  ↓
+不足能力を推定（inferMissingCapability）
+  ↓
+Pool / Capability Graph（候補 Expert）
+  ↓
+候補ランキング（cost / latency / capability）
+  ↓
+Expert 選択（defaultFormationPolicy）
+  ↓
+Caravan へ attach（formationExpertFromPool: Notebook を必要部分だけ共有）
+  ↓
+再実行（runCaravan の次の Round）
+```
+
+- `runCaravan` に `formation` / `pool` / `maxFormation` オプションを追加。VERIFY 失敗時に編成し、
+  拡張したチームで次の Round を実行する。
+- 編成決定は **Notebook.DECISIONS** に `decision: [action=AddExpert, expert=..., reason="..."]` として
+  記録（**RecoveryHarness の AddExpert 戦略と同じ IR 形式**。両者は DECISIONS で接続される）。
+- `inferMissingCapability` は検証結果 / ERRORS / **DECISIONS の addedCapability** / ドメイン /
+  `detectRoles`（capability-graph）から不足能力を推定する。
+- PoolExpert に execute が無い場合は決定論 Simulation で IR を生成（`formationExpertFromPool`）。
+- `ExpertFormationPolicy` は差し替え可（ルールベース → 学習 → Oasis ベースへ発展できる）。
 
 ## 9. 実装ガード
 
-- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness も例外ではない）
+- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness / Expert Formation も例外ではない）
 - 既存機能を壊さない（ailsm / ailsa / harness / golden の回帰を維持）
-- selftest `[81]〜[86]` で検証
+- selftest `[81]〜[87]` で検証
 - `npm run build` / `npm run ailsm:selftest` / `npm run ailsa:selftest` / `npm run golden` / dist まで確認
 
 ---
@@ -177,6 +203,6 @@ snapshot（v0→vN）が決定論的に積み上がる（Decision Replay）。
 cd akasha-master
 npx tsx src/arcasha/cognitive/demo.ts --caravan
 
-# セルフテスト（[81]〜[86] を含む）
+# セルフテスト（[81]〜[87] を含む）
 npm run ailsm:selftest
 ```
