@@ -58,6 +58,8 @@ export interface FormationContext {
 export interface FormationDecision {
   /** 追加する Pool Expert の id。null = 追加しない */
   expertId: string | null;
+  /** 追加する役割（能力）。DECISIONS の addedCapability として記録する（RecoveryHarness と統一） */
+  addedCapability?: string;
   /** 追加理由（DECISIONS に残す根拠） */
   reason: string;
   /** 読めるセクション（部分供給 = Need-to-know） */
@@ -130,10 +132,12 @@ export function inferMissingCapability(ctx: FormationContext): string[] {
       }
     }
   }
-  // 3. DECISIONS の addedCapability（RecoveryHarness が記録した AddExpert 決定）
+  // 3. DECISIONS の addedCapability / expert（AddExpert 決定。RecoveryHarness と Formation の両方に対応）
   for (const d of ctx.notebook.entriesOf('decisions')) {
-    const m = /addedCapability=([a-z][a-z0-9_-]*)/.exec(d.value);
-    if (m) addIfMissing(m[1]);
+    const added = /addedCapability=([a-z][a-z0-9_-]*)/.exec(d.value);
+    if (added) addIfMissing(added[1]);
+    const ex = /expert=([a-z][a-z0-9_-]*)/.exec(d.value);
+    if (ex) addIfMissing(ex[1]);
   }
   // 4. ドメインの成果物を生む役割
   if (ctx.domain === 'coding') addIfMissing('coding');
@@ -184,6 +188,7 @@ export function defaultFormationPolicy(ctx: FormationContext): FormationDecision
   const io = ROLE_IO[best.role] ?? { read: ['task', 'context'] as const, write: ['analysis'] as const };
   return {
     expertId: best.id,
+    addedCapability: best.role,
     reason: `不足能力 "${best.role}" を補完（cost=${best.cost}, latency=${best.latencyMs}ms）`,
     readSections: io.read,
     writeSections: io.write,
@@ -220,8 +225,14 @@ export function formationExpertFromPool(
   };
 }
 
-/** 編成決定を Notebook.DECISIONS に書ける IR へ整形する（RecoveryHarness と同じ形式） */
+/** IR 文字列へ埋め込む値の構造文字（\ " [ ]）を、IR 構造を壊さない形へ変換する */
+function irEscape(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\[/g, '(').replace(/\]/g, ')');
+}
+
+/** 編成決定を Notebook.DECISIONS に書ける IR へ整形する（RecoveryHarness の AddExpert と同じ形式） */
 export function formatFormationDecision(d: FormationDecision): string {
-  if (d.expertId === null) return `decision: [action=NoAdd, reason="${d.reason}"]`;
-  return `decision: [action=AddExpert, expert=${d.expertId}, reason="${d.reason}"]`;
+  if (d.expertId === null) return `decision: [action=NoAdd, reason="${irEscape(d.reason)}"]`;
+  const cap = d.addedCapability !== undefined ? `, addedCapability=${d.addedCapability}` : '';
+  return `decision: [action=AddExpert, expert=${d.expertId}, reason="${irEscape(d.reason)}"${cap}]`;
 }

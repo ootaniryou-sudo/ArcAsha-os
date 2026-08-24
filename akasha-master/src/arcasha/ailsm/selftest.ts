@@ -1862,7 +1862,9 @@ check('Formation: 既定ポリシーは coding を選択（Need-to-know）', dec
 // 役割シグナルもドメイン要件も無いタスク → 不足能力なし → 編成しない
 const nbNeutral87 = new CaravanNotebook('あいさつして');
 check('Formation: 不足なしは expertId=null', defaultFormationPolicy({ task: 'あいさつして', notebook: nbNeutral87, domain: 'generic', team: [], pool: AI_POOL, verification: { ok: true, issues: [] }, round: 1 }).expertId === null);
-check('Formation: formatFormationDecision は IR', formatFormationDecision({ expertId: 'coding', reason: 'r', readSections: [], writeSections: ['analysis'] }).startsWith('decision: [action=AddExpert, expert=coding'));
+check('Formation: formatFormationDecision は IR（expert + addedCapability）', formatFormationDecision({ expertId: 'coding', addedCapability: 'coding', reason: 'r', readSections: [], writeSections: ['analysis'] }).startsWith('decision: [action=AddExpert, expert=coding, reason="r", addedCapability=coding]'));
+const formEsc87 = formatFormationDecision({ expertId: 'coding', addedCapability: 'coding', reason: 'quoted "r" [x]', readSections: [], writeSections: ['analysis'] });
+check('Formation: formatFormationDecision は構造文字をサニタイズ（" / [ / ]）', formEsc87.includes('reason="quoted \\"r\\" (x)"') && !formEsc87.includes('[x]'));
 const addedExpert87 = formationExpertFromPool(AI_POOL[3], { readSections: ['task', 'plan'] as const, writeSections: ['analysis'] as const }, 'coding');
 const simRun87 = await addedExpert87.execute!({ task: 'ドローンの制御コードを実装して', round: 1, view: [] });
 check('Formation: 決定論 Simulation で program IR を生成', simRun87.ok && /^program: \[/.test(simRun87.ir));
@@ -1872,9 +1874,13 @@ const oasisF87 = new KnowledgeOasis();
 const runF87 = await runCaravan({ task: 'ドローンの制御コードを実装して', team: planningOnly87, formation: defaultFormationPolicy, pool: AI_POOL, oasis: oasisF87 });
 check('Formation: planning のみ → FORM +coding → 成功（閉ループ）', runF87.success && runF87.stopReason === 'verified');
 check('Formation: チームが動的に拡張（+coding）', runF87.team.some((e) => e.id === 'coding') && runF87.teamKey.includes('coding'));
-check('Formation: DECISIONS に AddExpert(expert=coding) が記録', runF87.notebook.entriesOf('decisions').some((e) => e.value.includes('action=AddExpert') && e.value.includes('expert=coding')));
+check('Formation: DECISIONS に AddExpert(expert=coding / addedCapability=coding) が記録', runF87.notebook.entriesOf('decisions').some((e) => e.value.includes('action=AddExpert') && e.value.includes('expert=coding') && e.value.includes('addedCapability=coding')));
 check('Formation: Round に FORM ログがある', runF87.rounds.some((r) => r.phase === 'REPLAN' && r.note.includes('FORM:')));
 check('Formation: Oasis に最終（拡張済み）チームが保存', oasisF87.all().some((e) => e.result === 'success' && e.team.includes('coding')));
+// Formation 自身が記録した Decision IR を inferMissingCapability が再生できる（RecoveryHarness とスキーマ統一）
+const nbRT87 = new CaravanNotebook('あいさつして');
+nbRT87.append('decisions', 'decision', formatFormationDecision({ expertId: 'coding', addedCapability: 'coding', reason: '不足能力 "coding" を補完', readSections: ['task', 'plan'], writeSections: ['analysis'] }), 'formation', { round: 1 });
+check('Formation: Formation が記録した Decision を能力推定で再生できる', inferMissingCapability({ task: 'あいさつして', notebook: nbRT87, domain: 'generic', team: [], pool: AI_POOL, verification: { ok: true, issues: [] }, round: 1 }).includes('coding'));
 const runNoForm87 = await runCaravan({ task: 'ドローンの制御コードを実装して', team: planningOnly87, formation: defaultFormationPolicy, pool: AI_POOL, maxFormation: 0 });
 check('Formation: maxFormation=0 なら編成しない', !runNoForm87.success && runNoForm87.team.length === 1 && runNoForm87.notebook.entriesOf('decisions').length === 0);
 

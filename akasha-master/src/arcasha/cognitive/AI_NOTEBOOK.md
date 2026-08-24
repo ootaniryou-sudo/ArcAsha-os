@@ -182,6 +182,9 @@ Caravan へ attach（formationExpertFromPool: Notebook を必要部分だけ共�
   拡張したチームで次の Round を実行する。
 - 編成決定は **Notebook.DECISIONS** に `decision: [action=AddExpert, expert=..., reason="..."]` として
   記録（**RecoveryHarness の AddExpert 戦略と同じ IR 形式**。両者は DECISIONS で接続される）。
+  - 正規化後の AddExpert IR: `decision: [action=AddExpert, expert=<id>, reason="<理由>", addedCapability=<role>]`
+    （`reason` の構造文字 `\ " [ ]` はエスケープ済み。`inferMissingCapability` は `addedCapability=` /
+    `expert=` の両方を再生できる）。
 - `inferMissingCapability` は検証結果 / ERRORS / **DECISIONS の addedCapability** / ドメイン /
   `detectRoles`（capability-graph）から不足能力を推定する。
 - PoolExpert に execute が無い場合は決定論 Simulation で IR を生成（`formationExpertFromPool`）。

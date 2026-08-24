@@ -27,7 +27,7 @@ import type { KnowledgeOasis } from './oasis.js';
 import { makeLesson } from './oasis.js';
 import type { TeamLearner } from './team-learning.js';
 import type { PoolExpert } from './pool.js';
-import { formationExpertFromPool, type ExpertFormationPolicy, type FormationContext } from './expert-formation.js';
+import { formationExpertFromPool, formatFormationDecision, type ExpertFormationPolicy, type FormationContext } from './expert-formation.js';
 
 /** ループの実行段階 */
 export type CaravanPhase = 'PLAN' | 'EXECUTE' | 'OBSERVE' | 'VERIFY' | 'REPLAN' | 'DIAGNOSIS';
@@ -254,7 +254,13 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
           notebook.append(
             'decisions',
             'decision',
-            `decision: [action=AddExpert, expert=${p.id}, reason="${decision.reason}"]`,
+            formatFormationDecision({
+              expertId: p.id,
+              addedCapability: p.role,
+              reason: decision.reason,
+              readSections: decision.readSections,
+              writeSections: decision.writeSections,
+            }),
             'formation',
             { round },
           );
