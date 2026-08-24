@@ -75,9 +75,10 @@ export interface NotebookExpert {
   /**
    * 実モデル / API / 実機での実行（任意）。未指定なら決定論 Simulation。
    * view には readSections のエントリだけが渡る（Notebook 全体は見せない）。
+   * tokens はモデル利用量の推定（任意。コスト計算に使う）。
    */
   execute?: (opts: { task: string; round: number; view: ReadonlyArray<Readonly<NotebookEntry>> }) =>
-    Promise<{ ir: string; ms: number; ok: boolean }>;
+    Promise<{ ir: string; ms: number; ok: boolean; tokens?: number }>;
 }
 
 /** 型付き IR 値の決定論検証（Notebook レベルの構造契約） */

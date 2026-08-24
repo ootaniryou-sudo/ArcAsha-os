@@ -247,7 +247,7 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
           const added = formationExpertFromPool(p, {
             readSections: decision.readSections,
             writeSections: decision.writeSections,
-          }, domain);
+          });
           team = [...team, added];
           teamKey = team.map((e) => e.id).join('>');
           formedCount++;
