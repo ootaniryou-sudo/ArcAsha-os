@@ -26,6 +26,8 @@ import { detectCaravanDomain, verifyCaravanArtifact, type CaravanDomain, type Ca
 import type { KnowledgeOasis } from './oasis.js';
 import { makeLesson } from './oasis.js';
 import type { TeamLearner } from './team-learning.js';
+import type { PoolExpert } from './pool.js';
+import { formationExpertFromPool, formatFormationDecision, type ExpertFormationPolicy, type FormationContext } from './expert-formation.js';
 
 /** ループの実行段階 */
 export type CaravanPhase = 'PLAN' | 'EXECUTE' | 'OBSERVE' | 'VERIFY' | 'REPLAN' | 'DIAGNOSIS';
@@ -65,6 +67,12 @@ export interface CaravanRunOptions {
   oasis?: KnowledgeOasis;
   /** 完了後に Team Learning へ記録（任意） */
   learner?: TeamLearner;
+  /** Dynamic Expert Formation（任意）。VERIFY 失敗時に不足能力を推定して Expert を追加し、再実行する */
+  formation?: ExpertFormationPolicy;
+  /** AI Pool（formation 使用時に必要） */
+  pool?: readonly PoolExpert[];
+  /** 編成で追加できる Expert の最大数（既定 1） */
+  maxFormation?: number;
 }
 
 export interface CaravanRunResult {
@@ -155,7 +163,11 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
   const notebook = new CaravanNotebook(opts.task);
   const domain = detectCaravanDomain(opts.task);
   const verifier = opts.verifier ?? ((nb: CaravanNotebook) => verifyCaravanArtifact(nb, domain));
-  const teamKey = opts.team.map((e) => e.id).join('>');
+  // Dynamic Expert Formation: チームは実行中に拡張できる（Phase C）
+  let team = [...opts.team];
+  let teamKey = team.map((e) => e.id).join('>');
+  let formedCount = 0;
+  const maxFormation = opts.maxFormation ?? 1;
   const rounds: CaravanRoundLog[] = [];
   const expertSpent = new Map<string, number>();
   let spentMs = 0;
@@ -169,7 +181,7 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
     // ── PLAN + EXECUTE ──
     // チーム順（planning が先頭）で実行し、phase は writeSections で判定する。
     // 各呼び出し直後に Expert 予算と全体予算の両方を判定する。
-    for (const ex of opts.team) {
+    for (const ex of team) {
       if (!ex.execute) continue;
       const phase: CaravanPhase = ex.writeSections.includes('plan') ? 'PLAN' : 'EXECUTE';
       const r = await runExpert(notebook, ex, round, budget.thinkingBudgetMs - spentMs);
@@ -211,6 +223,54 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
     notebook.fail('master', `VERIFY 失敗: ${v.issues.map((i) => i.message).join('; ').slice(0, 80)}`, { round });
     rounds.push({ round, phase: 'REPLAN', note: `検証失敗 → 再計画（errors=${notebook.entriesOf('errors').length}）`, spentMs: 0 });
 
+    // ── Dynamic Expert Formation（Phase C）: 不足能力を推定し、Pool から Expert を attach ──
+    const canForm =
+      opts.formation !== undefined &&
+      opts.pool !== undefined &&
+      formedCount < maxFormation &&
+      round < budget.maxRounds;
+    if (canForm) {
+      const ctx: FormationContext = {
+        task: opts.task,
+        notebook,
+        domain,
+        team,
+        pool: opts.pool!,
+        verification: v,
+        round,
+      };
+      const decision = opts.formation!(ctx);
+      if (decision.expertId !== null) {
+        const p = opts.pool!.find((e) => e.id === decision.expertId);
+        const already = team.some((t) => t.id === decision.expertId);
+        if (p && !already) {
+          const added = formationExpertFromPool(p, {
+            readSections: decision.readSections,
+            writeSections: decision.writeSections,
+          }, domain);
+          team = [...team, added];
+          teamKey = team.map((e) => e.id).join('>');
+          formedCount++;
+          notebook.append(
+            'decisions',
+            'decision',
+            formatFormationDecision({
+              expertId: p.id,
+              addedCapability: p.role,
+              reason: decision.reason,
+              readSections: decision.readSections,
+              writeSections: decision.writeSections,
+            }),
+            'formation',
+            { round },
+          );
+          rounds.push({ round, phase: 'REPLAN', note: `FORM: +${p.id}（${decision.reason}）`, spentMs: 0 });
+          // 拡張したチームで次の Round を実行する
+          continue;
+        }
+      }
+    }
+
     if (spentMs > budget.thinkingBudgetMs) {
       stopReason = 'budget-exhausted';
       break;
@@ -234,10 +294,10 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
   if (opts.oasis) {
     opts.oasis.recordCaravan({
       task: opts.task,
-      team: opts.team.map((e) => e.id),
+      team: team.map((e) => e.id),
       result: success ? 'success' : 'fail',
       quality,
-      lesson: makeLesson(opts.task, opts.team.map((e) => e.id), success, quality),
+      lesson: makeLesson(opts.task, team.map((e) => e.id), success, quality),
       confidence: success ? 0.9 : 0.3,
       notebookSnapshot: finalSnapshot,
       plan: notebook.latest('plan')?.value,
@@ -250,7 +310,7 @@ export async function runCaravan(opts: CaravanRunOptions): Promise<CaravanRunRes
 
   return {
     task: opts.task,
-    team: opts.team,
+    team,
     teamKey,
     notebook,
     rounds,
