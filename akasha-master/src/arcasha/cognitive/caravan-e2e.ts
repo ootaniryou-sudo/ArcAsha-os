@@ -29,7 +29,7 @@ import type { KnowledgeOasis } from './oasis.js';
 import { makeLesson } from './oasis.js';
 import type { PoolExpert } from './pool.js';
 import { defaultMemoryRetriever, formatMemory, type MemoryContext } from './memory-harness.js';
-import { defaultRecoveryPolicy, formatDecision, type RecoveryContext, type RecoveryDecision } from './recovery-harness.js';
+import { defaultRecoveryPolicy, formatDecision, type RecoveryContext, type RecoveryDecision, type RecoveryFailure } from './recovery-harness.js';
 import { defaultFormationPolicy, formationExpertFromPool, expertIOFor, formatFormationDecision, type ExpertFormationPolicy, type FormationContext } from './expert-formation.js';
 import type { CaravanRoundLog } from './caravan-loop.js';
 
@@ -59,11 +59,16 @@ export function modelFromHarness(harness: Harness, makePrompt: (call: ModelCall)
       text: makePrompt(call),
       metadata: { expert: call.expert, round: call.round },
     };
+    const t0 = Date.now();
     try {
       const result = await executeOnce(harness, task, {});
-      return { ir: result.output, ok: result.ok, ms: 0, tokens: 0 };
+      const ms = Date.now() - t0;
+      // HarnessResult にトークン使用量があれば metadata から取り出す（無ければ 0 のまま）
+      const usage = (result.metadata as { usage?: { tokens?: number } } | undefined)?.usage;
+      const tokens = typeof usage?.tokens === 'number' ? usage.tokens : 0;
+      return { ir: result.output, ok: result.ok, ms, tokens };
     } catch {
-      return { ir: 'error: モデル実行失敗', ok: false, ms: 0, tokens: 0 };
+      return { ir: 'error: モデル実行失敗', ok: false, ms: Date.now() - t0, tokens: 0 };
     }
   };
 }
@@ -86,7 +91,7 @@ export interface CaravanE2EOptions {
   formation?: boolean;
   /** 最大 attempt 数（既定 3） */
   maxAttempts?: number;
-  /** 1 attempt の予算（ms） */
+  /** 1 Expert あたりの実行予算（ms）。超過時はタイムアウトとして失敗（チーム全体では最大 team×本予算） */
   roundBudgetMs?: number;
   /** ドメイン（未指定なら detectCaravanDomain） */
   domain?: CaravanDomain;
@@ -219,13 +224,25 @@ export async function runCaravanE2E(opts: CaravanE2EOptions): Promise<CaravanE2E
   // 3. TEAM（指定 or composeTeam で自動編成）。全員 execute を持つよう変換
   let team: NotebookExpert[];
   if (opts.team && opts.team.length > 0) {
-    team = opts.team.map((ex) => (ex.execute ? ex : e2eExpertFromPool(poolOf(opts.pool, ex.id), expertIOFor(ex.role), opts.model)));
+    // 呼び出し側の Need-to-know 契約（readSections / writeSections）を優先する
+    team = opts.team.map((ex) =>
+      ex.execute
+        ? ex
+        : e2eExpertFromPool(
+            poolOf(opts.pool, ex.id),
+            ex.readSections.length > 0 || ex.writeSections.length > 0
+              ? { readSections: ex.readSections, writeSections: ex.writeSections }
+              : expertIOFor(ex.role),
+            opts.model,
+          ),
+    );
   } else {
     team = composeTeam([...opts.pool], opts.task).members.map((p) => e2eExpertFromPool(p, expertIOFor(p.role), opts.model));
   }
 
   // 4. 実行ループ（attempt = 1 回のチーム実行 + 検証）
   const rounds: CaravanRoundLog[] = [];
+  const failureHistory: RecoveryFailure[] = [];
   let attempts = 0;
   let success = false;
   let stopReason: E2EStopReason = 'max-attempts';
@@ -245,8 +262,10 @@ export async function runCaravanE2E(opts: CaravanE2EOptions): Promise<CaravanE2E
           Math.max(100, roundBudgetMs),
           `expert ${ex.id}`,
         );
-      } catch {
-        notebook.fail(ex.id, '実行失敗（exception）', { round });
+      } catch (e) {
+        const issue = `executor-failed: ${(e as Error).message.slice(0, 60)}`;
+        notebook.fail(ex.id, issue, { round });
+        failureHistory.push({ attempt: round, kind: 'executor-failed', issue, at: Date.now() });
         rounds.push({ round, phase: 'EXECUTE', note: `${ex.id}: exception`, spentMs: 0 });
         continue;
       }
@@ -255,10 +274,14 @@ export async function runCaravanE2E(opts: CaravanE2EOptions): Promise<CaravanE2E
         try {
           notebook.append(section, irKey(r.ir), r.ir, ex.id, { round, writer: ex });
         } catch {
-          notebook.fail(ex.id, `IR 形式外: ${r.ir.slice(0, 40)}`, { round });
+          const issue = `executor-failed: IR 形式外: ${r.ir.slice(0, 40)}`;
+          notebook.fail(ex.id, issue, { round });
+          failureHistory.push({ attempt: round, kind: 'executor-failed', issue, at: Date.now() });
         }
       } else {
-        notebook.fail(ex.id, `実行失敗: ${r.ir.slice(0, 60)}`, { round });
+        const issue = `executor-failed: ${r.ir.slice(0, 60)}`;
+        notebook.fail(ex.id, issue, { round });
+        failureHistory.push({ attempt: round, kind: 'executor-failed', issue, at: Date.now() });
       }
       tokens += r.tokens ?? 0;
       rounds.push({ round, phase: 'EXECUTE', note: `${ex.id}: ${r.ir.slice(0, 40)}`, spentMs: r.ms });
@@ -286,18 +309,18 @@ export async function runCaravanE2E(opts: CaravanE2EOptions): Promise<CaravanE2E
 
     // FAIL → ERRORS
     notebook.fail('master', `VERIFY 失敗: ${v.issues.map((i) => i.message).join('; ').slice(0, 80)}`, { round: attempt });
+    failureHistory.push({
+      attempt,
+      kind: 'verify-fail',
+      issue: v.issues.map((i) => `${i.verifier}: ${i.message}`).join(' ; ').slice(0, 120),
+      at: Date.now(),
+    });
     rounds.push({ round: attempt, phase: 'REPLAN', note: `検証失敗（attempt=${attempt}）`, spentMs: 0 });
 
     // RECOVERY（recovery 構成時）: 戦略選択 → DECISIONS
     let decision: RecoveryDecision | undefined;
     if (opts.recovery) {
       recoveryUsed = true;
-      const failureHistory = notebook.entriesOf('errors').map((e, i) => ({
-        attempt: i + 1,
-        kind: 'verify-fail' as const,
-        issue: e.value.slice(0, 80),
-        at: 0,
-      }));
       const ctx: RecoveryContext = { notebook, attempt, verification: v, failureHistory };
       decision = opts.selectStrategy?.(ctx) ?? defaultRecoveryPolicy(ctx);
       notebook.append('decisions', 'decision', formatDecision(decision), 'recovery', { round: attempt });
