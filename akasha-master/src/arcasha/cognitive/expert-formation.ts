@@ -83,6 +83,15 @@ const ROLE_IO: Record<string, { read: readonly NotebookSection[]; write: readonl
   memory: { read: ['task', 'context', 'analysis', 'decisions', 'errors'], write: ['context'] },
 };
 
+/** 役割ごとの Notebook I/O 契約（Need-to-know）。Formation / E2E で共用する */
+export function expertIOFor(role: string): {
+  readSections: readonly NotebookSection[];
+  writeSections: readonly NotebookSection[];
+} {
+  const io = ROLE_IO[role] ?? { read: ['task', 'context'] as const, write: ['analysis'] as const };
+  return { readSections: io.read, writeSections: io.write };
+}
+
 /** 検証失敗 / エラーメッセージから不足能力を推定するヒント（決定論） */
 const CAPABILITY_HINTS: readonly [string, RegExp][] = [
   ['coding', /program|実装|コード|coding|implement/],
@@ -185,20 +194,20 @@ export function defaultFormationPolicy(ctx: FormationContext): FormationDecision
   if (!best) {
     return { expertId: null, reason: '追加候補なし（不足能力を推定できず）', readSections: [], writeSections: [] };
   }
-  const io = ROLE_IO[best.role] ?? { read: ['task', 'context'] as const, write: ['analysis'] as const };
+  const io = expertIOFor(best.role);
   return {
     expertId: best.id,
     addedCapability: best.role,
     reason: `不足能力 "${best.role}" を補完（cost=${best.cost}, latency=${best.latencyMs}ms）`,
-    readSections: io.read,
-    writeSections: io.write,
+    readSections: io.readSections,
+    writeSections: io.writeSections,
   };
 }
 
-/** 決定論 Simulation IR（PoolExpert に execute が無い場合。outputType / ドメインに応じた IR） */
-function simulationIr(p: PoolExpert, domain: CaravanDomain, task: string, round: number): string {
-  if (p.role === 'coding' || domain === 'coding') return `program: [plan=formation-v${round}, lines=${6 + (round % 4)}]`;
-  if (p.role === 'math' || domain === 'math') return `solution: x=${1 + (round % 9)}`;
+/** 決定論 Simulation IR（PoolExpert に execute が無い場合。role に応じた IR） */
+function simulationIr(p: PoolExpert, task: string, round: number): string {
+  if (p.role === 'coding') return `program: [plan=formation-v${round}, lines=${6 + (round % 4)}]`;
+  if (p.role === 'math') return `solution: x=${1 + (round % 9)}`;
   if (p.role === 'planning') return `plan: [steps=${2 + (round % 3)}, goal="${task.slice(0, 12)}"]`;
   if (p.role === 'search') return `analysis: [hits=${1 + (round % 5)}, top="${task.slice(0, 8)}"]`;
   return `${p.outputType}: [via=${p.id}, round=${round}]`;
@@ -212,14 +221,13 @@ function simulationIr(p: PoolExpert, domain: CaravanDomain, task: string, round:
 export function formationExpertFromPool(
   p: PoolExpert,
   io: { readSections: readonly NotebookSection[]; writeSections: readonly NotebookSection[] },
-  domain: CaravanDomain,
 ): NotebookExpert {
   const base = notebookExpertFromPool(p, io);
   if (base.execute) return base;
   return {
     ...base,
     execute: async ({ task, round }) => {
-      const ir = simulationIr(p, domain, task, round);
+      const ir = simulationIr(p, task, round);
       return { ir, ms: 15 + (round % 7), ok: true };
     },
   };

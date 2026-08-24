@@ -1865,7 +1865,7 @@ check('Formation: 不足なしは expertId=null', defaultFormationPolicy({ task:
 check('Formation: formatFormationDecision は IR（expert + addedCapability）', formatFormationDecision({ expertId: 'coding', addedCapability: 'coding', reason: 'r', readSections: [], writeSections: ['analysis'] }).startsWith('decision: [action=AddExpert, expert=coding, reason="r", addedCapability=coding]'));
 const formEsc87 = formatFormationDecision({ expertId: 'coding', addedCapability: 'coding', reason: 'quoted "r" [x]', readSections: [], writeSections: ['analysis'] });
 check('Formation: formatFormationDecision は構造文字をサニタイズ（" / [ / ]）', formEsc87.includes('reason="quoted \\"r\\" (x)"') && !formEsc87.includes('[x]'));
-const addedExpert87 = formationExpertFromPool(AI_POOL[3], { readSections: ['task', 'plan'] as const, writeSections: ['analysis'] as const }, 'coding');
+const addedExpert87 = formationExpertFromPool(AI_POOL[3], { readSections: ['task', 'plan'] as const, writeSections: ['analysis'] as const });
 const simRun87 = await addedExpert87.execute!({ task: 'ドローンの制御コードを実装して', round: 1, view: [] });
 check('Formation: 決定論 Simulation で program IR を生成', simRun87.ok && /^program: \[/.test(simRun87.ir));
 
@@ -1883,6 +1883,58 @@ nbRT87.append('decisions', 'decision', formatFormationDecision({ expertId: 'codi
 check('Formation: Formation が記録した Decision を能力推定で再生できる', inferMissingCapability({ task: 'あいさつして', notebook: nbRT87, domain: 'generic', team: [], pool: AI_POOL, verification: { ok: true, issues: [] }, round: 1 }).includes('coding'));
 const runNoForm87 = await runCaravan({ task: 'ドローンの制御コードを実装して', team: planningOnly87, formation: defaultFormationPolicy, pool: AI_POOL, maxFormation: 0 });
 check('Formation: maxFormation=0 なら編成しない', !runNoForm87.success && runNoForm87.team.length === 1 && runNoForm87.notebook.entriesOf('decisions').length === 0);
+
+// [88] Caravan Cognitive E2E（Memory → Loop → Verifier → Recovery → Formation の一本通し）
+console.log('\n[88] Caravan Cognitive E2E（全層一本通し）');
+const { runCaravanE2E, e2eExpertFromPool, DEFAULT_TOKEN_COST, renderCaravanE2E } = await import('../cognitive/caravan-e2e.js');
+const { expertIOFor } = await import('../cognitive/expert-formation.js');
+// AI_POOL は [75]、CaravanNotebook は [81]、KnowledgeOasis は [75]、planningOnly87 は [87] で定義済み
+
+// --- Full（recovery + formation）: planning のみ → FORM +coding → 成功（閉ループ） ---
+const oasisE88 = new KnowledgeOasis();
+const e2eFull = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL, team: planningOnly87, oasis: oasisE88, recovery: true, formation: true });
+check('E2E: Full（recovery+formation）で成功', e2eFull.success && e2eFull.stopReason === 'verified');
+check('E2E: formation で Expert が追加（+coding）', e2eFull.formationUsed && e2eFull.team.includes('coding'));
+check('E2E: 再実行された（attempts>=2）', e2eFull.attempts >= 2);
+check('E2E: RECOVERY / FORM がログに記録', e2eFull.rounds.some((r) => r.note.includes('RECOVERY:')) && e2eFull.rounds.some((r) => r.note.includes('FORM:')));
+check('E2E: Oasis に成功チーム（+coding）が記録', oasisE88.all().some((e) => e.result === 'success' && e.team.includes('coding')));
+
+// --- memory 構成: Oasis から RETRIEVE → Notebook.context に memory IR ---
+const oasisE88b = new KnowledgeOasis();
+oasisE88b.recordCaravan({ task: 'ドローンの制御コードを実装して', team: ['coding'], result: 'success', quality: 0.9, lesson: 'LESSON: ドローン success', confidence: 0.8, notebookSnapshot: new CaravanNotebook('x').snapshot() });
+const e2eMem = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL, team: planningOnly87, oasis: oasisE88b, memory: true, formation: true });
+check('E2E: memory 構成で context に memory IR（retrieved>0）', e2eMem.memoryUsed && e2eMem.notebook.entriesOf('context').some((e) => e.key === 'memory' && /retrieved=[1-9]/.test(e.value)));
+
+// --- Abort 戦略（カスタム selectStrategy） ---
+const e2eAbort = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL, team: planningOnly87, recovery: true, selectStrategy: () => ({ action: 'Abort', reason: '回復不能と判断' }) });
+check('E2E: Abort 戦略で aborted', !e2eAbort.success && e2eAbort.stopReason === 'aborted');
+check('E2E: Abort 時も DECISIONS に根拠が残る', e2eAbort.notebook.entriesOf('decisions').some((e) => e.value.includes('action=Abort')));
+
+// --- 実モデル口（ModelExecutor）: fake model が呼ばれ tokens / cost が記録 ---
+let modelCalls88 = 0;
+const fakeModel88 = async (call: { expert: string }): Promise<{ ir: string; ok: boolean; ms: number; tokens?: number }> => {
+  modelCalls88++;
+  if (call.expert === 'planning') return { ir: 'plan: [steps=2, goal="model"]', ok: true, ms: 10, tokens: 50 };
+  if (call.expert === 'coding') return { ir: 'program: [plan=e2e-model, lines=8]', ok: true, ms: 20, tokens: 100 };
+  return { ir: 'analysis: [hits=1]', ok: true, ms: 10, tokens: 40 };
+};
+const modelTeam88 = [
+  e2eExpertFromPool(AI_POOL[0], expertIOFor('planning'), fakeModel88),
+  e2eExpertFromPool(AI_POOL[3], expertIOFor('coding'), fakeModel88),
+];
+const e2eModel = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL, team: modelTeam88 });
+check('E2E: model 接続で成功（model が呼ばれる）', e2eModel.success && modelCalls88 >= 2);
+check('E2E: tokens が記録される', e2eModel.tokens > 0);
+check('E2E: コストが tokens × 単価で計算', e2eModel.cost === e2eModel.tokens * DEFAULT_TOKEN_COST);
+
+// --- composeTeam 自動編成（team 未指定） ---
+const e2eAuto = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL });
+check('E2E: composeTeam 自動編成で成功', e2eAuto.success && e2eAuto.team.length >= 2);
+
+// --- ベース構成（何も有効化しない）: Ablation の対照（program なし → 失敗） ---
+const e2eBase = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL, team: planningOnly87 });
+check('E2E: ベース構成（無効化）は失敗する（Ablation の対照）', !e2eBase.success && e2eBase.stopReason === 'max-attempts');
+check('E2E: renderCaravanE2E が表示文字列を返す', renderCaravanE2E(e2eFull).length > 0);
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {

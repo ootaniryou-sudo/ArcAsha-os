@@ -10,9 +10,10 @@
   - `recovery-harness.ts`（Recovery Harness: Notebook=状態とする検証駆動エラー回復閉ループ）
   - `memory-harness.ts`（Memory Harness: Oasis 長期記憶 → 検索・注入・実行・記録の閉ループ）
   - `expert-formation.ts`（Expert Formation: 不足能力推定 → Pool から Expert を動的編成）
+  - `caravan-e2e.ts`（Caravan Cognitive E2E: Memory → Loop → Verifier → Recovery → Formation の一本通し）
   - `oasis.ts`（Knowledge Oasis 拡張: 完成 Notebook snapshot 保存）
   - `demo.ts --caravan`（CLI）
-  - selftest: AILSM selftest `[81]〜[87]`
+  - selftest: AILSM selftest `[81]〜[88]`
 
 ---
 
@@ -190,11 +191,32 @@ Caravan へ attach（formationExpertFromPool: Notebook を必要部分だけ共�
 - PoolExpert に execute が無い場合は決定論 Simulation で IR を生成（`formationExpertFromPool`）。
 - `ExpertFormationPolicy` は差し替え可（ルールベース → 学習 → Oasis ベースへ発展できる）。
 
-## 9. 実装ガード
+## 9. Caravan Cognitive E2E（全層一本通し・PR 4）
 
-- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness / Expert Formation も例外ではない）
+> 1 タスクを OS の全層（Memory → Loop → Verifier → Recovery → Formation）で一本通しに実行できることを証明する。
+
+```text
+Task → Oasis Retrieval(Memory) → Notebook init → Planner → Expert execution
+  → Verifier → FAIL → Recovery(戦略選択) → Formation(Expert 追加候補)
+  → 再実行 → PASS → Final Diagnosis → Oasis(記録) → 次の Caravan
+```
+
+- `runCaravanE2E(opts)` が既存部品を合成（境界を曖昧にしない）。
+  - `memory`: MemoryHarness（Oasis RETRIEVE → Notebook.context に memory IR）
+  - `recovery`: RecoveryHarness（検証失敗 → `selectStrategy` → DECISIONS）
+  - `formation`: ExpertFormation（不足能力 → Pool から Expert を attach）
+- **実モデル / API 接続口**: `ModelExecutor`（差し替え可）。`modelFromHarness()` で既存
+  Harness（Native / DSH / ACP）を実モデルとして接続できる。未指定なら決定論 Simulation。
+- **Ablation 対応**: memory / recovery / formation を個別 ON/OFF できる（Base / Memory / Recovery /
+  Memory+Recovery / Full の比較が可能）。
+- メトリクス: success / attempts / latencyMs / tokens / cost（tokens × `DEFAULT_TOKEN_COST`）/
+  verification / team（最終チーム）。
+
+## 10. 実装ガード
+
+- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness / Expert Formation / E2E も例外ではない）
 - 既存機能を壊さない（ailsm / ailsa / harness / golden の回帰を維持）
-- selftest `[81]〜[87]` で検証
+- selftest `[81]〜[88]` で検証
 - `npm run build` / `npm run ailsm:selftest` / `npm run ailsa:selftest` / `npm run golden` / dist まで確認
 
 ---
@@ -206,6 +228,6 @@ Caravan へ attach（formationExpertFromPool: Notebook を必要部分だけ共�
 cd akasha-master
 npx tsx src/arcasha/cognitive/demo.ts --caravan
 
-# セルフテスト（[81]〜[87] を含む）
+# セルフテスト（[81]〜[88] を含む）
 npm run ailsm:selftest
 ```
