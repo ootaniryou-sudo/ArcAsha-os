@@ -11,9 +11,10 @@
   - `memory-harness.ts`（Memory Harness: Oasis 長期記憶 → 検索・注入・実行・記録の閉ループ）
   - `expert-formation.ts`（Expert Formation: 不足能力推定 → Pool から Expert を動的編成）
   - `caravan-e2e.ts`（Caravan Cognitive E2E: Memory → Loop → Verifier → Recovery → Formation の一本通し）
+  - `caravan-ablation.ts`（Caravan Ablation Benchmark: 構成比較の集計）
   - `oasis.ts`（Knowledge Oasis 拡張: 完成 Notebook snapshot 保存）
   - `demo.ts --caravan`（CLI）
-  - selftest: AILSM selftest `[81]〜[88]`
+  - selftest: AILSM selftest `[81]〜[89]`
 
 ---
 
@@ -212,11 +213,27 @@ Task → Oasis Retrieval(Memory) → Notebook init → Planner → Expert execut
 - メトリクス: success / attempts / latencyMs / tokens / cost（tokens × `DEFAULT_TOKEN_COST`）/
   verification / team（最終チーム）。
 
-## 10. 実装ガード
+## 10. Caravan Ablation Benchmark（構成比較・PR 5）
 
-- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness / Expert Formation / E2E も例外ではない）
+> 同一タスク群を構成（memory / recovery / formation）ごとに実行し、メトリクスの差を比較できることを
+> 証明する。決定論 Simulation では同一入力 → 同一結果（追試可能）。
+
+- 構成: `base`（対照）/ `memory` / `recovery` / `memory-recovery` / `full`（memory+recovery+formation）
+- `runCaravanAblation(opts)` が全構成 × 全タスクで `runCaravanE2E` を実行し、構成ごとに集計。
+- メトリクス:
+  - `successRate`（タスク成功率）
+  - `avgAttempts` / `avgLatencyMs` / `avgTokens` / `avgCost`
+  - `verificationPassRate`（VERIFY 試行全体の PASS 率。中間試行も含む）
+  - `recoverySuccessRate`（recovery を使ったタスクの成功割合）
+  - `expertUtilization`（使用ユニーク Expert / pool サイズ）
+- 決定論デモ（selftest [89]）: formation が必要なタスク（planning のみ）+ 常に成功するタスクで
+  `full` のみ成功率 100% / Recovery 単独は AddExpert 決定のみ / Full の Utilization が最高。
+
+## 11. 実装ガード
+
+- Notebook 外にタスク状態を持つ新規実装を作らない（RecoveryHarness / MemoryHarness / Expert Formation / E2E / Ablation も例外ではない）
 - 既存機能を壊さない（ailsm / ailsa / harness / golden の回帰を維持）
-- selftest `[81]〜[88]` で検証
+- selftest `[81]〜[89]` で検証
 - `npm run build` / `npm run ailsm:selftest` / `npm run ailsa:selftest` / `npm run golden` / dist まで確認
 
 ---
@@ -228,6 +245,6 @@ Task → Oasis Retrieval(Memory) → Notebook init → Planner → Expert execut
 cd akasha-master
 npx tsx src/arcasha/cognitive/demo.ts --caravan
 
-# セルフテスト（[81]〜[88] を含む）
+# セルフテスト（[81]〜[89] を含む）
 npm run ailsm:selftest
 ```
