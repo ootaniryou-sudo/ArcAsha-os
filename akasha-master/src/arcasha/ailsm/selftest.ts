@@ -86,6 +86,7 @@ import { runCli } from '../cli.js';
 import type { AttachmentContext } from '../attachments/attachment.js';
 import type { Hypothesis } from './reasoning.js';
 import type { Harness } from '../harness/harness.js';
+import type { AblationTask } from '../cognitive/caravan-ablation.js';
 
 let failed = 0;
 
@@ -1935,6 +1936,32 @@ check('E2E: composeTeam 自動編成で成功', e2eAuto.success && e2eAuto.team.
 const e2eBase = await runCaravanE2E({ task: 'ドローンの制御コードを実装して', pool: AI_POOL, team: planningOnly87 });
 check('E2E: ベース構成（無効化）は失敗する（Ablation の対照）', !e2eBase.success && e2eBase.stopReason === 'max-attempts');
 check('E2E: renderCaravanE2E が表示文字列を返す', renderCaravanE2E(e2eFull).length > 0);
+
+// [89] Caravan Ablation Benchmark（Base / Memory / Recovery / Memory+Recovery / Full の構成比較）
+console.log('\n[89] Caravan Ablation Benchmark（構成比較）');
+const { runCaravanAblation, ABLATION_CONFIGS, renderCaravanAblation } = await import('../cognitive/caravan-ablation.js');
+// AI_POOL は [75]、CaravanNotebook は [81]、planningOnly87 は [87]、e2eExpertFromPool / expertIOFor は [88]、
+// verifyArtifactOnly は [85] で import 済み
+
+// タスク群: formation が必要なタスク（planning のみ）+ 常に成功するタスク（math）
+const mathTeam89 = [e2eExpertFromPool(AI_POOL[5], expertIOFor('math'), undefined)];
+const ablTasks89: AblationTask[] = [
+  { task: 'ドローンの制御コードを実装して', team: planningOnly87 }, // formation で coding 追加が必要
+  { task: 'x^2=4 を解いて', domain: 'math', team: mathTeam89, verifier: (nb) => verifyArtifactOnly(nb, 'math') },
+];
+const abl89 = await runCaravanAblation({ pool: AI_POOL, tasks: ablTasks89, maxAttempts: 3 });
+const row89 = (c: string) => abl89.configs.find((r) => r.config === c)!;
+
+check('Ablation: 5 構成が揃う（base/memory/recovery/memory-recovery/full）', abl89.configs.length === 5 && ABLATION_CONFIGS.length === 5);
+check('Ablation: Full のみ成功率 100%', row89('full').successRate === 1);
+check('Ablation: Base は Full より低い（対照）', row89('base').successRate < row89('full').successRate);
+check('Ablation: Recovery 単独は AddExpert 決定のみで成功率は上がらない', row89('recovery').successRate < row89('full').successRate);
+check('Ablation: Full の Recovery 成功率が最高（1.0）', row89('full').recoverySuccessRate === 1);
+check('Ablation: Full の Expert Utilization が Base より高い（+coding）', row89('full').expertUtilization > row89('base').expertUtilization);
+check('Ablation: Full の Verification Pass Rate が Base 以上', row89('full').verificationPassRate >= row89('base').verificationPassRate);
+check('Ablation: メトリクスが非負', abl89.configs.every((r) => r.avgAttempts >= 0 && r.avgLatencyMs >= 0 && r.avgTokens >= 0 && r.avgCost >= 0));
+check('Ablation: 決定論（再実行で同一成功率）', (await runCaravanAblation({ pool: AI_POOL, tasks: ablTasks89, maxAttempts: 3 })).configs.map((r) => r.successRate).join(',') === abl89.configs.map((r) => r.successRate).join(','));
+check('Ablation: renderCaravanAblation が表示文字列を返す', renderCaravanAblation(abl89).length > 0);
 
 console.log('\n' + '═'.repeat(60));
 if (failed === 0) {
