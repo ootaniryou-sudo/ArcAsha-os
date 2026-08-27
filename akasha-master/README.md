@@ -76,7 +76,7 @@ Or run from the repo (workspace root — convenience scripts delegate to the cor
 
 ```bash
 npm run setup           # npm install --prefix akasha-master
-npm run selftest        # AILSM 72 deterministic tests
+npm run selftest        # AILSM 89 deterministic tests
 npm run benchmark       # full benchmark + reports/ (json/csv/md)
 npm run arcasha -- benchmark
 ```
@@ -86,7 +86,7 @@ Or work directly in the core package:
 ```bash
 cd akasha-master
 npm install
-npm run ailsm:selftest    # 72 deterministic tests
+npm run ailsm:selftest    # 89 deterministic tests
 npx tsx examples/quickstart.ts   # 5-minute tour
 ```
 
@@ -128,7 +128,7 @@ AI_*.md               Specifications (see below)
 
 - **v1.0 released** — AI OS first generation (Phases 0-4: ISA/IR/Kernel/AVM → Realtime devices → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, Real Device benchmark plan (Mac / iPhone 15 Pro / iPad M4)
-- selftest [1]-[72] all pass / golden 30 / AILSA selftest / build + dist verified
+- selftest [1]-[89] all pass / golden 30 / AILSA selftest / build + dist verified
 
 ---
 

@@ -74,7 +74,7 @@ npx tsx examples/quickstart.ts  # Recorrido de 5 minutos
 
 ```
 akasha-master/        Implementación principal (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments)
-akasha-link/          Project A: Akasha-Link（分散推論 / テンソル伝送）
+akasha-link/          Project A: Akasha-Link (inferencia distribuida / transporte de tensores)
   ├── client-web/     Cliente web (inferencia WebGPU)
   └── kernel-native/  Prototipo de kernel nativo (Rust)
 examples/             Ejemplos de plugins (code / math)

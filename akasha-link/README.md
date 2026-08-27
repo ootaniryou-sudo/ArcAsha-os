@@ -11,7 +11,7 @@
 
 ## 構成
 
-```
+```text
 akasha-link/
 ├── PROTOCOL.md        # Akasha Wire Protocol（48B ヘッダ + f32[] ペイロードのバイナリワイヤ。両プロジェクトの契約）
 ├── client-web/        # WebGPU 推論（browser edge node: main.ts / webgpu-core.ts / worker.ts / worker-inference.js）
@@ -23,6 +23,9 @@ akasha-link/
 
 JSON はデータプレーンで禁止。全てのメッシュトラフィックは単一の `ArrayBuffer`
 （固定 48 バイトヘッダ + 任意の `Float32Array` ペイロード）で転送され、そのまま WebGPU へアップロードできる。
+
+> 注: 現行の `client-web/src/worker.ts` は従来の 20 バイト層ヘッダ（txId + layerId）を
+> 使用しています。PROTOCOL.md の 48 バイト形式への移行は別途追跡します。
 
 | 項目 | 値 |
 |---|---|
@@ -37,10 +40,10 @@ JSON はデータプレーンで禁止。全てのメッシュトラフィック
 
 ```bash
 # WebGPU クライアント（browser edge node）
-cd client-web && npm install && npm run build
+(cd client-web && npm install && npm run build)
 
 # ネイティブカーネル（Rust）
-cd kernel-native && cargo check && cargo test
+(cd kernel-native && cargo check && cargo test)
 
 # ルートから一括
 npm run build:link && npm run test:link

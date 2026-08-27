@@ -58,7 +58,7 @@ cd akasha-master && npm install && npm run build
 #   Kernel (Rust)
 cd ../akasha-link/kernel-native && cargo check
 #   Client (Browser, WebGPU)
-cd ../akasha-link/client-web && npm install && npm run build
+cd ../client-web && npm install && npm run build
 ```
 
 ## Pull Request Process
@@ -79,7 +79,7 @@ cd ../akasha-link/client-web && npm install && npm run build
    - `npm run build`
    - `npm run selftest`
    - `npm run golden` / `npm run ailsa:selftest`
-   - `cargo check`（akasha-link/kernel-native）
+   - `cargo check --manifest-path akasha-link/kernel-native/Cargo.toml`（akasha-link/kernel-native）
 
 4. プッシュして PR を作成します:
 

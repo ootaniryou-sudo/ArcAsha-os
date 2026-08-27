@@ -74,7 +74,7 @@ npx tsx examples/quickstart.ts  # 5 分钟体验
 
 ```
 akasha-master/        核心实现（TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments）
-akasha-link/          Project A: Akasha-Link（分散推論 / テンソル伝送）
+akasha-link/          Project A: Akasha-Link（分布式推理 / 张量传输）
   ├── client-web/     Web 客户端（WebGPU 推理）
   └── kernel-native/  原生内核原型（Rust）
 examples/             插件示例（code / math）

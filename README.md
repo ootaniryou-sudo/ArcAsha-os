@@ -76,7 +76,7 @@ Or run from the repo (workspace root — convenience scripts delegate to the cor
 
 ```bash
 npm run setup           # npm install --prefix akasha-master
-npm run selftest        # AILSM 72 deterministic tests
+npm run selftest        # AILSM 89 deterministic tests
 npm run benchmark       # full benchmark + reports/ (json/csv/md)
 npm run arcasha -- benchmark
 ```
@@ -86,7 +86,7 @@ Or work directly in the core package:
 ```bash
 cd akasha-master
 npm install
-npm run ailsm:selftest    # 72 deterministic tests
+npm run ailsm:selftest    # 89 deterministic tests
 npx tsx examples/quickstart.ts   # 5-minute tour
 ```
 
@@ -98,16 +98,18 @@ This repository hosts **two independent projects** (boundaries clarified, git sp
 
 | Project | Directory | Role |
 |---|---|---|
-| **Akasha-Link** | `akasha-link/` | **分散推論** — edge (WebGPU) distributed inference / tensor transport engine. Zero-copy binary relay, WebGPU overhead reduction, 5G/Wi-Fi compression. No cognition. |
+| **Akasha-Link** | `akasha-link/` | **分散推論** — edge (WebGPU) distributed inference / tensor transport engine. Zero-copy binary relay, WebGPU overhead reduction, 5G/Wi-Fi compression (planned). No cognition. |
 | **ArcAsha-Core / MetaOS** | `akasha-master/` | **AI オーケストラ（異モデル AI 分散 MoE）** — model-agnostic orchestration OS layer. Thinking modes, AVM paging, harnesses, Caravan cognitive loop. Any backend (MLX / OpenAI / Anthropic / WebGPU) is connectable. |
 
-They communicate only via the wire contract `akasha-link/PROTOCOL.md`.
+`akasha-link/PROTOCOL.md` は両プロジェクト間の共有ワイヤ契約です（48B ヘッダ + f32[] ペイロード）。
+注意: 現行の `client-web` ワーカーは従来の 20 バイト層ヘッダ（txId + layerId）を使用しており、
+PROTOCOL.md 形式への移行は別途追跡されます。
 
 ---
 
 ## 📁 Repository Layout
 
-```
+```text
 akasha-master/        Project B: ArcAsha-Core / MetaOS (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments / Caravan)
 akasha-link/          Project A: Akasha-Link (distributed inference / tensor transport)
   ├── client-web/     Web client (WebGPU inference)
@@ -142,7 +144,7 @@ AI_*.md               Specifications (ArcAsha-Core, see below)
 
 - **v1.0 released** — AI OS first generation (Phases 0-4: ISA/IR/Kernel/AVM → Realtime devices → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, Real Device benchmark plan (Mac / iPhone 15 Pro / iPad M4)
-- selftest [1]-[72] all pass / golden 30 / AILSA selftest / build + dist verified
+- selftest [1]-[89] all pass / golden 30 / AILSA selftest / build + dist verified
 
 ---
 

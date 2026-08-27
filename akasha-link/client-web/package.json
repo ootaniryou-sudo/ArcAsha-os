@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "npx serve public -p 4173",
     "build": "esbuild src/worker.ts --bundle --outfile=public/worker-inference.js --format=esm --target=es2022 --platform=browser",
-    "build:all": "npm run build"
+    "build:all": "npm run build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {},
   "devDependencies": {

@@ -171,7 +171,7 @@ AI_*.md               Specifications (see below)
 | `AI_ATTACHMENTS.md` | Attachment layer / Thinking Modes / Validation |
 | `AI_VALIDATION.md` | Scientific validation (Simulation vs Real Device) / Decision Explanation / Replay / Policy Learning |
 | `AI_EVALUATION.md` | Evaluation |
-| `PROTOCOL.md` | Binary protocol |
+| `akasha-link/PROTOCOL.md` | Binary protocol |
 | `NAMING.md` | Naming system |
 | `PAPER_OUTLINE.md` | Paper: "ArcAsha: An Explainable Runtime for AI Intelligence" |
 | `CHANGELOG.md` | Release history (v1.0 / v1.1) |

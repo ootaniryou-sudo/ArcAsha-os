@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: build + selftests (akasha-master)
@@ -13,9 +16,11 @@ jobs:
       run:
         working-directory: akasha-master
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -27,7 +32,7 @@ jobs:
       - name: TypeScript build
         run: npm run build
 
-      - name: AILSM selftest [1]-[72]
+      - name: AILSM selftest [1]-[89]
         run: npm run ailsm:selftest
 
       - name: AILSM golden (30 cases)
@@ -40,7 +45,9 @@ jobs:
     name: build + tests (akasha-link)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Native kernel (Rust) — cargo check + test
         working-directory: akasha-link/kernel-native
@@ -48,12 +55,13 @@ jobs:
           cargo check
           cargo test
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
 
-      - name: Web client (WebGPU) — esbuild bundle
+      - name: Web client (WebGPU) — typecheck + esbuild bundle
         working-directory: akasha-link/client-web
         run: |
-          npm install
+          npm ci
+          npx tsc --noEmit
           npm run build

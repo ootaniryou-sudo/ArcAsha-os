@@ -63,7 +63,7 @@ arcasha policy      # OS ポリシー学習デモ
 ```bash
 cd akasha-master
 npm install
-npm run ailsm:selftest          # 72 の決定論テスト
+npm run ailsm:selftest          # 89 の決定論テスト
 npm run benchmark               # 全ベンチ + reports/（json/csv/md）
 npx tsx examples/quickstart.ts  # 5 分ツアー
 ```
@@ -89,7 +89,7 @@ AI_*.md               仕様書
 
 - **v1.0 リリース済み** — AI OS 第一世代（ISA/IR/Kernel/AVM → 実機 → Reasoning → Executive/Meta → Attachments → Validation）
 - **v1.1** — Decision Replay、実機ベンチプラン（Mac / iPhone 15 Pro / iPad M4）
-- selftest [1]-[72] 全パス / golden 30 / AILSA selftest / build + dist 検証済み
+- selftest [1]-[89] 全パス / golden 30 / AILSA selftest / build + dist 検証済み
 
 ## 🔬 研究上の位置付け
 

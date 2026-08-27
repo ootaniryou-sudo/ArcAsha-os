@@ -7,8 +7,9 @@
   "scripts": {
     "build:client": "npm run build --prefix client-web",
     "build:kernel": "cd kernel-native && cargo check",
-    "build:link": "npm run build:client",
-    "test:client": "npm run build --prefix client-web",
+    "build:link": "npm run build:kernel && npm run build:client",
+    "check:client": "npm run typecheck --prefix client-web",
+    "test:client": "npm run check:client",
     "test:kernel": "cd kernel-native && cargo test",
     "test:link": "npm run test:kernel && npm run test:client"
   }
