@@ -1,5 +1,10 @@
 /**
  * WebGPU expert — browser-oriented; typed loosely so Node `tsc` stays clean.
+ *
+ * 注: レガシーコード。`akasha-master` の `binary/codec` / `binary/protocol` を
+ * 参照するが、client-web 内にそれらは存在しない。現在のビルド（`src/worker.ts` の
+ * esbuild バンドル）からは未参照のため、typecheck 対象から除外している
+ * （tsconfig.json の `exclude`）。PROTOCOL.md への移行時に配線するか削除する。
  */
 import { BinaryCodec } from '../binary/codec.js';
 import { Cmd, HEADER_SIZE, MAX_PACKET_BYTES } from '../binary/protocol.js';

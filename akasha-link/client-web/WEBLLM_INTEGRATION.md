@@ -40,7 +40,7 @@
   （iPhone）向けに `low_resource_required: true` フラグ付きモデルが用意されている。
 - **メモリ計画・KV cache・paged attention**: スマホの限られた VRAM でも動作。
 - **Worker 対応**: `WebWorkerMLCEngineHandler`（Worker 側）/ `CreateWebWorkerMLCEngine`
-  （メイン側）。**ArcAsha の `akasha-client-web`（Worker で推論）と構造が同型**。
+  （メイン側）。**ArcAsha の `akasha-link/client-web`（Worker で推論）と構造が同型**。
 - **Service Worker 対応**: ページ再訪時にモデルの再ロードを回避。
 - **キャッシュ**: Cache API（既定）/ IndexedDB / OPFS から選択可。
 
@@ -75,7 +75,7 @@ const chunks = await engine.chat.completions.create({ messages, stream: true });
 
 ## 3. 現在の ArcAsha の実態（統合前に把握すべき事実）
 
-### 3.1 `akasha-client-web` の WebGPU エンジンはプレースホルダー
+### 3.1 `akasha-link/client-web` の WebGPU エンジンはプレースホルダー
 
 `src/worker.ts` の `WebGpuLayerEngine` は **実モデルではなくスタブ**:
 
@@ -115,7 +115,7 @@ iOS Metal ノードは `family=metal → chat=true` として JSON over WS で
         │ WS (JSON: register / compute / result)
         ▼
 ┌─────────────────────────────────────────────────┐
-│ akasha-client-web (iPhone Safari のエッジノード) │
+│ akasha-link/client-web (iPhone Safari のエッジノード) │
 │   ┌──────────────────────────────────────────┐  │
 │   │ WebLLM エキスパート（新規: webllm-expert）│  │
 │   │  ├─ MLCEngine (Web Worker)              │  │
@@ -187,7 +187,7 @@ interface WebLlmExpert {
 - [ ] 測定: VRAM / バッテリー消耗の詳細測定
 
 ### Phase 1: エキスパート化
-- [ ] `akasha-client-web/src/webllm-expert.ts` を実装（ExpertMessage 規約適合）
+- [ ] `akasha-link/client-web/src/webllm-expert.ts` を実装（ExpertMessage 規約適合）
 - [ ] 既存ダッシュボード（`main.ts`）に WebLLM モード切替を追加
 - [ ] WebGPU 非対応時のフォールバック分岐
 

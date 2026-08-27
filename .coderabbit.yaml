@@ -21,7 +21,7 @@ reviews:
       instructions: |
         ベンチ計測コード。数値を偽装しないこと（kind: real-api / real-device / simulation を明示）。
         実測値は計算・ログから得た値のみを使うこと。
-    - path: akasha-kernel-native/**/*.rs
+    - path: akasha-link/kernel-native/**/*.rs
       instructions: |
         Rust ネイティブカーネル。unsafe は最小限にし、エラーハンドリングを明示すること。
 

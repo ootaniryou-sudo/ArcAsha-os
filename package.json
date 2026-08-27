@@ -11,6 +11,8 @@
     "golden": "npm run ailsm:golden --prefix akasha-master",
     "ailsa:selftest": "npm run ailsa:selftest --prefix akasha-master",
     "benchmark": "npm run benchmark --prefix akasha-master",
-    "arcasha": "npm run arcasha --prefix akasha-master"
+    "arcasha": "npm run arcasha --prefix akasha-master",
+    "build:link": "npm run build:link --prefix akasha-link",
+    "test:link": "npm run test:link --prefix akasha-link"
   }
 }

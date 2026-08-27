@@ -1,12 +1,13 @@
 {
-  "name": "akasha-client-web",
+  "name": "akasha-link-client-web",
   "version": "1.0.0",
   "description": "Akasha-OS browser edge node — WebGPU inference + zero-copy binary relay",
   "type": "module",
   "scripts": {
     "dev": "npx serve public -p 4173",
     "build": "esbuild src/worker.ts --bundle --outfile=public/worker-inference.js --format=esm --target=es2022 --platform=browser",
-    "build:all": "npm run build"
+    "build:all": "npm run build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {},
   "devDependencies": {

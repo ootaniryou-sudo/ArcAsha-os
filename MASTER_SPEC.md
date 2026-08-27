@@ -142,8 +142,9 @@ AI OS first generation (Phases 0–4):
 
 ```
 akasha-master/        Core implementation (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments)
-akasha-client-web/    Web client (WebGPU inference)
-akasha-kernel-native/ Native kernel prototype (Rust)
+akasha-link/          Project A: Akasha-Link (distributed inference / tensor transport)
+  ├── client-web/     Web client (WebGPU inference)
+  └── kernel-native/  Native kernel prototype (Rust)
 examples/             Attachment examples (code / math)
 .github/              Issue templates + CI workflow
 AI_*.md               Specifications (see below)
@@ -170,7 +171,7 @@ AI_*.md               Specifications (see below)
 | `AI_ATTACHMENTS.md` | Attachment layer / Thinking Modes / Validation |
 | `AI_VALIDATION.md` | Scientific validation (Simulation vs Real Device) / Decision Explanation / Replay / Policy Learning |
 | `AI_EVALUATION.md` | Evaluation |
-| `PROTOCOL.md` | Binary protocol |
+| `akasha-link/PROTOCOL.md` | Binary protocol |
 | `NAMING.md` | Naming system |
 | `PAPER_OUTLINE.md` | Paper: "ArcAsha: An Explainable Runtime for AI Intelligence" |
 | `CHANGELOG.md` | Release history (v1.0 / v1.1) |

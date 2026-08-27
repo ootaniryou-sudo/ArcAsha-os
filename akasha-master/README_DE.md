@@ -74,8 +74,9 @@ npx tsx examples/quickstart.ts  # 5-Minuten-Tour
 
 ```
 akasha-master/        Kernimplementierung (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments)
-akasha-client-web/    Web-Client (WebGPU-Inferenz)
-akasha-kernel-native/ Nativer Kernel-Prototyp (Rust)
+akasha-link/          Project A: Akasha-Link (verteilte Inferenz / Tensortransport)
+  ├── client-web/     Web-Client (WebGPU-Inferenz)
+  └── kernel-native/  Nativer Kernel-Prototyp (Rust)
 examples/             Plugin-Beispiele (code / math)
 AI_*.md               Spezifikationen
 ```

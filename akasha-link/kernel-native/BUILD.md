@@ -217,7 +217,7 @@ cargo build --release --target aarch64-apple-ios-sim --features metal
 
 ## 6. ファイル構造まとめ / File Structure
 
-```
+```text
 kernel/
 ├── Cargo.toml                  # 依存関係とフィーチャーフラグ
 ├── BUILD.md                    # ← このファイル

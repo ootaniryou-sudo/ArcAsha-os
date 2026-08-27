@@ -1,4 +1,4 @@
-// src/edge/worker-inference.ts
+// src/worker.ts
 var HEADER_BYTES = 20;
 var TX_ID_BYTES = 16;
 var MAX_FLOATS = 65536;
