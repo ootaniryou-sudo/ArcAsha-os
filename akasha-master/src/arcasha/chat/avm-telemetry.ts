@@ -91,7 +91,8 @@ const MAX_EVENTS = 500;
 
 export class AvmWorkspace {
   private graph: AilsmGraph = { nodes: [], edges: [] };
-  private readonly tiers = new TierManager();
+  /** contextTitle → TierManager（ページインデックスがコンテキスト間で衝突しないよう分離） */
+  private readonly tiers = new Map<string, TierManager>();
   /** contextTitle → contextId（現行グラフ内） */
   private readonly contexts = new Map<string, number>();
   /** "title:index" → ページ状態（安定管理） */
@@ -116,12 +117,20 @@ export class AvmWorkspace {
     this.contexts.set(title, res.context.id);
     const ctx = res.context;
     const pageCount = ctx.pageCount;
-    // ページ状態を初期化（既存は維持）
+    // ページ状態を更新（chars は毎回最新化。resident / tier / accessCount は維持）
+    const pagesByIdx = new Map(pagesOf(res.graph, res.context.id).map((p) => [p.index, p]));
     for (let i = 0; i < pageCount; i++) {
       const key = `${title}:${i}`;
-      if (!this.pageState.has(key)) {
-        const p = pagesOf(res.graph, res.context.id).find((x) => x.index === i);
-        this.pageState.set(key, { chars: p?.text.length ?? 0, resident: false, accessCount: 0, tier: 'cold' });
+      const chars = pagesByIdx.get(i)?.text.length ?? 0;
+      const st = this.pageState.get(key);
+      if (st) st.chars = chars;
+      else this.pageState.set(key, { chars, resident: false, accessCount: 0, tier: 'cold' });
+    }
+    // ページ数が減った場合の残存キーを削除
+    for (const k of [...this.pageState.keys()]) {
+      if (k.startsWith(`${title}:`)) {
+        const idx = Number(k.slice(title.length + 1));
+        if (Number.isInteger(idx) && idx >= pageCount) this.pageState.delete(k);
       }
     }
     this.pushEvent({
@@ -142,8 +151,10 @@ export class AvmWorkspace {
     const load = res.load;
     const loadedText = load.loadedText;
     let bytes = 0;
+    const byId = new Map(pagesOf(this.graph, contextId).map((p) => [p.id, p]));
+    const tm = this.tierManager(title);
     for (const pid of load.pageIds) {
-      const p = pagesOf(this.graph, contextId).find((x) => x.id === pid);
+      const p = byId.get(pid);
       const index = p?.index ?? -1;
       const key = `${title}:${index}`;
       const st = this.pageState.get(key);
@@ -151,7 +162,7 @@ export class AvmWorkspace {
         st.resident = true;
         st.accessCount += 1;
         const prev = st.tier;
-        const next = this.tiers.touch(index);
+        const next = tm.touch(index);
         st.tier = next;
         bytes += st.chars;
         if (next !== prev && (prev === 'cold' || next === 'hot')) {
@@ -255,6 +266,7 @@ export class AvmWorkspace {
       if (scored.length === 0) continue;
       let loadedText = '';
       let bytes = 0;
+      const tm = this.tierManager(title);
       for (const { p } of scored) {
         const key = `${title}:${p.index}`;
         const st = this.pageState.get(key);
@@ -262,7 +274,7 @@ export class AvmWorkspace {
           st.resident = true;
           st.accessCount += 1;
           const prev = st.tier;
-          const next = this.tiers.touch(p.index);
+          const next = tm.touch(p.index);
           st.tier = next;
           if (next !== prev) {
             this.pushEvent({
@@ -294,6 +306,16 @@ export class AvmWorkspace {
     const t = s.toLowerCase();
     const tokens = t.match(/[a-z0-9]+|[\u3040-\u30ff\u4e00-\u9fff]{2,}/g) ?? [];
     return [...new Set(tokens)].filter((x) => x.length >= 2);
+  }
+
+  /** コンテキストごとの TierManager（ページインデックスが衝突しないよう分離） */
+  private tierManager(title: string): TierManager {
+    let tm = this.tiers.get(title);
+    if (!tm) {
+      tm = new TierManager();
+      this.tiers.set(title, tm);
+    }
+    return tm;
   }
 
   /** 現在の AVM 状態をスナップショット化（ブラウザ描画用） */
@@ -353,7 +375,12 @@ export class AvmWorkspace {
 
   private tierCounts(): { hot: number; warm: number; cold: number } {
     const out = { hot: 0, warm: 0, cold: 0 };
-    for (const s of this.pageState.values()) out[s.tier]++;
+    for (const tm of this.tiers.values()) {
+      const c = tm.counts();
+      out.hot += c.hot;
+      out.warm += c.warm;
+      out.cold += c.cold;
+    }
     return out;
   }
 }

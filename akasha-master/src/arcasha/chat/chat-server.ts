@@ -63,39 +63,50 @@ function pickNode(): string {
 const ws = new AvmWorkspace();
 const history: { role: 'user' | 'assistant'; content: string }[] = [];
 let msgSeq = 0;
+const MAX_HISTORY = 40; // 会話履歴の上限（無制限な蓄積を防ぐ）
 
-/** 会話履歴を AVM の「会話」コンテキストへ書き込み、テキストとして返す */
-function conversationText(): string {
-  return history
-    .map((m, i) => `${m.role === 'user' ? 'Q' : 'A'}[${i}]: ${m.content}`)
-    .join('\n');
+/** 会話配列を AVM のコンテキスト用テキストへ変換する */
+function messagesToText(messages: { role: string; content: string }[]): string {
+  return messages.map((m, i) => `${m.role === 'user' ? 'Q' : 'A'}[${i}]: ${m.content}`).join('\n');
+}
+
+/** WebUI の会話状態を直列化する（同時リクエストで履歴が混ざらないように） */
+let historyLock: Promise<void> = Promise.resolve();
+function withLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = historyLock.then(fn, fn);
+  historyLock = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+/** 軽量文字列ハッシュ（API 会話のタイトル分離用） */
+function shortHash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(16);
 }
 
 /**
- * チャット 1 ターンを実行する（AVM 経由）:
- *   1. 会話を AVM に書く（context.write, actor=user）
- *   2. search expert が会話の必要ページだけを読む（slice.read / tier.move）
- *   3. 実モデルを呼び出して回答（model.call）
- *   4. 回答を AVM に書き戻す（cache.write, actor=モデル）← 「AIモデルによる書き込み」
+ * 会話配列を丸ごと AVM の指定タイトルへ書き込み、チャット 1 ターンを実行する。
+ *   context.write → slice.read（search + 知識）→ model.call → cache.write
+ * title を分離することで、WebUI（会話）と API（api:<hash>）の履歴が混ざらない。
  */
-async function answer(message: string, maxTokens = DEFAULT_MAX_TOKENS): Promise<{
-  reply: string;
-  ms: number;
-  model: string;
-  nodeId: string;
-  trace: string[];
-}> {
+async function answerConversation(
+  title: string,
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  maxTokens: number,
+): Promise<{ reply: string; ms: number; model: string; nodeId: string; trace: string[] }> {
   const trace: string[] = [];
   const t0 = Date.now();
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
 
-  // 1) 会話を AVM へ書く
-  history.push({ role: 'user', content: message });
-  ws.storeContext('会話', conversationText(), 'user');
-  trace.push('context.write 会話');
+  // 1) 会話全体を AVM へ書く
+  ws.storeContext(title, messagesToText(messages), 'user');
+  trace.push(`context.write ${title}`);
 
   // 2) search expert が AVM から必要ページを読む（会話 + 知識コンテキスト）
-  const load = ws.readSlice('会話', 'search', message, 'search');
-  const kloads = ws.searchKnowledge(message, 2, 'search');
+  const query = lastUser?.content ?? '';
+  const load = ws.readSlice(title, 'search', query, 'search');
+  const kloads = ws.searchKnowledge(query, 2, 'search');
   const contextSnippet =
     [
       load && load.loadedText ? `[会話] ${load.loadedText.slice(0, 800)}` : '',
@@ -107,11 +118,11 @@ async function answer(message: string, maxTokens = DEFAULT_MAX_TOKENS): Promise<
   const nodeId = pickNode();
   const prompt = [
     'あなたは ArcAsha（AI オペレーティングシステム）の上で動くモデルです。',
-    '以下は AVM（AI 仮想メモリ）から読み込んだ会話コンテキストです:',
+    '以下は AVM（AI 仮想メモリ）から読み込んだコンテキストです:',
     '─── context ───',
     contextSnippet,
     '──────────────',
-    `質問: ${message}`,
+    `質問: ${lastUser?.content ?? ''}`,
     '簡潔に日本語で答えてください。',
   ].join('\n');
   const genT0 = Date.now();
@@ -128,10 +139,9 @@ async function answer(message: string, maxTokens = DEFAULT_MAX_TOKENS): Promise<
 
   // 4) 回答を AVM に書き戻す（AI モデルの書き込み）
   msgSeq++;
-  ws.writeCache('会話', 'summary', `answer:${msgSeq}`, reply, model);
+  ws.writeCache(title, 'summary', `answer:${msgSeq}`, reply, model);
   trace.push('cache.write 回答');
 
-  history.push({ role: 'assistant', content: reply });
   return { reply, ms: Date.now() - t0, model, nodeId, trace };
 }
 
@@ -317,21 +327,56 @@ addMsg('ai', 'こんにちは。ArcAsha（AI オペレーティングシステ�
 </html>`;
 
 // ─── HTTP サーバ ────────────────────────────────────────────────────
+// セキュリティ: ループバックにのみバインド。認証トークンは ARCASHA_API_TOKEN で任意設定。
+const apiToken = process.env.ARCASHA_API_TOKEN ?? '';
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url ?? '/', `http://localhost:${PORT}`);
+  const url = new URL(req.url ?? '/', `http://127.0.0.1:${PORT}`);
+  // CORS: ローカルオリジンのみ許可（外部サイトからの読み取りを防ぐ）
+  const origin = req.headers.origin;
+  const allowOrigin =
+    origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1'))
+      ? origin
+      : 'http://localhost:4780';
   const sendJson = (code: number, obj: unknown) => {
     const body = JSON.stringify(obj);
-    res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type, Authorization', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' });
+    res.writeHead(code, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': allowOrigin,
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    });
     res.end(body);
   };
   const readBody = () =>
-    new Promise<string>((resolve) => {
+    new Promise<string>((resolve, reject) => {
       let buf = '';
-      req.on('data', (c) => { buf += c; if (buf.length > 1_000_000) req.destroy(); });
+      req.on('data', (c) => {
+        buf += c;
+        if (buf.length > 1_000_000) {
+          reject(new Error('request body too large'));
+          req.destroy();
+        }
+      });
       req.on('end', () => resolve(buf));
+      req.on('error', (e) => reject(e));
+      req.on('aborted', () => reject(new Error('request aborted')));
     });
 
   if (req.method === 'OPTIONS') { sendJson(204, {}); return; }
+
+  // 認証（ARCASHA_API_TOKEN 設定時は /api/* と /v1/* に Bearer 必須）
+  if (apiToken && url.pathname.startsWith('/api/') && url.pathname !== '/api/health') {
+    if (req.headers.authorization !== `Bearer ${apiToken}`) {
+      sendJson(401, { error: 'unauthorized: ARCASHA_API_TOKEN が必要です' });
+      return;
+    }
+  }
+  if (apiToken && url.pathname.startsWith('/v1/')) {
+    if (req.headers.authorization !== `Bearer ${apiToken}`) {
+      sendJson(401, { error: { message: 'unauthorized: ARCASHA_API_TOKEN が必要です' } });
+      return;
+    }
+  }
 
   // チャット WebUI
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
@@ -347,9 +392,19 @@ const server = http.createServer(async (req, res) => {
       const messages: Array<{ role: string; content: string }> = Array.isArray(body.messages) ? body.messages : [];
       const last = [...messages].reverse().find((m) => m.role === 'user');
       if (!last) { sendJson(400, { error: { message: 'messages に user メッセージが必要です' } }); return; }
+      // 未知のモデルは 400 で拒否（/v1/models の公開モデルのみ受理）
+      const reqModel = String(body.model ?? '');
+      if (reqModel && !hub.experts.some((e) => e.modelId === reqModel)) {
+        sendJson(400, { error: { message: `unknown model: ${reqModel}（利用可能: ${hub.experts.map((e) => e.modelId).join(', ')}）` } });
+        return;
+      }
       const maxTokens = Number(body.max_tokens) > 0 ? Number(body.max_tokens) : DEFAULT_MAX_TOKENS;
-      const r = await answer(last.content, maxTokens);
+      // 受信した messages 全体を会話として AVM へ（サーバー側共有履歴とは結合しない）
+      const title = `api:${shortHash(messages.map((m) => `${m.role}:${m.content}`).join('|'))}`;
+      const r = await answerConversation(title, messages as { role: 'user' | 'assistant'; content: string }[], maxTokens);
       const usage = hub.lastApiUsage;
+      const promptTokens = usage?.promptTokens ?? Math.ceil(last.content.length / 4);
+      const completionTokens = usage?.completionTokens ?? Math.ceil(r.reply.length / 4);
       sendJson(200, {
         id: `chatcmpl-arcasha-${msgSeq}`,
         object: 'chat.completion',
@@ -357,9 +412,9 @@ const server = http.createServer(async (req, res) => {
         model: r.model,
         choices: [{ index: 0, message: { role: 'assistant', content: r.reply }, finish_reason: 'stop' }],
         usage: {
-          prompt_tokens: usage?.promptTokens ?? Math.ceil(last.content.length / 4),
-          completion_tokens: usage?.completionTokens ?? Math.ceil(r.reply.length / 4),
-          total_tokens: (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0) + Math.ceil((last.content.length + r.reply.length) / 4),
+          prompt_tokens: promptTokens,
+          completion_tokens: completionTokens,
+          total_tokens: promptTokens + completionTokens,
         },
         _arcasha: { ms: r.ms, nodeId: r.nodeId, trace: r.trace, avm: ws.snapshot(40) },
       });
@@ -384,7 +439,15 @@ const server = http.createServer(async (req, res) => {
       const message = String(body.message ?? '').trim();
       if (!message) { sendJson(400, { error: 'message が空です' }); return; }
       const maxTokens = Number(body.maxTokens) > 0 ? Number(body.maxTokens) : DEFAULT_MAX_TOKENS;
-      const r = await answer(message, maxTokens);
+      // WebUI の会話は単一ユーザー前提。ロックで直列化し、履歴は上限で切り詰める
+      const r = await withLock(async () => {
+        history.push({ role: 'user', content: message });
+        if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
+        const res = await answerConversation('会話', history, maxTokens);
+        history.push({ role: 'assistant', content: res.reply });
+        if (history.length > MAX_HISTORY) history.splice(0, history.length - MAX_HISTORY);
+        return res;
+      });
       sendJson(200, { ...r, events: ws.snapshot(40).events });
     } catch (e) {
       sendJson(500, { error: String(e) });
@@ -406,13 +469,18 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const parseLimit = (raw: string | null, fallback = 120): number => {
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+
   if (req.method === 'GET' && url.pathname === '/api/avm') {
-    sendJson(200, ws.snapshot(Number(url.searchParams.get('limit') ?? 120)));
+    sendJson(200, ws.snapshot(parseLimit(url.searchParams.get('limit'))));
     return;
   }
 
   if (req.method === 'GET' && url.pathname === '/api/avm/events') {
-    sendJson(200, { events: ws.snapshot(Number(url.searchParams.get('limit') ?? 120)).events });
+    sendJson(200, { events: ws.snapshot(parseLimit(url.searchParams.get('limit'))).events });
     return;
   }
 
@@ -438,7 +506,7 @@ const server = http.createServer(async (req, res) => {
   sendJson(404, { error: `not found: ${url.pathname}` });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log('');
   console.log('══════════════════════════════════════════════════════');
   console.log('  ArcAsha Chat Server');
