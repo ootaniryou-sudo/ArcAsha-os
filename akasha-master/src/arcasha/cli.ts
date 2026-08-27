@@ -49,14 +49,23 @@ export async function runCli(argv: string[]): Promise<string> {
     case 'metaos50': {
       // 例: arcasha metaos50 50 50  (ノード数 同時実行数)
       // DeepSeek API を N 体の仮想ノードとして登録し、フル Meta OS（aiosExecute）を
-      // 経由して N 並列で駆動し、完走性・正しさ・OS 学習・キャラバン分散を検証する。
+      // 経由して N 並列で駆動し、完走性・正しさ・OS 学習・キャラバンルーティングを検証する。
       const { runMetaOs50, renderMetaOs50, writeMetaOs50Report } = await import('./bench/metaos-50.js');
-      const n = argv[1] ? Number(argv[1]) : 50;
-      const c = argv[2] ? Number(argv[2]) : n;
-      const r = await runMetaOs50({ nodes: Number.isFinite(n) && n > 0 ? n : 50, concurrency: Number.isFinite(c) && c > 0 ? c : 50 });
+      // 引数は正の安全な整数のみ受理（1.5 などの小数・非数を拒否して既定値へ）
+      const toInt = (v: string | undefined, def: number): number => {
+        if (v === undefined) return def;
+        const n = Number(v);
+        return Number.isSafeInteger(n) && n > 0 ? n : def;
+      };
+      const n = toInt(argv[1], 50);
+      const c = toInt(argv[2], n);
+      const r = await runMetaOs50({ nodes: n, concurrency: c });
       console.log(renderMetaOs50(r));
       const jsonPath = await writeMetaOs50Report(r);
-      return `arcasha metaos50: done（kind=real-api・${r.nodes}体同時駆動・検証 V1..V6・report: ${jsonPath}）`;
+      // V1..V6 に FAIL があれば非ゼロ終了で失敗を通知（自動化が検出できるように）
+      const failed = Object.values(r.verifications).some((v) => !v);
+      if (failed) throw new Error(`metaos50: 検証が FAIL（V1..V6 のいずれか）。詳細: ${jsonPath}`);
+      return `arcasha metaos50: done（kind=real-api・${r.nodes}体同時駆動・検証 V1..V6 全 PASS・report: ${jsonPath}）`;
     }
     case 'policy': {
       const { runPolicyLearningDemo } = await import('./attachments/decision-log.js');

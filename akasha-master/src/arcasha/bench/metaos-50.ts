@@ -56,6 +56,10 @@ export interface MetaOs50Result {
   fallbackCount: number;
   rateLimited: number;   // 429 / レート制限を観測した合計回数（リトライ後成功も含む）
   caravanDistribution: Record<string, number>;
+  /** V4 ルーティング検証: caravanRoute を sweep したときの到達可能ノード数・キャラバン別ヒット */
+  routeSweep: number;
+  routeReachableNodes: number;
+  routeCaravanHits: Record<string, number>;
   perNode: MetaOs50NodeResult[];
   /** ノードメトリクス（battery/RTT/電力）は決定論シミュレーション値。実測は API 呼び出しのみ */
   metricsKind: 'sim';
@@ -67,7 +71,6 @@ interface MetaOs50Opts {
   concurrency?: number;
   maxTokens?: number;
   prompt?: string;       // 「数字 X を 2 倍にしてください」のテンプレート
-  reportDir?: string;
 }
 
 const DEFAULT_PROMPT_TMPL = '数字 {n} を 2 倍にしてください。最後の行に「結果: {n*2}」と答えてください。';
@@ -127,6 +130,18 @@ async function runOne(
   for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
     try {
       const ex = await aiosExecute(aios, prompt, nodeId, { forceDelegate: true, maxTokens });
+      // RemoteDriver は例外を投げず { ok:false, error } を返す（429/5xx もここに来る）
+      const resp = ex.driverResponse;
+      if (!resp || resp.ok === false) {
+        const msg = resp?.error?.message ?? 'driver returned ok=false';
+        lastErr = msg;
+        if (/429|rate\s*limit|too many/i.test(msg)) {
+          rateLimitEvents++; // 429 を観測するたびに加算（リトライ後成功でも件数は残す）
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+          continue;
+        }
+        break; // それ以外はリトライしない
+      }
       const text = ex.result !== null && ex.result !== undefined ? String(ex.result) : '';
       const ms = Date.now() - t1;
       return {
@@ -232,11 +247,25 @@ export async function runMetaOs50(opts?: MetaOs50Opts): Promise<MetaOs50Result> 
 
   const learnedExperts = aios.learner.all().length;
 
+  // V4 用: キャラバンルーティング検証 — caravanRoute を sweep して到達性・分散を確認
+  // （実機テストと同じ「Master → キャラバン → デバイス」の経路を検証する）
+  const ROUTE_SWEEP = 200;
+  const routeCaravanHits: Record<string, number> = {};
+  const routeNodeHits = new Map<string, number>();
+  for (const c of hub.tree().caravans) {
+    for (let k = 0; k < ROUTE_SWEEP; k++) {
+      const routed = hub.caravanRoute(c.id, `route-key-${c.id}-${k}`);
+      routeCaravanHits[c.id] = (routeCaravanHits[c.id] ?? 0) + 1;
+      if (routed) routeNodeHits.set(routed, (routeNodeHits.get(routed) ?? 0) + 1);
+    }
+  }
+  const routeReachableNodes = routeNodeHits.size;
+
   // 検証の合否判定
   const v1 = ok === nodes && fail === 0;                       // 完走性
   const v2 = verified === nodes;                               // 正しさ（全件で 2X を検出）
   const v3 = learnedExperts >= nodes;                          // OS 学習（50 エキスパート分）
-  const v4 = Object.keys(caravanDistribution).length === Math.min(caravans, Math.ceil(nodes / 10)); // キャラバン分散
+  const v4 = caravans > 0 && routeReachableNodes === nodes;    // ルーティングで全ノードへ到達可能
   const v5 = fallbackCount === nodes;                          // Stage-2 委譲が全件
   const v6 = ok > 0 && totalMs > 0;                            // タイミング計測成立
 
@@ -260,6 +289,9 @@ export async function runMetaOs50(opts?: MetaOs50Opts): Promise<MetaOs50Result> 
     fallbackCount,
     rateLimited,
     caravanDistribution,
+    routeSweep: ROUTE_SWEEP,
+    routeReachableNodes,
+    routeCaravanHits,
     perNode,
     metricsKind: 'sim',
     verifications: { v1, v2, v3, v4, v5, v6 },
@@ -284,6 +316,7 @@ export function renderMetaOs50(r: MetaOs50Result): string {
   lines.push(`  OS 学習    : CapabilityLearner 記録 ${r.learnedExperts} エキスパート`);
   lines.push(`  Stage-2 委譲: ${r.fallbackCount}/${r.nodes} 件（実LLM 委譲）`);
   lines.push(`  キャラバン分散: ${JSON.stringify(r.caravanDistribution)}`);
+  lines.push(`  ルーティング検証: caravanRoute ${r.routeSweep} キー/キャラバン sweep → 到達可能ノード ${r.routeReachableNodes}/${r.nodes}`);
   lines.push(`  ノードメトリクス: ${r.metricsKind === 'sim' ? 'シミュレーション値（source=sim・実測ではない）' : r.metricsKind}`);
   lines.push('');
   lines.push('  検証結果（V1..V6）:');
@@ -339,6 +372,7 @@ export async function writeMetaOs50Report(r: MetaOs50Result, dir = 'reports/meta
     `| Stage-2 委譲 | ${r.fallbackCount} / ${r.nodes} |`,
     `| 429/レート制限 | ${r.rateLimited} 回（全試行の観測回数） |`,
     `| キャラバン分散 | ${JSON.stringify(r.caravanDistribution)} |`,
+    `| ルーティング（caravanRoute sweep） | ${r.routeSweep} キー × キャラバン → 到達可能ノード ${r.routeReachableNodes}/${r.nodes}（${JSON.stringify(r.routeCaravanHits)}） |`,
     `| ノードメトリクス | ${r.metricsKind === 'sim' ? 'シミュレーション値（source=sim）— 実測は API 呼び出しレイテンシ・スループットのみ' : r.metricsKind} |`,
     '',
     '## 検証（V1..V6）',
