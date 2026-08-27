@@ -269,9 +269,11 @@ export class ExpertHub {
     const url = cfg.baseUrl.replace(/\/+$/, '');
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (cfg.apiKey) headers['Authorization'] = `Bearer ${cfg.apiKey}`;
+    // 60 秒のタイムアウト（API が応答しなくてもハングしないように）
     const res = await fetch(`${url}/v1/chat/completions`, {
       method: 'POST',
       headers,
+      signal: AbortSignal.timeout(60_000),
       body: JSON.stringify({
         model: cfg.model,
         messages: [{ role: 'user', content: prompt }],

@@ -25,6 +25,7 @@
     "ailsm:visualize": "tsx src/arcasha/ailsm/visualize.ts",
     "benchmark": "tsx src/arcasha/bench/cli.ts",
     "metaos50": "tsx src/arcasha/cli.ts metaos50",
+    "chat": "tsx src/arcasha/chat/chat-server.ts",
     "arcasha": "tsx src/arcasha/cli.ts"
   },
   "engines": {
