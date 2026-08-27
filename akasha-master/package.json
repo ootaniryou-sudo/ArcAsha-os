@@ -24,6 +24,7 @@
     "ailsm:golden": "tsx src/arcasha/ailsm/golden.ts",
     "ailsm:visualize": "tsx src/arcasha/ailsm/visualize.ts",
     "benchmark": "tsx src/arcasha/bench/cli.ts",
+    "metaos50": "tsx src/arcasha/cli.ts metaos50",
     "arcasha": "tsx src/arcasha/cli.ts"
   },
   "engines": {
