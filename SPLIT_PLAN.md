@@ -61,6 +61,7 @@ graph LR
   - B → `arcasha-core`: `git filter-repo --path akasha-master --path-glob 'AI_*.md' --path ARCHITECTURE.md --path MASTER_SPEC.md --path NAMING.md --path examples --path .github --path package.json --path README.md --path CONTRIBUTING.md --path LICENSE`
   - A → `akasha-link`: `git filter-repo --path akasha-link --path akasha-client-web --path akasha-kernel-native --path PROTOCOL.md --path-rename akasha-link/:'' --path-rename akasha-client-web/:client-web/ --path-rename akasha-kernel-native/:kernel-native/`
   - 移動前パス（`akasha-client-web/` 等）と現行パス（`akasha-link/`）の**両方**を `--path` で指定し、`--path-rename` で分割先ルートへ変換する（git-filter-repo は自動でリネーム追跡しないため）
+  - **CI も同時に分割する**: B の `ci.yml` から `akasha-link` job を除去し、A 側は `akasha-link` 用 job のみを持つ `ci.yml` を新設する（分割後は各リポジトリに参照先パスが存在しないため、このままでは CI が失敗する）
   - 破壊的操作の前に、一時クローンで生成結果を確認してから実行する
   - 履歴は保持（統合コミット `fc08931` が起点）
 
