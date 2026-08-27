@@ -16,7 +16,7 @@
 - [ ] `npm run selftest`（実測値: ___ 件 pass）
 - [ ] `npm run golden`
 - [ ] `npm run ailsa:selftest`
-- [ ] `cargo check`（akasha-kernel-native）
+- [ ] `cargo check`（akasha-link/kernel-native）
 - [ ] 実機 / 実 API で確認（該当する場合）
 
 <!-- 実行したコマンドと結果を記載。実測値は偽装しない -->

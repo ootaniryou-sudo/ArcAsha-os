@@ -92,15 +92,30 @@ npx tsx examples/quickstart.ts   # 5-minute tour
 
 ---
 
+## 🧩 Two Projects
+
+This repository hosts **two independent projects** (boundaries clarified, git split pending):
+
+| Project | Directory | Role |
+|---|---|---|
+| **Akasha-Link** | `akasha-link/` | **分散推論** — edge (WebGPU) distributed inference / tensor transport engine. Zero-copy binary relay, WebGPU overhead reduction, 5G/Wi-Fi compression. No cognition. |
+| **ArcAsha-Core / MetaOS** | `akasha-master/` | **AI オーケストラ（異モデル AI 分散 MoE）** — model-agnostic orchestration OS layer. Thinking modes, AVM paging, harnesses, Caravan cognitive loop. Any backend (MLX / OpenAI / Anthropic / WebGPU) is connectable. |
+
+They communicate only via the wire contract `akasha-link/PROTOCOL.md`.
+
+---
+
 ## 📁 Repository Layout
 
 ```
-akasha-master/        Core implementation (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments)
-akasha-client-web/    Web client (WebGPU inference)
-akasha-kernel-native/ Native kernel prototype (Rust)
+akasha-master/        Project B: ArcAsha-Core / MetaOS (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments / Caravan)
+akasha-link/          Project A: Akasha-Link (distributed inference / tensor transport)
+  ├── client-web/     Web client (WebGPU inference)
+  ├── kernel-native/  Native kernel prototype (Rust: GPU compute / QUIC / TCP / memory pool)
+  └── PROTOCOL.md     Akasha Wire Protocol (48B header + f32[] payload — the shared contract)
 examples/             Attachment examples (code / math)
 .github/              Issue templates + CI workflow
-AI_*.md               Specifications (see below)
+AI_*.md               Specifications (ArcAsha-Core, see below)
 ```
 
 ---

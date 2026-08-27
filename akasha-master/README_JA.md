@@ -74,8 +74,9 @@ npx tsx examples/quickstart.ts  # 5 分ツアー
 
 ```
 akasha-master/        本体（TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments）
-akasha-client-web/    Web クライアント（WebGPU 推論）
-akasha-kernel-native/ ネイティブカーネル試作（Rust）
+akasha-link/          Project A: Akasha-Link（分散推論 / テンソル伝送）
+  ├── client-web/     Web クライアント（WebGPU 推論）
+  └── kernel-native/  ネイティブカーネル試作（Rust）
 examples/             プラグイン例（code / math）
 AI_*.md               仕様書
 ```

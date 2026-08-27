@@ -1,5 +1,5 @@
 {
-  "name": "akasha-client-web",
+  "name": "akasha-link-client-web",
   "version": "1.0.0",
   "description": "Akasha-OS browser edge node — WebGPU inference + zero-copy binary relay",
   "type": "module",

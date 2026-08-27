@@ -35,3 +35,25 @@ jobs:
 
       - name: AILSA selftest
         run: npm run ailsa:selftest
+
+  akasha-link:
+    name: build + tests (akasha-link)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Native kernel (Rust) — cargo check + test
+        working-directory: akasha-link/kernel-native
+        run: |
+          cargo check
+          cargo test
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Web client (WebGPU) — esbuild bundle
+        working-directory: akasha-link/client-web
+        run: |
+          npm install
+          npm run build

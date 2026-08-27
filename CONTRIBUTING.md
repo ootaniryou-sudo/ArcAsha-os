@@ -29,9 +29,14 @@ See [`examples/`](examples/) for ready-to-copy templates.
 
 | Layer | Language | Directory | Good first issues |
 |-------|----------|-----------|-------------------|
-| Master Orchestrator | TypeScript | `akasha-master/` | Improve routing, add cluster strategies |
-| Native Kernel | Rust | `akasha-kernel-native/` | Optimise GPU shaders, platform support |
-| Browser Client | TypeScript | `akasha-client-web/` | Dashboard UI, WebGPU perf tuning |
+| Master Orchestrator (Project B) | TypeScript | `akasha-master/` | Improve routing, add cluster strategies |
+| Native Kernel (Project A) | Rust | `akasha-link/kernel-native/` | Optimise GPU shaders, platform support |
+| Browser Client (Project A) | TypeScript | `akasha-link/client-web/` | Dashboard UI, WebGPU perf tuning |
+
+> このリポジトリは 2 つの独立プロジェクトを内包します:
+> **Project A: Akasha-Link**（`akasha-link/` = 分散推論 / テンソル伝送エンジン）と
+> **Project B: ArcAsha-Core / MetaOS**（`akasha-master/` = AI オーケストレーション OS）。
+> 共有契約は `akasha-link/PROTOCOL.md`。
 
 ### 3. Report Bugs / Propose Features
 
@@ -46,14 +51,14 @@ Use the [issue templates](.github/ISSUE_TEMPLATE/):
 git clone https://github.com/ootaniryou-sudo/Akasha-OS.git
 cd Akasha-OS
 
-# Master (TypeScript)
+# Project B: ArcAsha-Core (TypeScript)
 cd akasha-master && npm install && npm run build
 
-# Kernel (Rust)
-cd ../akasha-kernel-native && cargo check
-
-# Client (Browser)
-cd ../akasha-client-web && npm install && npm run build
+# Project A: Akasha-Link
+#   Kernel (Rust)
+cd ../akasha-link/kernel-native && cargo check
+#   Client (Browser, WebGPU)
+cd ../akasha-link/client-web && npm install && npm run build
 ```
 
 ## Pull Request Process
@@ -74,7 +79,7 @@ cd ../akasha-client-web && npm install && npm run build
    - `npm run build`
    - `npm run selftest`
    - `npm run golden` / `npm run ailsa:selftest`
-   - `cargo check`（akasha-kernel-native）
+   - `cargo check`（akasha-link/kernel-native）
 
 4. プッシュして PR を作成します:
 

@@ -1,0 +1,15 @@
+{
+  "name": "akasha-link",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Akasha-Link — Distributed inference / tensor transport engine (edge WebGPU + native kernel)",
+  "license": "MIT",
+  "scripts": {
+    "build:client": "npm run build --prefix client-web",
+    "build:kernel": "cd kernel-native && cargo check",
+    "build:link": "npm run build:client",
+    "test:client": "npm run build --prefix client-web",
+    "test:kernel": "cd kernel-native && cargo test",
+    "test:link": "npm run test:kernel && npm run test:client"
+  }
+}

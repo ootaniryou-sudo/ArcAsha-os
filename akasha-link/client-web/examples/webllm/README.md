@@ -11,7 +11,7 @@ WebLLM (https://webllm.mlc.ai) を ArcAsha の WebGPU エキスパートとし�
 ## セットアップ
 
 ```bash
-cd akasha-client-web/examples/webllm
+cd akasha-link/client-web/examples/webllm
 npm install
 npm run build        # esbuild: src/{main,worker}.ts → public/dist/*.js
 npm run dev:http     # デスクトップ検証用: http://localhost:4174 で配信
@@ -95,7 +95,7 @@ npm run dev            # https://localhost:4174
 
 ## 次のステップ（Phase 1+）
 
-- `akasha-client-web/src/webllm-expert.ts` として ArcAsha の ExpertMessage
+- `akasha-link/client-web/src/webllm-expert.ts` として ArcAsha の ExpertMessage
   規約（FROM/TO/TASK_ID/INPUT/RESULT/CONF/TRACE）にラップ
 - ハブ `KNOWN_PARAMS` に `webllm` ファミリを登録（`chat=true`）
 - 既存のプレースホルダー shader モード（層計算デモ）とは共存させる

@@ -19,7 +19,7 @@
 
 | 世界観名 | 正式名称 | コード上の主な該当箇所 |
 |---------|---------|---------------------|
-| **Akasha Terminal** | AI Client | `akasha-client-web/` |
+| **Akasha Terminal** | AI Client | `akasha-link/client-web/` |
 | **Knowledge Gateway** | Client Gateway | `src/client/node-client.ts` |
 | **Consciousness Window** | Session Interface | `src/core/inference-loop.ts` |
 
@@ -38,8 +38,8 @@
 | 世界観名 | 正式名称 | コード上の主な該当箇所 |
 |---------|---------|---------------------|
 | **Knowledge Node** | Inference Node | `src/client/node-client.ts` |
-| **Edge Terminal** | Lightweight Edge Node | `akasha-client-web/src/worker.ts` |
-| **Core Terminal** | High-Performance Node | `akasha-kernel-native/` |
+| **Edge Terminal** | Lightweight Edge Node | `akasha-link/client-web/src/worker.ts` |
+| **Core Terminal** | High-Performance Node | `akasha-link/kernel-native/` |
 | **Guardian Terminal** | Replica / Backup Node | `src/fault/fault-tolerance.ts` (shadow) |
 | **Star Registry** | Node Registry | `src/structures/idle-cluster-pool.ts` |
 | **Star Pulse** | Node Health Monitor | `src/core/cluster-guardian.ts` (NicMonitor) |

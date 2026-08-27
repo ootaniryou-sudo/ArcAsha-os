@@ -96,8 +96,9 @@ npx tsx examples/quickstart.ts   # 5-minute tour
 
 ```
 akasha-master/        Core implementation (TypeScript / AILSA / AILSM / Kernel / AVM / Executive / Attachments)
-akasha-client-web/    Web client (WebGPU inference)
-akasha-kernel-native/ Native kernel prototype (Rust)
+akasha-link/          Project A: Akasha-Link (distributed inference / tensor transport)
+  ├── client-web/     Web client (WebGPU inference)
+  └── kernel-native/  Native kernel prototype (Rust)
 examples/             Attachment examples (code / math)
 .github/              Issue templates + CI workflow
 AI_*.md               Specifications (see below)

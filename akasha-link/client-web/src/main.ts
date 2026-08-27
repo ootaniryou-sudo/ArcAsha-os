@@ -1,5 +1,5 @@
 /**
- * akasha-client-web — メインUIスレッド / Main UI Thread
+ * akasha-link/client-web — メインUIスレッド / Main UI Thread
  *
  * スマホ画面にVRAM使用量やマイクロ秒単位の推論遅延を表示する
  * リアルタイムダッシュボード。
