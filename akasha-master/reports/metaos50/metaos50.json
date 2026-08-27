@@ -4,12 +4,12 @@
   "nodes": 50,
   "caravans": 5,
   "concurrency": 50,
-  "totalMs": 2147,
-  "throughputPerSec": 23.29,
-  "avgLatencyMs": 1422,
-  "p50Ms": 1403,
-  "p90Ms": 1693,
-  "p99Ms": 2146,
+  "totalMs": 1564,
+  "throughputPerSec": 31.97,
+  "avgLatencyMs": 1161,
+  "p50Ms": 1146,
+  "p90Ms": 1432,
+  "p99Ms": 1562,
   "ok": 50,
   "fail": 0,
   "verified": 50,
@@ -42,10 +42,10 @@
       "expected": 2,
       "ok": true,
       "verified": true,
-      "ms": 1667,
+      "ms": 1449,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "1を2倍すると、2です。\n\n結果: 2"
+      "text": "1を2倍すると2です。\n\n結果: 2"
     },
     {
       "task": 2,
@@ -55,7 +55,7 @@
       "expected": 4,
       "ok": true,
       "verified": true,
-      "ms": 1594,
+      "ms": 1154,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "2 を 2 倍すると 4 です。\n\n結果: 4"
@@ -68,10 +68,10 @@
       "expected": 6,
       "ok": true,
       "verified": true,
-      "ms": 2146,
+      "ms": 1433,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "3 を 2 倍すると 6 です。  \n結果: 6"
+      "text": "3 を 2 倍すると 6 です。\n\n結果: 6"
     },
     {
       "task": 4,
@@ -81,7 +81,7 @@
       "expected": 8,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 1057,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "4 を 2 倍すると 8 です。\n\n結果: 8"
@@ -94,10 +94,10 @@
       "expected": 10,
       "ok": true,
       "verified": true,
-      "ms": 1413,
+      "ms": 1130,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "5 を 2 倍すると 10 です。\n\n結果: 10"
+      "text": "5 を 2 倍にすると 10 です。\n\n結果: 10"
     },
     {
       "task": 6,
@@ -107,7 +107,7 @@
       "expected": 12,
       "ok": true,
       "verified": true,
-      "ms": 1693,
+      "ms": 1268,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "6 を 2 倍すると 12 です。\n\n結果: 12"
@@ -120,10 +120,10 @@
       "expected": 14,
       "ok": true,
       "verified": true,
-      "ms": 2085,
+      "ms": 1196,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "7 × 2 = 14  \n結果: 14"
+      "text": "7 を 2 倍すると 14 です。\n\n結果: 14"
     },
     {
       "task": 8,
@@ -133,10 +133,10 @@
       "expected": 16,
       "ok": true,
       "verified": true,
-      "ms": 1539,
+      "ms": 1295,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "8 × 2 = 16  \n結果: 16"
+      "text": "8を2倍すると16です。\n\n結果: 16"
     },
     {
       "task": 9,
@@ -146,10 +146,10 @@
       "expected": 18,
       "ok": true,
       "verified": true,
-      "ms": 2083,
+      "ms": 1088,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "9 × 2 = 18  \n結果: 18"
+      "text": "9 × 2 = 18\n\n結果: 18"
     },
     {
       "task": 10,
@@ -159,10 +159,10 @@
       "expected": 20,
       "ok": true,
       "verified": true,
-      "ms": 1418,
+      "ms": 1107,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "10 を 2 倍すると 20 です。\n\n結果: 20"
+      "text": "10を2倍すると20になります。\n\n結果: 20"
     },
     {
       "task": 11,
@@ -172,7 +172,7 @@
       "expected": 22,
       "ok": true,
       "verified": true,
-      "ms": 1403,
+      "ms": 1211,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "11 を 2 倍すると 22 です。\n\n結果: 22"
@@ -185,7 +185,7 @@
       "expected": 24,
       "ok": true,
       "verified": true,
-      "ms": 1243,
+      "ms": 1295,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "12 を 2 倍すると 24 です。\n\n結果: 24"
@@ -198,10 +198,10 @@
       "expected": 26,
       "ok": true,
       "verified": true,
-      "ms": 1225,
+      "ms": 1129,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "13 を 2 倍にすると 26 です。\n\n結果: 26"
+      "text": "13 を 2 倍すると 26 です。  \n結果: 26"
     },
     {
       "task": 14,
@@ -211,7 +211,7 @@
       "expected": 28,
       "ok": true,
       "verified": true,
-      "ms": 1430,
+      "ms": 1094,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "14 を 2 倍すると 28 です。\n\n結果: 28"
@@ -224,10 +224,10 @@
       "expected": 30,
       "ok": true,
       "verified": true,
-      "ms": 1102,
+      "ms": 1432,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "15 を 2 倍すると 30 です。\n\n結果: 30"
+      "text": "結果: 30"
     },
     {
       "task": 16,
@@ -237,7 +237,7 @@
       "expected": 32,
       "ok": true,
       "verified": true,
-      "ms": 1330,
+      "ms": 961,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "16 を 2 倍すると 32 です。\n\n結果: 32"
@@ -250,10 +250,10 @@
       "expected": 34,
       "ok": true,
       "verified": true,
-      "ms": 1398,
+      "ms": 1134,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "17 × 2 = 34  \n結果: 34"
+      "text": "17を2倍すると34です。\n\n結果: 34"
     },
     {
       "task": 18,
@@ -263,10 +263,10 @@
       "expected": 36,
       "ok": true,
       "verified": true,
-      "ms": 1279,
+      "ms": 948,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "18 を 2 倍すると 36 です。\n\n結果: 36"
+      "text": "18 を 2 倍にすると 36 です。\n\n結果: 36"
     },
     {
       "task": 19,
@@ -276,10 +276,10 @@
       "expected": 38,
       "ok": true,
       "verified": true,
-      "ms": 1448,
+      "ms": 977,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "19の2倍は38です。\n\n結果: 38"
+      "text": "38  \n結果: 38"
     },
     {
       "task": 20,
@@ -289,7 +289,7 @@
       "expected": 40,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 948,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "20 を 2 倍すると 40 です。\n\n結果: 40"
@@ -302,7 +302,7 @@
       "expected": 42,
       "ok": true,
       "verified": true,
-      "ms": 1227,
+      "ms": 1165,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "21 を 2 倍すると 42 です。\n\n結果: 42"
@@ -315,10 +315,10 @@
       "expected": 44,
       "ok": true,
       "verified": true,
-      "ms": 1256,
+      "ms": 949,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "22 を 2 倍すると 44 です。\n\n結果: 44"
+      "text": "22 を 2 倍にすると 44 です。\n\n結果: 44"
     },
     {
       "task": 23,
@@ -328,10 +328,10 @@
       "expected": 46,
       "ok": true,
       "verified": true,
-      "ms": 1256,
+      "ms": 1153,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "23 を 2 倍にすると 46 です。\n\n結果: 46"
+      "text": "23 を 2 倍すると 46 です。\n\n結果: 46"
     },
     {
       "task": 24,
@@ -341,7 +341,7 @@
       "expected": 48,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 1196,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "24 を 2 倍すると 48 です。\n\n結果: 48"
@@ -354,10 +354,10 @@
       "expected": 50,
       "ok": true,
       "verified": true,
-      "ms": 1208,
+      "ms": 1540,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "25 を 2 倍すると 50 です。\n\n結果: 50"
+      "text": "25 × 2 = 50  \n結果: 50"
     },
     {
       "task": 26,
@@ -367,10 +367,10 @@
       "expected": 52,
       "ok": true,
       "verified": true,
-      "ms": 1619,
+      "ms": 1432,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "結果: 52"
+      "text": "26 を 2 倍すると 52 です。\n\n結果: 52"
     },
     {
       "task": 27,
@@ -380,7 +380,7 @@
       "expected": 54,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 949,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "27 を 2 倍すると 54 です。\n\n結果: 54"
@@ -393,10 +393,10 @@
       "expected": 56,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 949,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "28 を 2 倍すると 56 です。\n結果: 56"
+      "text": "28 を 2 倍すると 56 です。\n\n結果: 56"
     },
     {
       "task": 29,
@@ -406,10 +406,10 @@
       "expected": 58,
       "ok": true,
       "verified": true,
-      "ms": 1537,
+      "ms": 1233,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "29 を 2 倍すると 58 です。\n\n結果: 58"
+      "text": "29 × 2 = 58  \n結果: 58"
     },
     {
       "task": 30,
@@ -419,10 +419,10 @@
       "expected": 60,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 1187,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "30 を 2 倍すると 60 です。  \n結果: 60"
+      "text": "30 を 2 倍にすると 60 です。\n\n結果: 60"
     },
     {
       "task": 31,
@@ -432,10 +432,10 @@
       "expected": 62,
       "ok": true,
       "verified": true,
-      "ms": 1414,
+      "ms": 958,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "31 を 2 倍すると 62 です。  \n結果: 62"
+      "text": "31 を 2 倍すると 62 です。\n\n結果: 62"
     },
     {
       "task": 32,
@@ -445,10 +445,10 @@
       "expected": 64,
       "ok": true,
       "verified": true,
-      "ms": 1079,
+      "ms": 947,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "32 を 2 倍すると 64 です。\n\n結果: 64"
+      "text": "結果: 64"
     },
     {
       "task": 33,
@@ -458,10 +458,10 @@
       "expected": 66,
       "ok": true,
       "verified": true,
-      "ms": 1708,
+      "ms": 1130,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "33 × 2 = 66  \n結果: 66"
+      "text": "33 を 2 倍すると 66 です。\n\n結果: 66"
     },
     {
       "task": 34,
@@ -471,7 +471,7 @@
       "expected": 68,
       "ok": true,
       "verified": true,
-      "ms": 1686,
+      "ms": 1223,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "34 を 2 倍すると 68 です。  \n結果: 68"
@@ -484,7 +484,7 @@
       "expected": 70,
       "ok": true,
       "verified": true,
-      "ms": 1297,
+      "ms": 945,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "35 を 2 倍すると 70 です。\n\n結果: 70"
@@ -497,7 +497,7 @@
       "expected": 72,
       "ok": true,
       "verified": true,
-      "ms": 1333,
+      "ms": 948,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "36 を 2 倍すると 72 です。\n\n結果: 72"
@@ -510,10 +510,10 @@
       "expected": 74,
       "ok": true,
       "verified": true,
-      "ms": 1243,
+      "ms": 1146,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "37 を 2 倍すると 74 です。\n\n結果: 74"
+      "text": "37 を 2 倍すると 74 です。  \n結果: 74"
     },
     {
       "task": 38,
@@ -523,10 +523,10 @@
       "expected": 76,
       "ok": true,
       "verified": true,
-      "ms": 1351,
+      "ms": 1073,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "38 × 2 = 76\n\n結果: 76"
+      "text": "38 を 2 倍にすると 76 です。\n\n結果: 76"
     },
     {
       "task": 39,
@@ -536,10 +536,10 @@
       "expected": 78,
       "ok": true,
       "verified": true,
-      "ms": 1079,
+      "ms": 1152,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "39 を 2 倍すると 78 です。\n\n結果: 78"
+      "text": "39 × 2 = 78  \n結果: 78"
     },
     {
       "task": 40,
@@ -549,7 +549,7 @@
       "expected": 80,
       "ok": true,
       "verified": true,
-      "ms": 1376,
+      "ms": 1233,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "40 を 2 倍すると 80 です。\n\n結果: 80"
@@ -562,7 +562,7 @@
       "expected": 82,
       "ok": true,
       "verified": true,
-      "ms": 1273,
+      "ms": 1180,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "41 を 2 倍すると 82 です。\n\n結果: 82"
@@ -575,7 +575,7 @@
       "expected": 84,
       "ok": true,
       "verified": true,
-      "ms": 1210,
+      "ms": 1116,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "42 を 2 倍にすると 84 です。\n\n結果: 84"
@@ -588,10 +588,10 @@
       "expected": 86,
       "ok": true,
       "verified": true,
-      "ms": 1538,
+      "ms": 947,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "結果: 86"
+      "text": "43 を 2 倍にすると 86 です。\n\n結果: 86"
     },
     {
       "task": 44,
@@ -601,7 +601,7 @@
       "expected": 88,
       "ok": true,
       "verified": true,
-      "ms": 1447,
+      "ms": 1213,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "44 を 2 倍すると 88 です。\n\n結果: 88"
@@ -614,10 +614,10 @@
       "expected": 90,
       "ok": true,
       "verified": true,
-      "ms": 1324,
+      "ms": 1544,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "45 を 2 倍すると 90 です。  \n結果: 90"
+      "text": "45 × 2 = 90  \n結果: 90"
     },
     {
       "task": 46,
@@ -627,7 +627,7 @@
       "expected": 92,
       "ok": true,
       "verified": true,
-      "ms": 1061,
+      "ms": 1175,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "46 を 2 倍すると 92 です。\n\n結果: 92"
@@ -640,7 +640,7 @@
       "expected": 94,
       "ok": true,
       "verified": true,
-      "ms": 1111,
+      "ms": 1128,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "47 を 2 倍すると 94 です。\n\n結果: 94"
@@ -653,7 +653,7 @@
       "expected": 96,
       "ok": true,
       "verified": true,
-      "ms": 1280,
+      "ms": 1331,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "48 を 2 倍すると 96 です。\n\n結果: 96"
@@ -666,7 +666,7 @@
       "expected": 98,
       "ok": true,
       "verified": true,
-      "ms": 1213,
+      "ms": 1020,
       "fallback": true,
       "rateLimitEvents": 0,
       "text": "49 を 2 倍すると 98 です。\n\n結果: 98"
@@ -679,10 +679,10 @@
       "expected": 100,
       "ok": true,
       "verified": true,
-      "ms": 1272,
+      "ms": 1562,
       "fallback": true,
       "rateLimitEvents": 0,
-      "text": "50 を 2 倍にすると、100 です。\n\n結果: 100"
+      "text": "50を2倍すると100です。\n\n結果: 100"
     }
   ],
   "metricsKind": "sim",

@@ -76,11 +76,11 @@ interface MetaOs50Opts {
 const DEFAULT_PROMPT_TMPL = '数字 {n} を 2 倍にしてください。最後の行に「結果: {n*2}」と答えてください。';
 const MAX_RETRY = 2; // 429 / 5xx のリトライ上限
 
-/** 回答テキストから期待値（2X）が含まれるかを検証（整数トークンの完全一致のみ判定） */
+/** 回答テキストから期待値（2X）が含まれるかを検証（完全な整数トークンの一致のみ判定） */
 export function verifyDouble(text: string, expected: number): boolean {
   if (!text) return false;
-  const ints = text.match(/\d+/g) ?? [];
-  // 部分一致（例: 期待値 2 に対して 12 / 20）を誤判定しないよう、トークンの完全一致のみ
+  // 完全な整数トークンのみ抽出（小数 2.5 を 2 と 5 に断片化しない・符号/区切りに隣接しない）
+  const ints = text.match(/(?<![\p{L}\p{N}_.,+\-−])\d+(?![\p{L}\p{N}_.])/gu) ?? [];
   return ints.some((v) => Number(v) === expected);
 }
 
@@ -240,7 +240,9 @@ export async function runMetaOs50(opts?: MetaOs50Opts): Promise<MetaOs50Result> 
   const rateLimited = perNode.reduce((s, x) => s + x.rateLimitEvents, 0);
   const lats = perNode.filter((x) => x.ok).map((x) => x.ms).sort((a, b) => a - b);
   const avg = lats.length > 0 ? lats.reduce((s, v) => s + v, 0) / lats.length : 0;
-  const pct = (p: number) => (lats.length > 0 ? lats[Math.min(lats.length - 1, Math.floor(lats.length * p))] : 0);
+  // パーセンタイルは nearest-rank 方式（rank = ceil(n*p)、0-based index = ceil(n*p)-1）を明記
+  const pct = (p: number) =>
+    lats.length > 0 ? lats[Math.min(lats.length - 1, Math.max(0, Math.ceil(lats.length * p) - 1))] : 0;
 
   const caravanDistribution: Record<string, number> = {};
   for (const x of perNode) caravanDistribution[x.caravanId] = (caravanDistribution[x.caravanId] ?? 0) + 1;

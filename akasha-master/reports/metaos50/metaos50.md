@@ -1,16 +1,16 @@
 # MetaOS 50 同時駆動 — deepseek-v4-flash
 
 - kind: real-api（実 API 呼び出し・数値は偽装しない）
-- 実行日時: 2026-08-27T14:24:31.159Z
+- 実行日時: 2026-08-27T14:29:35.159Z
 - ノード: 50 体（仮想 DeepSeek API ノード）/ キャラバン 5（10台/組）/ 同時実行 50
 
 ## 結果
 
 | 項目 | 値 |
 |---|---|
-| 完了時間 | 2147 ms |
-| スループット | 23.29 task/s |
-| 遅延 avg / p50 / p90 / p99 | 1422 / 1403 / 1693 / 2146 ms |
+| 完了時間 | 1564 ms |
+| スループット | 31.97 task/s |
+| 遅延 avg / p50 / p90 / p99 | 1161 / 1146 / 1432 / 1562 ms |
 | 成功 / 失敗 | 50 / 0 |
 | 正しさ（期待値 2X を回答） | 50 / 50 |
 | OS 学習（CapabilityLearner） | 50 エキスパート |
@@ -36,53 +36,53 @@
 
 | # | nodeId | caravan | expected | ok | verified | ms |
 |---|---|---|---|---|---|---|
-| 1 | api-deepseek-0 | caravan-0 | 2 | true | true | 1667 |
-| 2 | api-deepseek-1 | caravan-0 | 4 | true | true | 1594 |
-| 3 | api-deepseek-2 | caravan-0 | 6 | true | true | 2146 |
-| 4 | api-deepseek-3 | caravan-0 | 8 | true | true | 1538 |
-| 5 | api-deepseek-4 | caravan-0 | 10 | true | true | 1413 |
-| 6 | api-deepseek-5 | caravan-0 | 12 | true | true | 1693 |
-| 7 | api-deepseek-6 | caravan-0 | 14 | true | true | 2085 |
-| 8 | api-deepseek-7 | caravan-0 | 16 | true | true | 1539 |
-| 9 | api-deepseek-8 | caravan-0 | 18 | true | true | 2083 |
-| 10 | api-deepseek-9 | caravan-0 | 20 | true | true | 1418 |
-| 11 | api-deepseek-10 | caravan-1 | 22 | true | true | 1403 |
-| 12 | api-deepseek-11 | caravan-1 | 24 | true | true | 1243 |
-| 13 | api-deepseek-12 | caravan-1 | 26 | true | true | 1225 |
-| 14 | api-deepseek-13 | caravan-1 | 28 | true | true | 1430 |
-| 15 | api-deepseek-14 | caravan-1 | 30 | true | true | 1102 |
-| 16 | api-deepseek-15 | caravan-1 | 32 | true | true | 1330 |
-| 17 | api-deepseek-16 | caravan-1 | 34 | true | true | 1398 |
-| 18 | api-deepseek-17 | caravan-1 | 36 | true | true | 1279 |
-| 19 | api-deepseek-18 | caravan-1 | 38 | true | true | 1448 |
-| 20 | api-deepseek-19 | caravan-1 | 40 | true | true | 1538 |
-| 21 | api-deepseek-20 | caravan-2 | 42 | true | true | 1227 |
-| 22 | api-deepseek-21 | caravan-2 | 44 | true | true | 1256 |
-| 23 | api-deepseek-22 | caravan-2 | 46 | true | true | 1256 |
-| 24 | api-deepseek-23 | caravan-2 | 48 | true | true | 1538 |
-| 25 | api-deepseek-24 | caravan-2 | 50 | true | true | 1208 |
-| 26 | api-deepseek-25 | caravan-2 | 52 | true | true | 1619 |
-| 27 | api-deepseek-26 | caravan-2 | 54 | true | true | 1538 |
-| 28 | api-deepseek-27 | caravan-2 | 56 | true | true | 1538 |
-| 29 | api-deepseek-28 | caravan-2 | 58 | true | true | 1537 |
-| 30 | api-deepseek-29 | caravan-2 | 60 | true | true | 1538 |
-| 31 | api-deepseek-30 | caravan-3 | 62 | true | true | 1414 |
-| 32 | api-deepseek-31 | caravan-3 | 64 | true | true | 1079 |
-| 33 | api-deepseek-32 | caravan-3 | 66 | true | true | 1708 |
-| 34 | api-deepseek-33 | caravan-3 | 68 | true | true | 1686 |
-| 35 | api-deepseek-34 | caravan-3 | 70 | true | true | 1297 |
-| 36 | api-deepseek-35 | caravan-3 | 72 | true | true | 1333 |
-| 37 | api-deepseek-36 | caravan-3 | 74 | true | true | 1243 |
-| 38 | api-deepseek-37 | caravan-3 | 76 | true | true | 1351 |
-| 39 | api-deepseek-38 | caravan-3 | 78 | true | true | 1079 |
-| 40 | api-deepseek-39 | caravan-3 | 80 | true | true | 1376 |
-| 41 | api-deepseek-40 | caravan-4 | 82 | true | true | 1273 |
-| 42 | api-deepseek-41 | caravan-4 | 84 | true | true | 1210 |
-| 43 | api-deepseek-42 | caravan-4 | 86 | true | true | 1538 |
-| 44 | api-deepseek-43 | caravan-4 | 88 | true | true | 1447 |
-| 45 | api-deepseek-44 | caravan-4 | 90 | true | true | 1324 |
-| 46 | api-deepseek-45 | caravan-4 | 92 | true | true | 1061 |
-| 47 | api-deepseek-46 | caravan-4 | 94 | true | true | 1111 |
-| 48 | api-deepseek-47 | caravan-4 | 96 | true | true | 1280 |
-| 49 | api-deepseek-48 | caravan-4 | 98 | true | true | 1213 |
-| 50 | api-deepseek-49 | caravan-4 | 100 | true | true | 1272 |
+| 1 | api-deepseek-0 | caravan-0 | 2 | true | true | 1449 |
+| 2 | api-deepseek-1 | caravan-0 | 4 | true | true | 1154 |
+| 3 | api-deepseek-2 | caravan-0 | 6 | true | true | 1433 |
+| 4 | api-deepseek-3 | caravan-0 | 8 | true | true | 1057 |
+| 5 | api-deepseek-4 | caravan-0 | 10 | true | true | 1130 |
+| 6 | api-deepseek-5 | caravan-0 | 12 | true | true | 1268 |
+| 7 | api-deepseek-6 | caravan-0 | 14 | true | true | 1196 |
+| 8 | api-deepseek-7 | caravan-0 | 16 | true | true | 1295 |
+| 9 | api-deepseek-8 | caravan-0 | 18 | true | true | 1088 |
+| 10 | api-deepseek-9 | caravan-0 | 20 | true | true | 1107 |
+| 11 | api-deepseek-10 | caravan-1 | 22 | true | true | 1211 |
+| 12 | api-deepseek-11 | caravan-1 | 24 | true | true | 1295 |
+| 13 | api-deepseek-12 | caravan-1 | 26 | true | true | 1129 |
+| 14 | api-deepseek-13 | caravan-1 | 28 | true | true | 1094 |
+| 15 | api-deepseek-14 | caravan-1 | 30 | true | true | 1432 |
+| 16 | api-deepseek-15 | caravan-1 | 32 | true | true | 961 |
+| 17 | api-deepseek-16 | caravan-1 | 34 | true | true | 1134 |
+| 18 | api-deepseek-17 | caravan-1 | 36 | true | true | 948 |
+| 19 | api-deepseek-18 | caravan-1 | 38 | true | true | 977 |
+| 20 | api-deepseek-19 | caravan-1 | 40 | true | true | 948 |
+| 21 | api-deepseek-20 | caravan-2 | 42 | true | true | 1165 |
+| 22 | api-deepseek-21 | caravan-2 | 44 | true | true | 949 |
+| 23 | api-deepseek-22 | caravan-2 | 46 | true | true | 1153 |
+| 24 | api-deepseek-23 | caravan-2 | 48 | true | true | 1196 |
+| 25 | api-deepseek-24 | caravan-2 | 50 | true | true | 1540 |
+| 26 | api-deepseek-25 | caravan-2 | 52 | true | true | 1432 |
+| 27 | api-deepseek-26 | caravan-2 | 54 | true | true | 949 |
+| 28 | api-deepseek-27 | caravan-2 | 56 | true | true | 949 |
+| 29 | api-deepseek-28 | caravan-2 | 58 | true | true | 1233 |
+| 30 | api-deepseek-29 | caravan-2 | 60 | true | true | 1187 |
+| 31 | api-deepseek-30 | caravan-3 | 62 | true | true | 958 |
+| 32 | api-deepseek-31 | caravan-3 | 64 | true | true | 947 |
+| 33 | api-deepseek-32 | caravan-3 | 66 | true | true | 1130 |
+| 34 | api-deepseek-33 | caravan-3 | 68 | true | true | 1223 |
+| 35 | api-deepseek-34 | caravan-3 | 70 | true | true | 945 |
+| 36 | api-deepseek-35 | caravan-3 | 72 | true | true | 948 |
+| 37 | api-deepseek-36 | caravan-3 | 74 | true | true | 1146 |
+| 38 | api-deepseek-37 | caravan-3 | 76 | true | true | 1073 |
+| 39 | api-deepseek-38 | caravan-3 | 78 | true | true | 1152 |
+| 40 | api-deepseek-39 | caravan-3 | 80 | true | true | 1233 |
+| 41 | api-deepseek-40 | caravan-4 | 82 | true | true | 1180 |
+| 42 | api-deepseek-41 | caravan-4 | 84 | true | true | 1116 |
+| 43 | api-deepseek-42 | caravan-4 | 86 | true | true | 947 |
+| 44 | api-deepseek-43 | caravan-4 | 88 | true | true | 1213 |
+| 45 | api-deepseek-44 | caravan-4 | 90 | true | true | 1544 |
+| 46 | api-deepseek-45 | caravan-4 | 92 | true | true | 1175 |
+| 47 | api-deepseek-46 | caravan-4 | 94 | true | true | 1128 |
+| 48 | api-deepseek-47 | caravan-4 | 96 | true | true | 1331 |
+| 49 | api-deepseek-48 | caravan-4 | 98 | true | true | 1020 |
+| 50 | api-deepseek-49 | caravan-4 | 100 | true | true | 1562 |
