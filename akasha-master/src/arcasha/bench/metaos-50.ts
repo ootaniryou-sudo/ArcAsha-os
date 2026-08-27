@@ -31,6 +31,7 @@ export interface MetaOs50NodeResult {
   verified: boolean;     // 回答に期待値（2X）が含まれた
   ms: number;
   fallback: boolean;     // Stage-2 委譲（実LLM）で実行された
+  rateLimitEvents: number; // このタスクで観測した 429/レート制限の回数（リトライ後成功も含む）
   error?: string;
   text: string;          // 回答（先頭 200 字）
 }
@@ -53,9 +54,11 @@ export interface MetaOs50Result {
   unverified: number;
   learnedExperts: number;
   fallbackCount: number;
-  rateLimited: number;   // 429 / レート制限を観測した回数（リトライ後成功含む）
+  rateLimited: number;   // 429 / レート制限を観測した合計回数（リトライ後成功も含む）
   caravanDistribution: Record<string, number>;
   perNode: MetaOs50NodeResult[];
+  /** ノードメトリクス（battery/RTT/電力）は決定論シミュレーション値。実測は API 呼び出しのみ */
+  metricsKind: 'sim';
   verifications: { v1: boolean; v2: boolean; v3: boolean; v4: boolean; v5: boolean; v6: boolean };
 }
 
@@ -70,12 +73,12 @@ interface MetaOs50Opts {
 const DEFAULT_PROMPT_TMPL = '数字 {n} を 2 倍にしてください。最後の行に「結果: {n*2}」と答えてください。';
 const MAX_RETRY = 2; // 429 / 5xx のリトライ上限
 
-/** 回答テキストから期待値（2X）が含まれるかを検証（整数を抽出して一致判定） */
+/** 回答テキストから期待値（2X）が含まれるかを検証（整数トークンの完全一致のみ判定） */
 export function verifyDouble(text: string, expected: number): boolean {
   if (!text) return false;
-  if (text.includes(String(expected))) return true;
-  const ints = text.match(/\d+/g);
-  return ints !== null && ints.some((v) => Number(v) === expected);
+  const ints = text.match(/\d+/g) ?? [];
+  // 部分一致（例: 期待値 2 に対して 12 / 20）を誤判定しないよう、トークンの完全一致のみ
+  return ints.some((v) => Number(v) === expected);
 }
 
 /** N 体の DeepSeek 仮想ノードを登録した Hub を組み立てる（ノードごとに個体差を付与） */
@@ -120,7 +123,7 @@ async function runOne(
   const prompt = promptT.replace('{n}', String(num)).replace('{n*2}', String(num * 2));
   const expected = num * 2;
   let lastErr = '';
-  let rateLimited = false;
+  let rateLimitEvents = 0;
   for (let attempt = 0; attempt <= MAX_RETRY; attempt++) {
     try {
       const ex = await aiosExecute(aios, prompt, nodeId, { forceDelegate: true, maxTokens });
@@ -136,14 +139,14 @@ async function runOne(
         verified: verifyDouble(text, expected),
         ms,
         fallback: ex.fallback === true,
+        rateLimitEvents,
         text: text.slice(0, 200),
       };
     } catch (e) {
       const msg = String(e);
       lastErr = msg;
       if (/429|rate\s*limit|too many/i.test(msg)) {
-        rateLimited = true;
-        // バックオフして再試行（429 は一時的なレート制限の可能性が高い）
+        rateLimitEvents++; // 429 を観測するたびに加算（リトライ後成功でも件数は残す）
         await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
         continue;
       }
@@ -160,7 +163,8 @@ async function runOne(
     verified: false,
     ms: Date.now() - t1,
     fallback: false,
-    error: (rateLimited ? '[rate-limited] ' : '') + lastErr.slice(0, 160),
+    rateLimitEvents,
+    error: (rateLimitEvents > 0 ? `[rate-limited x${rateLimitEvents}] ` : '') + lastErr.slice(0, 160),
     text: '',
   };
 }
@@ -217,7 +221,8 @@ export async function runMetaOs50(opts?: MetaOs50Opts): Promise<MetaOs50Result> 
   const fail = perNode.length - ok;
   const verified = perNode.filter((x) => x.verified).length;
   const fallbackCount = perNode.filter((x) => x.fallback).length;
-  const rateLimited = perNode.filter((x) => (x.error ?? '').includes('[rate-limited]')).length;
+  // 429 は「全試行の観測回数」で集計（リトライ後成功も含む）
+  const rateLimited = perNode.reduce((s, x) => s + x.rateLimitEvents, 0);
   const lats = perNode.filter((x) => x.ok).map((x) => x.ms).sort((a, b) => a - b);
   const avg = lats.length > 0 ? lats.reduce((s, v) => s + v, 0) / lats.length : 0;
   const pct = (p: number) => (lats.length > 0 ? lats[Math.min(lats.length - 1, Math.floor(lats.length * p))] : 0);
@@ -256,6 +261,7 @@ export async function runMetaOs50(opts?: MetaOs50Opts): Promise<MetaOs50Result> 
     rateLimited,
     caravanDistribution,
     perNode,
+    metricsKind: 'sim',
     verifications: { v1, v2, v3, v4, v5, v6 },
   };
 
@@ -278,6 +284,7 @@ export function renderMetaOs50(r: MetaOs50Result): string {
   lines.push(`  OS 学習    : CapabilityLearner 記録 ${r.learnedExperts} エキスパート`);
   lines.push(`  Stage-2 委譲: ${r.fallbackCount}/${r.nodes} 件（実LLM 委譲）`);
   lines.push(`  キャラバン分散: ${JSON.stringify(r.caravanDistribution)}`);
+  lines.push(`  ノードメトリクス: ${r.metricsKind === 'sim' ? 'シミュレーション値（source=sim・実測ではない）' : r.metricsKind}`);
   lines.push('');
   lines.push('  検証結果（V1..V6）:');
   const vMap: Array<[string, string, boolean]> = [
@@ -330,12 +337,16 @@ export async function writeMetaOs50Report(r: MetaOs50Result, dir = 'reports/meta
     `| 正しさ（期待値 2X を回答） | ${r.verified} / ${r.nodes} |`,
     `| OS 学習（CapabilityLearner） | ${r.learnedExperts} エキスパート |`,
     `| Stage-2 委譲 | ${r.fallbackCount} / ${r.nodes} |`,
-    `| 429/レート制限 | ${r.rateLimited} 回 |`,
+    `| 429/レート制限 | ${r.rateLimited} 回（全試行の観測回数） |`,
     `| キャラバン分散 | ${JSON.stringify(r.caravanDistribution)} |`,
+    `| ノードメトリクス | ${r.metricsKind === 'sim' ? 'シミュレーション値（source=sim）— 実測は API 呼び出しレイテンシ・スループットのみ' : r.metricsKind} |`,
     '',
     '## 検証（V1..V6）',
     '',
     ...Object.entries(r.verifications).map(([k, v]) => `- **${k}**: ${v ? '✅ PASS' : '❌ FAIL'}`),
+    '',
+    '> 数値の分類: API 呼び出しレイテンシ・スループットは kind=real-api の実測。',
+    '> ノードメトリクス（battery / RTT / 電力）は決定論シミュレーション値（source=sim）であり実測ではない。',
     '',
     '## タスク別',
     '',
