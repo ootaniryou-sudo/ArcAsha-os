@@ -46,6 +46,27 @@ export async function runCli(argv: string[]): Promise<string> {
       console.log(text);
       return 'arcasha apiparallel-aios: done（kind=real-api・aiosExecute 経由並列）';
     }
+    case 'metaos50': {
+      // 例: arcasha metaos50 50 50  (ノード数 同時実行数)
+      // DeepSeek API を N 体の仮想ノードとして登録し、フル Meta OS（aiosExecute）を
+      // 経由して N 並列で駆動し、完走性・正しさ・OS 学習・キャラバンルーティングを検証する。
+      const { runMetaOs50, renderMetaOs50, writeMetaOs50Report } = await import('./bench/metaos-50.js');
+      // 引数は正の安全な整数のみ受理（1.5 などの小数・非数を拒否して既定値へ）
+      const toInt = (v: string | undefined, def: number): number => {
+        if (v === undefined) return def;
+        const n = Number(v);
+        return Number.isSafeInteger(n) && n > 0 ? n : def;
+      };
+      const n = toInt(argv[1], 50);
+      const c = toInt(argv[2], n);
+      const r = await runMetaOs50({ nodes: n, concurrency: c });
+      console.log(renderMetaOs50(r));
+      const jsonPath = await writeMetaOs50Report(r);
+      // V1..V6 に FAIL があれば非ゼロ終了で失敗を通知（自動化が検出できるように）
+      const failed = Object.values(r.verifications).some((v) => !v);
+      if (failed) throw new Error(`metaos50: 検証が FAIL（V1..V6 のいずれか）。詳細: ${jsonPath}`);
+      return `arcasha metaos50: done（kind=real-api・${r.nodes}体同時駆動・検証 V1..V6 全 PASS・report: ${jsonPath}）`;
+    }
     case 'policy': {
       const { runPolicyLearningDemo } = await import('./attachments/decision-log.js');
       return runPolicyLearningDemo();
@@ -79,6 +100,9 @@ export async function runCli(argv: string[]): Promise<string> {
         'Usage: arcasha <command>',
         '  benchmark   Real Benchmark Suite（Simulation）+ Decision Explanation + Real Device + reports/ 生成',
         '  replay      Decision Replay（なぜこの回答になったのかをステップ再生。引数でタスク指定可）',
+        '  apiparallel     DeepSeek を N 体の仮想ノードとして並列駆動（実機テスト比較用）',
+        '  apiparallel-aios 同上を aiosExecute（ArcAsha OS パイプライン）経由で駆動',
+        '  metaos50        DeepSeek × N 体（既定 50）を N 並列で Meta OS 経由駆動し V1..V6 を検証（reports/metaos50/）',
         '  policy      OS ポリシー学習デモ（Decision Explanation を学習データにして Meta Executive のポリシーを更新）',
         '  hierarchy   Hierarchy Runtime デモ（Master → Caravan → Device → Expert の階層が自律判断）',
         '  cognitive   Cognitive Graph Runtime デモ（タスクごとに知能の配線を動的生成 → 共有メモリ + IR 通信 → Team Learning → Knowledge Oasis）',
