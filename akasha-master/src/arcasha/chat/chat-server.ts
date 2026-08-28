@@ -33,7 +33,7 @@ for (let i = 0; i < args.length; i++) {
     if (Number.isInteger(v) && v > 0) PORT = v;
   }
 }
-const DEFAULT_MAX_TOKENS = 256;
+const DEFAULT_MAX_TOKENS = 1024; // 推論モデル（reasoning_content + content）が回答まで収まるよう大きめに
 
 // ─── ノード（ExpertHub）───────────────────────────────────────────────
 const hub = new ExpertHub();
@@ -41,21 +41,50 @@ const model = process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
 const base = (process.env.DEEPSEEK_API_BASE ?? 'https://api.deepseek.com').replace(/\/+$/, '');
 const key = process.env.DEEPSEEK_API_KEY ?? '';
 
-// 実モデル（DeepSeek）を優先登録。無ければモックを 2 台（UI/API は動く）
-let mainNodeId = '';
+// ─── 複数モデルのエキスパート艦隊（タスクに応じて連携）──────────────
+// flash = 汎用/高速、pro = 推論/数学/コード。タスク分類で適切なモデルへルーティングする。
+interface FleetExpert {
+  nodeId: string;
+  model: string;
+  role: 'general' | 'reasoning';
+  label: string;
+}
+const fleet: FleetExpert[] = [];
 if (key) {
-  mainNodeId = 'api-deepseek';
-  hub.addApiNode(mainNodeId, base, key, model);
-  console.log(`  ☁️ 実モデル接続: ${mainNodeId} (${model} @ ${base})`);
+  fleet.push({ nodeId: 'expert-flash', model, role: 'general', label: 'Flash（汎用）' });
+  fleet.push({ nodeId: 'expert-pro', model: process.env.DEEPSEEK_PRO_MODEL ?? 'deepseek-v4-pro', role: 'reasoning', label: 'Pro（推論）' });
+  for (const e of fleet) {
+    hub.addApiNode(e.nodeId, base, key, e.model);
+    console.log(`  ☁️ 実モデル接続: ${e.nodeId} (${e.model} @ ${base}) [${e.role}]`);
+  }
 } else {
   console.log('  ⚠️ DEEPSEEK_API_KEY が無いためモックノードで動作します（実タスクには .env を設定）');
   hub.addMockNode('mock-a', 'HuggingFaceTB/SmolLM2-135M-Instruct');
   hub.addMockNode('mock-b', 'HuggingFaceTB/SmolLM2-135M-Instruct');
-  mainNodeId = hub.experts[0]?.nodeId ?? '';
+}
+
+/** タスクの種類（どのモデル・エキスパートに任せるか） */
+type TaskKind = 'math' | 'code' | 'reasoning' | 'search' | 'general';
+
+/** 発言からタスク種別を推定する（簡易キーワード分類） */
+function classifyTask(text: string): TaskKind {
+  if (/[=∫∑√π∞]|\d+\s*[+\-*/^]\s*\d+|数学|算数|積分|微分|方程式|計算|因数分解|確率|幾何|行列|対数|三角関数|数式|数列|図形/i.test(text)) return 'math';
+  if (/コード|プログラム|実装|バグ|関数|クラス|型|アルゴリズム|リファクタ|typescript|python|javascript|rust|react|api/i.test(text)) return 'code';
+  if (/なぜ|理由|説明|考察|証明|戦略|計画|設計|比較|分析|仮説|どう思う/i.test(text)) return 'reasoning';
+  if (/検索|調べて|とは|意味|定義|まとめ|要約|一覧/i.test(text)) return 'search';
+  return 'general';
+}
+
+/** タスク種別 → 担当エキスパート（math/code/reasoning は Pro、search/general は Flash） */
+function routeExpert(kind: TaskKind): FleetExpert {
+  if (kind === 'math' || kind === 'code' || kind === 'reasoning') {
+    return fleet.find((e) => e.role === 'reasoning') ?? fleet[0];
+  }
+  return fleet.find((e) => e.role === 'general') ?? fleet[0];
 }
 
 function pickNode(): string {
-  if (hub.experts.some((e) => e.nodeId === mainNodeId)) return mainNodeId;
+  if (fleet.length > 0 && hub.experts.some((e) => e.nodeId === fleet[0].nodeId)) return fleet[0].nodeId;
   return hub.experts[0]?.nodeId ?? '';
 }
 
@@ -94,17 +123,22 @@ async function answerConversation(
   title: string,
   messages: { role: 'user' | 'assistant'; content: string }[],
   maxTokens: number,
-): Promise<{ reply: string; ms: number; model: string; nodeId: string; trace: string[] }> {
+): Promise<{ reply: string; ms: number; model: string; nodeId: string; kind: TaskKind; expert: string; trace: string[] }> {
   const trace: string[] = [];
   const t0 = Date.now();
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const query = lastUser?.content ?? '';
+
+  // タスク分類 → 担当モデルをルーティング（複数モデル連携の入口）
+  const kind = classifyTask(query);
+  const expert = routeExpert(kind);
+  trace.push(`classify → ${kind}（担当: ${expert.label} / ${expert.model}）`);
 
   // 1) 会話全体を AVM へ書く
   ws.storeContext(title, messagesToText(messages), 'user');
   trace.push(`context.write ${title}`);
 
   // 2) search expert が AVM から必要ページを読む（会話 + 知識コンテキスト）
-  const query = lastUser?.content ?? '';
   const load = ws.readSlice(title, 'search', query, 'search');
   const kloads = ws.searchKnowledge(query, 2, 'search');
   const contextSnippet =
@@ -114,10 +148,9 @@ async function answerConversation(
     ].filter(Boolean).join('\n') || '(履歴なし)';
   trace.push(`slice.read search (${load?.pageIds.length ?? 0} pages / 知識 ${kloads.length} contexts)`);
 
-  // 3) 実モデル呼び出し
-  const nodeId = pickNode();
+  // 3) 担当モデル（flash / pro）を呼び出し
   const prompt = [
-    'あなたは ArcAsha（AI オペレーティングシステム）の上で動くモデルです。',
+    'あなたは ArcAsha（AI オペレーティングシステム）の上で動くエキスパートです。',
     '以下は AVM（AI 仮想メモリ）から読み込んだコンテキストです:',
     '─── context ───',
     contextSnippet,
@@ -127,22 +160,36 @@ async function answerConversation(
   ].join('\n');
   const genT0 = Date.now();
   let reply = '';
+  let usedModel = expert.model;
+  let usedNodeId = expert.nodeId;
   try {
-    const text = await hub.generate(nodeId, prompt, maxTokens);
-    reply = String(text ?? '').trim();
+    reply = String((await hub.generate(expert.nodeId, prompt, maxTokens)) ?? '').trim();
   } catch (e) {
     reply = `⚠️ モデル呼び出し失敗: ${String(e).slice(0, 200)}`;
   }
+  // 推論モデルが思考に予算を使い切って空応答になった場合は、汎用モデルでリトライ
+  if (reply === '') {
+    const fallback = fleet.find((e) => e.role === 'general') ?? expert;
+    trace.push(`空応答 → フォールバック: ${fallback.label}`);
+    try {
+      reply = String((await hub.generate(fallback.nodeId, prompt, maxTokens)) ?? '').trim();
+      usedModel = fallback.model;
+      usedNodeId = fallback.nodeId;
+    } catch (e2) {
+      reply = `⚠️ モデル呼び出し失敗: ${String(e2).slice(0, 200)}`;
+    }
+  }
+  if (reply === '') reply = '（応答が空でした。もう一度お試しください）';
   const genMs = Date.now() - genT0;
-  ws.recordModelCall(model, genMs, `${nodeId} へ ${maxTokens} tokens 上限で生成`);
-  trace.push(`model.call ${model} (${genMs}ms)`);
+  ws.recordModelCall(usedModel, genMs, `${usedNodeId} へ ${maxTokens} tokens 上限で生成`);
+  trace.push(`model.call ${usedModel} (${genMs}ms)`);
 
   // 4) 回答を AVM に書き戻す（AI モデルの書き込み）
   msgSeq++;
-  ws.writeCache(title, 'summary', `answer:${msgSeq}`, reply, model);
+  ws.writeCache(title, 'summary', `answer:${msgSeq}`, reply, usedModel);
   trace.push('cache.write 回答');
 
-  return { reply, ms: Date.now() - t0, model, nodeId, trace };
+  return { reply, ms: Date.now() - t0, model: usedModel, nodeId: usedNodeId, kind, expert: expert.label, trace };
 }
 
 // ─── チャット WebUI（HTML）───────────────────────────────────────────
@@ -281,7 +328,7 @@ async function send() {
     });
     const d = await r.json();
     if (d.error) { addMsg('ai', '⚠️ ' + d.error); }
-    else { addMsg('ai', d.reply, d.model + ' · ' + d.nodeId + ' · ' + d.ms + 'ms'); }
+    else { addMsg('ai', d.reply, d.expert + ' · ' + d.model + ' · ' + d.kind + ' · ' + d.ms + 'ms'); }
   } catch (e) { addMsg('ai', '⚠️ ' + e); }
   busy = false; sendBtn.disabled = false;
   inp.focus();
@@ -416,7 +463,7 @@ const server = http.createServer(async (req, res) => {
           completion_tokens: completionTokens,
           total_tokens: promptTokens + completionTokens,
         },
-        _arcasha: { ms: r.ms, nodeId: r.nodeId, trace: r.trace, avm: ws.snapshot(40) },
+        _arcasha: { ms: r.ms, nodeId: r.nodeId, model: r.model, kind: r.kind, expert: r.expert, trace: r.trace, avm: ws.snapshot(40) },
       });
     } catch (e) {
       sendJson(500, { error: { message: String(e) } });
@@ -514,7 +561,7 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`  WebUI (Chat + AVM 可視化) : http://localhost:${PORT}/`);
   console.log(`  OpenAI 互換 API            : http://localhost:${PORT}/v1/chat/completions`);
   console.log(`  AVM スナップショット       : http://localhost:${PORT}/api/avm`);
-  console.log(`  モデル                    : ${model} @ ${pickNode()}`);
+  console.log(`  エキスパート艦隊           : ${fleet.map((e) => `${e.label}=${e.model}`).join(' / ') || 'mock'}`);
   console.log('');
   console.log('  Cursor 等からは baseURL を http://localhost:' + PORT + '/v1 に設定してください');
   console.log('');

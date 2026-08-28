@@ -285,7 +285,10 @@ export class ExpertHub {
       const body = await res.text().catch(() => '');
       throw new Error(`API error ${res.status} (${cfg.model}): ${body.slice(0, 200)}`);
     }
-    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string; reasoning_content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
     // 実トークン使用量を記録（ベンチの公平な token 比較に使う）
     if (data.usage) {
       this.lastApiUsage = {
@@ -293,8 +296,13 @@ export class ExpertHub {
         completionTokens: data.usage.completion_tokens ?? 0,
       };
     }
-    const text = data.choices?.[0]?.message?.content;
-    if (typeof text !== 'string') throw new Error('API returned no content');
+    const msg = data.choices?.[0]?.message;
+    const content = typeof msg?.content === 'string' ? msg.content.trim() : '';
+    // 推論モデル（reasoning_content に思考・content に最終回答）では、
+    // max_tokens を使い切ると content が空になる。その場合は思考を返して空応答を避ける。
+    const reasoning = typeof msg?.reasoning_content === 'string' ? msg.reasoning_content.trim() : '';
+    const text = content !== '' ? content : reasoning;
+    if (msg === undefined) throw new Error('API returned no content');
     return text;
   }
 
