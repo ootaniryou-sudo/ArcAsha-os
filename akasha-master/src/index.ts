@@ -66,6 +66,9 @@ export {
   fletcher32,
 };
 
+// Intelligence Runtime プラグイン境界（Future Orchestrator 接続用）
+export * from './arcasha/plugin/index.js';
+
 export type { AkashaOptions, AkashaEvent } from './core/orchestrator.js';
 export type { InferenceLoopOptions, InferenceEvent, LayerBand, RelayTarget, PipelineStep } from './core/inference-loop.js';
 export type { BootstrapOptions, BootstrapEvent, BootstrapCtx } from './bootstrap/akasha-bootstrapper.js';

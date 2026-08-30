@@ -34,6 +34,7 @@ graph LR
 
 - **Phase 1 — Freeze**: 新しい Attachment / Reasoning Mode / Memory / Executive / GPU backend の追加を停止。
 - **Phase 2 — Boundary Fix**: ArcAsha 内部 ABI・Akasha-Link 内部 protocol のみ安定化。**将来の本命用の巨大 ABI は今作らない**（研究中にインターフェースを変えても本命側を壊さないため）。
+  - ✅ 実施済み（2026-08-30）: プラグイン基盤 `akasha-master/src/arcasha/plugin/` を新設。`runtime-contract.ts`（IntelligenceRuntime 契約 + 既存実装アダプタ）・`model-fleet.ts`（タスク分類→ルーティングの共通基盤）・`selftest.ts`。詳細は `PLUGIN_ARCHITECTURE.md`。
 - **Phase 3 — Protocol Fix**: `PROTOCOL.md`（48B header）を唯一の実装に統一。`client-web/src/worker.ts` の 20B legacy header を削除。**「コードが真実」**（Markdown はコードから生成）。
 - **Phase 4 — Scientific Validation**: `Baseline / AVM only / Executive only / Full ArcAsha` の 4 比較。Accuracy / Latency / Token usage / Cost / Memory / Failure rate を計測。
 - **Phase 5 — Akasha-Link Benchmark**: Local GPU vs WebGPU vs Remote で、Compute / Upload / Download / GPU / Network RTT / Queue / Total E2E / Energy を分離計測。

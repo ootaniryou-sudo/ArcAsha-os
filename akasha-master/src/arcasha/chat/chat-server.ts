@@ -23,6 +23,8 @@ import 'dotenv/config';
 import http from 'node:http';
 import { ExpertHub } from '../experts/registry.js';
 import { AvmWorkspace } from './avm-telemetry.js';
+import { buildFleet, classifyTask, routeExpert } from '../plugin/model-fleet.js';
+import type { FleetExpert, TaskKind } from '../plugin/model-fleet.js';
 
 // ─── 設定 ─────────────────────────────────────────────────────────────
 let PORT = Number(process.env.ARCASHA_CHAT_PORT ?? 4780);
@@ -35,56 +37,10 @@ for (let i = 0; i < args.length; i++) {
 }
 const DEFAULT_MAX_TOKENS = 1024; // 推論モデル（reasoning_content + content）が回答まで収まるよう大きめに
 
-// ─── ノード（ExpertHub）───────────────────────────────────────────────
+// ─── ノード（ExpertHub）+ エキスパート艦隊（plugin/model-fleet を共有）──
 const hub = new ExpertHub();
-const model = process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
-const base = (process.env.DEEPSEEK_API_BASE ?? 'https://api.deepseek.com').replace(/\/+$/, '');
-const key = process.env.DEEPSEEK_API_KEY ?? '';
-
-// ─── 複数モデルのエキスパート艦隊（タスクに応じて連携）──────────────
-// flash = 汎用/高速、pro = 推論/数学/コード。タスク分類で適切なモデルへルーティングする。
-interface FleetExpert {
-  nodeId: string;
-  model: string;
-  role: 'general' | 'reasoning';
-  label: string;
-}
-const fleet: FleetExpert[] = [];
-if (key) {
-  fleet.push({ nodeId: 'expert-flash', model, role: 'general', label: 'Flash（汎用）' });
-  fleet.push({ nodeId: 'expert-pro', model: process.env.DEEPSEEK_PRO_MODEL ?? 'deepseek-v4-pro', role: 'reasoning', label: 'Pro（推論）' });
-  for (const e of fleet) {
-    hub.addApiNode(e.nodeId, base, key, e.model);
-    console.log(`  ☁️ 実モデル接続: ${e.nodeId} (${e.model} @ ${base}) [${e.role}]`);
-  }
-} else {
-  console.log('  ⚠️ DEEPSEEK_API_KEY が無いためモックノードで動作します（実タスクには .env を設定）');
-  hub.addMockNode('mock-a', 'HuggingFaceTB/SmolLM2-135M-Instruct');
-  hub.addMockNode('mock-b', 'HuggingFaceTB/SmolLM2-135M-Instruct');
-  // モックも艦隊に登録（routeExpert / answerConversation が fleet 空でクラッシュしないように）
-  fleet.push({ nodeId: 'mock-a', model: 'mock', role: 'general', label: 'Mock（汎用）' });
-  fleet.push({ nodeId: 'mock-b', model: 'mock', role: 'reasoning', label: 'Mock（推論）' });
-}
-
-/** タスクの種類（どのモデル・エキスパートに任せるか） */
-type TaskKind = 'math' | 'code' | 'reasoning' | 'search' | 'general';
-
-/** 発言からタスク種別を推定する（簡易キーワード分類） */
-function classifyTask(text: string): TaskKind {
-  if (/[=∫∑√π∞]|\d+\s*[+\-*/^]\s*\d+|数学|算数|積分|微分|方程式|計算|因数分解|確率|幾何|行列|対数|三角関数|数式|数列|図形/i.test(text)) return 'math';
-  if (/コード|プログラム|実装|バグ|関数|クラス|型|アルゴリズム|リファクタ|typescript|python|javascript|rust|react|api/i.test(text)) return 'code';
-  if (/なぜ|理由|説明|考察|証明|戦略|計画|設計|比較|分析|仮説|どう思う/i.test(text)) return 'reasoning';
-  if (/検索|調べて|とは|意味|定義|まとめ|要約|一覧/i.test(text)) return 'search';
-  return 'general';
-}
-
-/** タスク種別 → 担当エキスパート（math/code/reasoning は Pro、search/general は Flash） */
-function routeExpert(kind: TaskKind): FleetExpert {
-  if (kind === 'math' || kind === 'code' || kind === 'reasoning') {
-    return fleet.find((e) => e.role === 'reasoning') ?? fleet[0];
-  }
-  return fleet.find((e) => e.role === 'general') ?? fleet[0];
-}
+const fleet: FleetExpert[] = buildFleet(hub, { verbose: true });
+const model = fleet.find((e) => e.role === 'general')?.model ?? 'mock';
 
 function pickNode(): string {
   if (fleet.length > 0 && hub.experts.some((e) => e.nodeId === fleet[0].nodeId)) return fleet[0].nodeId;
@@ -134,7 +90,7 @@ async function answerConversation(
 
   // タスク分類 → 担当モデルをルーティング（複数モデル連携の入口）
   const kind = classifyTask(query);
-  const expert = routeExpert(kind);
+  const expert = routeExpert(kind, fleet);
   trace.push(`classify → ${kind}（担当: ${expert.label} / ${expert.model}）`);
 
   // 1) 会話全体を AVM へ書く
