@@ -52,6 +52,11 @@ export async function runCli(argv: string[]): Promise<string> {
       const r = await runAblationBaseline({ verbose: argv[1] === 'verbose' });
       console.log(renderAblationBaseline(r));
       const jsonPath = await writeAblationReport(r);
+      // 全タスクが失敗した場合（API 全滅など）は実測として成立しないため失敗扱いにする
+      const anyOk = r.perTask.some((p) => p.ok);
+      if (!anyOk) {
+        throw new Error(`ablation: 全タスクが失敗しました（success=0）。API キー・接続を確認してください（report: ${jsonPath}）`);
+      }
       return `arcasha ablation: done（kind=real-api・4 構成比較・report: ${jsonPath}）`;
     }
     case 'metaos50': {

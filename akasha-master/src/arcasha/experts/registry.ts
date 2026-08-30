@@ -227,9 +227,12 @@ export class ExpertHub {
    * キャッシュを使わずに生成する（ベンチ計測用・実 API を毎回呼ぶ）。
    * generate は (nodeId, prompt) の決定論キャッシュを持つため、同じプロンプトを
    * 複数構成で解かせる Ablation ではキャッシュヒットで latency/token が汚染される。
-   * このメソッドは常に実呼び出しを行い、lastApiUsage も毎回更新する。
+   * このメソッドは常に実呼び出しを行う。トークン計測用の lastApiUsage は呼び出し前に
+   * クリアし、API ノード経路（apiGenerate）でのみ更新される（HTTP/mock/WS 経路は更新しない）。
    */
   async generateNoCache(nodeId: string, prompt: string, maxTokens = 200): Promise<string> {
+    // 直前の呼び出しの stale 値を残さない（usage 欠落時もゼロ扱いにする）
+    this.lastApiUsage = null;
     const baseUrl = this.httpNodes.get(nodeId);
     if (baseUrl) return this.httpGenerate(baseUrl, prompt, maxTokens);
     const apiCfg = this.apiNodes.get(nodeId);
@@ -240,7 +243,8 @@ export class ExpertHub {
     }
     const ws = this.sockets.get(nodeId);
     if (!ws) throw new Error(`expert ${nodeId} not connected`);
-    const res = await this.sendCompute(ws, `gen-nc-${nodeId}`, prompt, true, maxTokens);
+    // 並行呼び出しで request ID が衝突しないよう通し番号を使う
+    const res = await this.sendCompute(ws, `gen-nc-${this.genCacheMiss++}-${nodeId}`, prompt, true, maxTokens);
     return res.text;
   }
 
