@@ -125,8 +125,10 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
     trace: string[],
   ): Promise<TurnResult> => {
     let avmSnippet = '';
-    if (w && explicitContext) {
-      const title = `task:${++seq}`;
+    // タイトルを一度だけ採番して再利用（同時 submit で共有 seq が進んでも
+    // このターンの AVM コンテキストへ正しく書き込めるように）
+    const title = w && explicitContext ? `task:${++seq}` : undefined;
+    if (w && explicitContext && title) {
       w.storeContext(title, explicitContext, 'user');
       const load = w.readSlice(title, 'search', task, 'search');
       const kloads = w.searchKnowledge(task, 2, 'search');
@@ -150,8 +152,8 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
     const driverOk = ex.driverResponse?.ok !== false;
     if (w) {
       w.recordModelCall(expert.model, ms, `${expert.nodeId} へ ${maxTokens} tokens 上限で生成`);
-      // 回答を AVM に書き戻す（モデルによる書き込みを記録）
-      if (explicitContext) w.writeCache(`task:${seq}`, 'summary', `answer:${seq}`, answer, expert.model);
+      // 回答を AVM に書き戻す（捕捉済みの title を再利用）
+      if (explicitContext && title) w.writeCache(title, 'summary', `answer:${seq}`, answer, expert.model);
     }
     trace.push(`model.call ${expert.model} (${ms}ms) fallback=${ex.fallback ?? false} driverOk=${driverOk}`);
     return { answer, learned: ex.learned ?? true, fallback: ex.fallback ?? false, driverOk, model: expert.model, nodeId: expert.nodeId, label: expert.label, ms };
