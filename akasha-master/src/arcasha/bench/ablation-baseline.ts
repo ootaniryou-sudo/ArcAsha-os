@@ -148,15 +148,22 @@ function verify(task: AblationTask, text: string): boolean {
 
 // ─── 実行 ───────────────────────────────────────────────────────────
 export async function runAblationBaseline(
-  opts: { model?: string; tasks?: AblationTask[]; maxTokens?: number; verbose?: boolean } = {},
+  opts: { tasks?: AblationTask[]; maxTokens?: number; verbose?: boolean } = {},
 ): Promise<AblationResult> {
   const tasks = opts.tasks ?? ABLATION_TASKS;
+  if (tasks.length === 0) throw new Error('ablation: タスクが空です（tasks に 1 件以上を指定してください）');
   const maxTokens = opts.maxTokens ?? 256;
   const hub = new ExpertHub();
   const fleet = buildFleet(hub, { verbose: opts.verbose ?? false });
   const flash = fleet.find((e) => e.role === 'general')!;
   const nodeId = flash.nodeId;
   const model = flash.model;
+  // mock モデル（API キー未設定）では real-api 計測にならないため明示的に拒否する
+  if (model === 'mock' || model.startsWith('mock-')) {
+    throw new Error(
+      `ablation: 実モデル（${model}）で実行できません。DEEPSEEK_API_KEY が設定されていないため buildFleet が mock を登録しました。.env を確認して再実行してください（mock での計測は real-api と偽装しないため拒否します）`,
+    );
+  }
 
   const aios = initAiOs({
     listNodes: () => hub.experts.map((e) => ({ nodeId: e.nodeId, modelId: e.modelId, paramsM: e.paramsM })),
@@ -227,6 +234,7 @@ export async function runAblationBaseline(
     if (opts.verbose) console.log(`\n▸ ${cfg.name}（${tasks.length} tasks）`);
     let pass = 0, success = 0, totalMs = 0, promptT = 0, compT = 0;
     for (const t of tasks) {
+      const t0 = Date.now();
       try {
         const r = await cfg.run(t);
         const verified = verify(t, r.text);
@@ -250,7 +258,10 @@ export async function runAblationBaseline(
         });
         if (opts.verbose) console.log(`  ${t.id}: ${verified ? '✅' : '❌'} ${r.ms}ms ${(r.promptTokens + r.completionTokens)}tok "${r.text.slice(0, 40)}"`);
       } catch (e) {
-        perTask.push({ config: cfg.id, taskId: t.id, category: t.category, ok: false, verified: false, ms: 0, promptTokens: 0, completionTokens: 0, text: '', error: String(e).slice(0, 120) });
+        // 失敗時も実測の経過時間を記録する（ms: 0 にしない）
+        const ms = Date.now() - t0;
+        totalMs += ms;
+        perTask.push({ config: cfg.id, taskId: t.id, category: t.category, ok: false, verified: false, ms, promptTokens: 0, completionTokens: 0, text: '', error: String(e).slice(0, 120) });
         if (opts.verbose) console.log(`  ${t.id}: ⚠ ${String(e).slice(0, 80)}`);
       }
     }
@@ -325,7 +336,7 @@ export async function writeAblationReport(r: AblationResult, dir = 'reports/abla
     '',
     '| 構成 | タスク | 正解 | レイテンシ | トークン | 応答 |',
     '|---|---|---|---|---|---|',
-    ...r.perTask.map((p) => `| ${p.config} | ${p.taskId} | ${p.verified ? '✅' : '❌'} | ${p.ms}ms | ${p.promptTokens + p.completionTokens} | ${p.text.replace(/\|/g, '｜').slice(0, 50)}${p.error ? `（${p.error}）` : ''} |`),
+    ...r.perTask.map((p) => `| ${p.config} | ${p.taskId} | ${p.verified ? '✅' : '❌'} | ${p.ms}ms | ${p.promptTokens + p.completionTokens} | ${p.text.replace(/\r?\n/g, ' ').replace(/\|/g, '｜').slice(0, 50)}${p.error ? `（${p.error}）` : ''} |`),
     '',
     '## 解釈（データから導出・バイアス除去した見解）',
     '',
@@ -347,7 +358,13 @@ function interpret(r: AblationResult): string[] {
   const b = by('baseline'), a = by('avm'), e = by('executive'), f = by('full');
   const acc = (x: number) => (x * 100).toFixed(0) + '%';
   const out: string[] = [];
-  // ① AVM の寄与（Baseline → +AVM）
+  // 成功率は各構成の実測値を使う（4 構成すべて同値のときだけ共通文にする）
+  const rates = [b, a, e, f].map((x) => x.successRate);
+  if (rates.every((v) => v === rates[0])) {
+    out.push(`成功率は 4 構成とも ${acc(b.successRate)}。`);
+  } else {
+    out.push(`成功率は構成ごとに異なる: Baseline ${acc(b.successRate)} / +AVM ${acc(a.successRate)} / +Executive ${acc(e.successRate)} / Full ${acc(f.successRate)}。`);
+  }
   if (a.accuracy > b.accuracy) {
     out.push(`AVM（明示知識の検索・供給）は正答率を ${acc(b.accuracy)} → ${acc(a.accuracy)} に改善。知識タスクで文脈供給が有効に働いたことを示す。`);
   } else {
@@ -366,7 +383,6 @@ function interpret(r: AblationResult): string[] {
   } else {
     out.push(`Full は AVM 単独（${acc(a.accuracy)}）と同等以上の ${acc(f.accuracy)}。`);
   }
-  out.push(`成功率は 4 構成とも ${acc(b.successRate)}。`);
   out.push(`※ 12 問は小サンプル。構成間の差は 1 問分（約 8%）の変動を含み、統計的に有意と断言できない。次はタスク数を増やした再計測（Phase 4 継続）が推奨。`);
   return out;
 }

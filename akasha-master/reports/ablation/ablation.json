@@ -10,11 +10,11 @@
       "successRate": 1,
       "pass": 11,
       "accuracy": 0.917,
-      "avgLatencyMs": 1508,
-      "avgTokens": 196,
+      "avgLatencyMs": 1536,
+      "avgTokens": 194,
       "avgPromptTokens": 104,
-      "avgCompletionTokens": 92,
-      "estCostUsd": 0.000814
+      "avgCompletionTokens": 90,
+      "estCostUsd": 0.000803
     },
     {
       "config": "avm",
@@ -22,13 +22,13 @@
       "tasks": 12,
       "success": 12,
       "successRate": 1,
-      "pass": 12,
-      "accuracy": 1,
-      "avgLatencyMs": 1580,
-      "avgTokens": 204,
+      "pass": 11,
+      "accuracy": 0.917,
+      "avgLatencyMs": 1490,
+      "avgTokens": 209,
       "avgPromptTokens": 114,
-      "avgCompletionTokens": 91,
-      "estCostUsd": 0.000839
+      "avgCompletionTokens": 95,
+      "estCostUsd": 0.000862
     },
     {
       "config": "executive",
@@ -36,13 +36,13 @@
       "tasks": 12,
       "success": 12,
       "successRate": 1,
-      "pass": 11,
-      "accuracy": 0.917,
-      "avgLatencyMs": 1750,
-      "avgTokens": 195,
+      "pass": 10,
+      "accuracy": 0.833,
+      "avgLatencyMs": 1741,
+      "avgTokens": 197,
       "avgPromptTokens": 104,
-      "avgCompletionTokens": 91,
-      "estCostUsd": 0.000809
+      "avgCompletionTokens": 93,
+      "estCostUsd": 0.000816
     },
     {
       "config": "full",
@@ -52,11 +52,11 @@
       "successRate": 1,
       "pass": 11,
       "accuracy": 0.917,
-      "avgLatencyMs": 1653,
-      "avgTokens": 213,
+      "avgLatencyMs": 1715,
+      "avgTokens": 205,
       "avgPromptTokens": 114,
-      "avgCompletionTokens": 99,
-      "estCostUsd": 0.000882
+      "avgCompletionTokens": 91,
+      "estCostUsd": 0.000843
     }
   ],
   "perTask": [
@@ -66,10 +66,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1399,
+      "ms": 1194,
       "promptTokens": 126,
-      "completionTokens": 73,
-      "text": "合計は **600円** です。  \n（バナナ：3本×100円＝300円、りんご：2個×150円＝300円）"
+      "completionTokens": 37,
+      "text": "600 円です。"
     },
     {
       "config": "baseline",
@@ -77,241 +77,241 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 922,
-      "promptTokens": 107,
-      "completionTokens": 36,
-      "text": "総労働時間は **24時間** です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "m3",
-      "category": "math",
-      "ok": true,
-      "verified": true,
-      "ms": 1009,
-      "promptTokens": 105,
-      "completionTokens": 26,
-      "text": "12人です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "m4",
-      "category": "math",
-      "ok": true,
-      "verified": true,
-      "ms": 1069,
-      "promptTokens": 103,
-      "completionTokens": 38,
-      "text": "150 km です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "m5",
-      "category": "math",
-      "ok": true,
-      "verified": true,
-      "ms": 1300,
-      "promptTokens": 110,
-      "completionTokens": 32,
-      "text": "2000円です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "m6",
-      "category": "math",
-      "ok": true,
-      "verified": true,
-      "ms": 922,
-      "promptTokens": 104,
-      "completionTokens": 48,
-      "text": "1年は52週なので、  \n52週 × 10時間 = **520時間** です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "k1",
-      "category": "knowledge",
-      "ok": true,
-      "verified": true,
-      "ms": 2561,
-      "promptTokens": 104,
-      "completionTokens": 256,
-      "text": "We need to answer a question in Japanese: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" This asks: \"In ArcAsha, which expert handles"
-    },
-    {
-      "config": "baseline",
-      "taskId": "k2",
-      "category": "knowledge",
-      "ok": true,
-      "verified": false,
-      "ms": 3163,
-      "promptTokens": 106,
-      "completionTokens": 256,
-      "text": "We need answer in Japanese. Need explain DeepSeek V4? Actually DeepSeek V4 not released? User asks \"DeepSeek V4 で、max_to"
-    },
-    {
-      "config": "baseline",
-      "taskId": "k3",
-      "category": "knowledge",
-      "ok": true,
-      "verified": true,
-      "ms": 968,
-      "promptTokens": 95,
-      "completionTokens": 36,
-      "text": "アムステルダムは**オランダ**（正式名称：オランダ王国）の首都です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "k4",
-      "category": "knowledge",
-      "ok": true,
-      "verified": true,
-      "ms": 1193,
-      "promptTokens": 94,
-      "completionTokens": 64,
-      "text": "富士山の標高は **3,776メートル** です。"
-    },
-    {
-      "config": "baseline",
-      "taskId": "k5",
-      "category": "knowledge",
-      "ok": true,
-      "verified": true,
-      "ms": 2489,
-      "promptTokens": 99,
-      "completionTokens": 169,
-      "text": "ラマン分光法は、物質に光を当てたときに生じる**非弾性散乱光（ラマン散乱）**を観測し、物質の**分子の振動モード（分子振動）や結晶の格子振動（フォノン）**を調べる手法です。\n\nこれにより、物質の**化学結合の情報**や**分子構造・結晶"
-    },
-    {
-      "config": "baseline",
-      "taskId": "k6",
-      "category": "knowledge",
-      "ok": true,
-      "verified": true,
-      "ms": 1095,
-      "promptTokens": 97,
-      "completionTokens": 70,
-      "text": "光が太陽から地球まで届くのには、約**8分20秒**かかります。"
-    },
-    {
-      "config": "avm",
-      "taskId": "m1",
-      "category": "math",
-      "ok": true,
-      "verified": true,
-      "ms": 1536,
-      "promptTokens": 126,
-      "completionTokens": 44,
-      "text": "合計は **600円** です。"
-    },
-    {
-      "config": "avm",
-      "taskId": "m2",
-      "category": "math",
-      "ok": true,
-      "verified": true,
-      "ms": 1310,
+      "ms": 1070,
       "promptTokens": 107,
       "completionTokens": 63,
       "text": "24時間です。"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "m3",
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1353,
+      "ms": 998,
       "promptTokens": 105,
       "completionTokens": 30,
       "text": "女子は **12人** です。"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "m4",
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1028,
+      "ms": 1133,
       "promptTokens": 103,
-      "completionTokens": 36,
-      "text": "150 km"
+      "completionTokens": 43,
+      "text": "距離は **150 km** です。"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "m5",
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 813,
+      "ms": 895,
       "promptTokens": 110,
-      "completionTokens": 31,
+      "completionTokens": 30,
       "text": "2000円です。"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "m6",
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1230,
+      "ms": 1201,
       "promptTokens": 104,
-      "completionTokens": 27,
-      "text": "年間 **520時間**です。"
+      "completionTokens": 54,
+      "text": "1年は52週なので、毎週10時間勉強すると：\n\n**52週 × 10時間 = 520時間**\n\n年間で **520時間** です。"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "k1",
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 2858,
-      "promptTokens": 148,
+      "ms": 2997,
+      "promptTokens": 104,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. Need understand question: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Referring to ArcAsha AI OS? Need"
+      "text": "We need answer in Japanese. User asks: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Means \"In ArcAsha, which expert handles mathema"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "k2",
       "category": "knowledge",
       "ok": true,
-      "verified": true,
-      "ms": 3081,
-      "promptTokens": 176,
+      "verified": false,
+      "ms": 3263,
+      "promptTokens": 106,
       "completionTokens": 256,
-      "text": "DeepSeek V4 は推論モデルであり、API 応答は以下の2つのフィールドに分離されます：\n\n- `reasoning_content`：内部の思考・推論チェーン\n- `content`：最終的な回答\n\n`max_tokens` を小"
+      "text": "We need answer in Japanese. User asks: \"DeepSeek V4 で、max_tokens を小さくすると回答が空になる原因は？\" Means \"In DeepSeek V4, why does set"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "k3",
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 1082,
+      "ms": 935,
       "promptTokens": 95,
-      "completionTokens": 49,
+      "completionTokens": 31,
       "text": "アムステルダムは**オランダ**の首都です。"
     },
     {
-      "config": "avm",
+      "config": "baseline",
       "taskId": "k4",
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 886,
+      "ms": 1023,
       "promptTokens": 94,
       "completionTokens": 33,
       "text": "富士山の標高は **3,776メートル** です。"
     },
     {
+      "config": "baseline",
+      "taskId": "k5",
+      "category": "knowledge",
+      "ok": true,
+      "verified": true,
+      "ms": 2563,
+      "promptTokens": 99,
+      "completionTokens": 202,
+      "text": "ラマン分光法は、物質に光を当てたときの**非弾性散乱光（ラマン散乱）**の波長シフトを測定し、**分子の振動・回転、結晶格子のフォノン（格子振動）**などを観測する手法です。これにより、物質の同定や化学結合、分子構造、結晶性などの情報が得ら"
+    },
+    {
+      "config": "baseline",
+      "taskId": "k6",
+      "category": "knowledge",
+      "ok": true,
+      "verified": true,
+      "ms": 1163,
+      "promptTokens": 97,
+      "completionTokens": 43,
+      "text": "約8分20秒（約500秒）です。"
+    },
+    {
+      "config": "avm",
+      "taskId": "m1",
+      "category": "math",
+      "ok": true,
+      "verified": true,
+      "ms": 1066,
+      "promptTokens": 126,
+      "completionTokens": 67,
+      "text": "合計は **600円** です。  \n（バナナ：3×100=300円、りんご：2×150=300円）"
+    },
+    {
+      "config": "avm",
+      "taskId": "m2",
+      "category": "math",
+      "ok": true,
+      "verified": true,
+      "ms": 1006,
+      "promptTokens": 107,
+      "completionTokens": 41,
+      "text": "24時間です。"
+    },
+    {
+      "config": "avm",
+      "taskId": "m3",
+      "category": "math",
+      "ok": true,
+      "verified": true,
+      "ms": 961,
+      "promptTokens": 105,
+      "completionTokens": 32,
+      "text": "女子は **12人** です。"
+    },
+    {
+      "config": "avm",
+      "taskId": "m4",
+      "category": "math",
+      "ok": true,
+      "verified": true,
+      "ms": 1125,
+      "promptTokens": 103,
+      "completionTokens": 44,
+      "text": "距離は **150km** です。"
+    },
+    {
+      "config": "avm",
+      "taskId": "m5",
+      "category": "math",
+      "ok": true,
+      "verified": true,
+      "ms": 999,
+      "promptTokens": 110,
+      "completionTokens": 28,
+      "text": "2000円"
+    },
+    {
+      "config": "avm",
+      "taskId": "m6",
+      "category": "math",
+      "ok": true,
+      "verified": true,
+      "ms": 1048,
+      "promptTokens": 104,
+      "completionTokens": 53,
+      "text": "年間 **520時間** です。  \n（52週 × 10時間 = 520時間）"
+    },
+    {
+      "config": "avm",
+      "taskId": "k1",
+      "category": "knowledge",
+      "ok": true,
+      "verified": true,
+      "ms": 2582,
+      "promptTokens": 148,
+      "completionTokens": 256,
+      "text": "We need answer in Japanese. Need parse question: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Means \"In ArcAsha, which expert handl"
+    },
+    {
+      "config": "avm",
+      "taskId": "k2",
+      "category": "knowledge",
+      "ok": true,
+      "verified": false,
+      "ms": 2947,
+      "promptTokens": 176,
+      "completionTokens": 256,
+      "text": "We need answer in Japanese. Need address question: DeepSeek V4, max_tokens small causes empty answer? Need explain reaso"
+    },
+    {
+      "config": "avm",
+      "taskId": "k3",
+      "category": "knowledge",
+      "ok": true,
+      "verified": true,
+      "ms": 1027,
+      "promptTokens": 95,
+      "completionTokens": 41,
+      "text": "アムステルダムは**オランダ**（正式国名：オランダ王国）の首都です。"
+    },
+    {
+      "config": "avm",
+      "taskId": "k4",
+      "category": "knowledge",
+      "ok": true,
+      "verified": true,
+      "ms": 817,
+      "promptTokens": 94,
+      "completionTokens": 35,
+      "text": "富士山の標高は **3,776メートル** です。"
+    },
+    {
       "config": "avm",
       "taskId": "k5",
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 2128,
+      "ms": 2457,
       "promptTokens": 99,
-      "completionTokens": 156,
-      "text": "ラマン分光法は、物質に光を当てたときに生じる**ラマン散乱光**を観測し、物質の**分子振動・回転・結晶の格子振動（フォノン）**などの情報を得る手法です。これにより、分子の構造や結合状態、物質の同定・状態分析ができます。"
+      "completionTokens": 188,
+      "text": "ラマン分光法は、物質に光を当てたときの**非弾性散乱（ラマン散乱）**を利用して、**分子の振動・回転状態**（固体では格子振動＝フォノン）を観測する手法です。  \n\nこれにより、物質の**化学結合や結晶構造、分子構造、相転移**などの情報"
     },
     {
       "config": "avm",
@@ -319,10 +319,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 1654,
+      "ms": 1845,
       "promptTokens": 97,
-      "completionTokens": 108,
-      "text": "およそ**8分19秒**です。\n\n太陽から地球までの平均距離は約1億4960万kmで、光は1秒間に約30万km進むためです。"
+      "completionTokens": 103,
+      "text": "約8分20秒です。  \n正確には、太陽と地球の平均距離が約1億4960万kmで、光速が毎秒約30万kmなので、約499秒（約8分19秒）かかります。"
     },
     {
       "config": "executive",
@@ -330,9 +330,9 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1316,
+      "ms": 1125,
       "promptTokens": 126,
-      "completionTokens": 42,
+      "completionTokens": 43,
       "text": "合計は **600円** です。"
     },
     {
@@ -341,10 +341,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1318,
+      "ms": 1331,
       "promptTokens": 107,
-      "completionTokens": 83,
-      "text": "総労働時間は **24時間** です。"
+      "completionTokens": 57,
+      "text": "24時間です。"
     },
     {
       "config": "executive",
@@ -352,10 +352,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1041,
+      "ms": 615,
       "promptTokens": 105,
-      "completionTokens": 30,
-      "text": "女子は **12人** です。"
+      "completionTokens": 25,
+      "text": "12人です。"
     },
     {
       "config": "executive",
@@ -363,9 +363,9 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 917,
+      "ms": 760,
       "promptTokens": 103,
-      "completionTokens": 36,
+      "completionTokens": 35,
       "text": "150 km"
     },
     {
@@ -374,9 +374,9 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 2766,
+      "ms": 3643,
       "promptTokens": 110,
-      "completionTokens": 27,
+      "completionTokens": 30,
       "text": "2000円"
     },
     {
@@ -385,10 +385,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1432,
+      "ms": 1337,
       "promptTokens": 104,
-      "completionTokens": 48,
-      "text": "1年＝52週間なので、  \n52週 × 10時間 ＝ **520時間** です。"
+      "completionTokens": 30,
+      "text": "520時間です。"
     },
     {
       "config": "executive",
@@ -396,10 +396,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 3140,
+      "ms": 3273,
       "promptTokens": 104,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. Need know ArcAsha? Maybe \"ArcAsha\" is some product? Need infer. User asks: \"ArcAsha で数式の処理はど"
+      "text": "We need answer in Japanese. User asks: \"In ArcAsha, which expert handles formula processing?\" Need know ArcAsha? Maybe i"
     },
     {
       "config": "executive",
@@ -407,10 +407,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": false,
-      "ms": 2800,
+      "ms": 2971,
       "promptTokens": 106,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. Need explain DeepSeek V4? Actually \"DeepSeek V4\" maybe not exist? Current is DeepSeek V3/V3."
+      "text": "We need answer in Japanese. User asks: \"DeepSeek V4 で、max_tokens を小さくすると回答が空になる原因は？\" Means \"In DeepSeek V4, why does set"
     },
     {
       "config": "executive",
@@ -418,10 +418,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 923,
+      "ms": 1226,
       "promptTokens": 95,
-      "completionTokens": 37,
-      "text": "アムステルダムは**オランダ**（正式名称：オランダ王国）の首都です。"
+      "completionTokens": 78,
+      "text": "アムステルダムは **オランダ**（オランダ王国）の首都です。"
     },
     {
       "config": "executive",
@@ -429,9 +429,9 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 1228,
+      "ms": 1057,
       "promptTokens": 94,
-      "completionTokens": 36,
+      "completionTokens": 35,
       "text": "富士山の標高は **3,776メートル** です。"
     },
     {
@@ -439,11 +439,11 @@
       "taskId": "k5",
       "category": "knowledge",
       "ok": true,
-      "verified": true,
-      "ms": 2354,
+      "verified": false,
+      "ms": 2015,
       "promptTokens": 99,
-      "completionTokens": 150,
-      "text": "ラマン分光法は、物質に光を当てたときの**非弾性散乱光（ラマン散乱）**を観測し、物質の**分子の振動**や**結晶の格子振動（フォノン）**の情報を得る手法です。これにより、物質の同定や化学結合、結晶構造、歪みなどを調べることができます。"
+      "completionTokens": 163,
+      "text": "ラマン分光法は、物質に光を当てたときに生じる**ラマン散乱光**（非弾性散乱光）を観測する手法です。これにより、分子の**振動**や**回転**のエネルギー準位に関する情報が得られ、物質の**化学結合や分子構造、結晶性、相同定**などを調べ"
     },
     {
       "config": "executive",
@@ -451,10 +451,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 1760,
+      "ms": 1538,
       "promptTokens": 97,
-      "completionTokens": 92,
-      "text": "太陽から地球まで光が届くのにかかる時間は、平均で約 **8分20秒** です。\n\n（光速と地球と太陽の平均距離から計算した値です。）"
+      "completionTokens": 102,
+      "text": "約8分20秒です。\n\n太陽と地球の平均距離は約1億5000万kmで、光の速さは秒速約30万kmなので、計算上は約500秒（8分20秒）かかります。"
     },
     {
       "config": "full",
@@ -462,9 +462,9 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1416,
+      "ms": 1124,
       "promptTokens": 126,
-      "completionTokens": 97,
+      "completionTokens": 44,
       "text": "合計は **600円** です。"
     },
     {
@@ -473,10 +473,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1023,
+      "ms": 1228,
       "promptTokens": 107,
-      "completionTokens": 29,
-      "text": "24時間です。"
+      "completionTokens": 42,
+      "text": "総労働時間は **24時間** です。"
     },
     {
       "config": "full",
@@ -484,10 +484,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 819,
+      "ms": 1070,
       "promptTokens": 105,
-      "completionTokens": 31,
-      "text": "女子は **12人**です。"
+      "completionTokens": 36,
+      "text": "女子は 30 × 0.4 = **12人**です。"
     },
     {
       "config": "full",
@@ -495,10 +495,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 1337,
+      "ms": 1083,
       "promptTokens": 103,
-      "completionTokens": 75,
-      "text": "時速60kmで2時間半（2.5時間）走ったので、\n\n距離 = 時速 × 時間 = 60 × 2.5 = 150km\n\n答え：**150km**"
+      "completionTokens": 36,
+      "text": "150 km。"
     },
     {
       "config": "full",
@@ -506,10 +506,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 2657,
+      "ms": 3333,
       "promptTokens": 110,
-      "completionTokens": 27,
-      "text": "2000円"
+      "completionTokens": 32,
+      "text": "2000円です。"
     },
     {
       "config": "full",
@@ -517,10 +517,10 @@
       "category": "math",
       "ok": true,
       "verified": true,
-      "ms": 818,
+      "ms": 974,
       "promptTokens": 104,
-      "completionTokens": 49,
-      "text": "520 時間です。"
+      "completionTokens": 33,
+      "text": "年間で **520時間** です。"
     },
     {
       "config": "full",
@@ -528,10 +528,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 2767,
+      "ms": 2859,
       "promptTokens": 148,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. Need understand question: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Given reference knowledge: \"ArcA"
+      "text": "We need answer in Japanese. Need understand question: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" with reference knowledge: ArcAsh"
     },
     {
       "config": "full",
@@ -539,10 +539,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": false,
-      "ms": 3224,
+      "ms": 2765,
       "promptTokens": 176,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. Need address cause: DeepSeek V4 reasoning model, response separated reasoning_content and co"
+      "text": "We need answer in Japanese. Need address cause: DeepSeek V4 reasoning model, response split reasoning_content and conten"
     },
     {
       "config": "full",
@@ -550,10 +550,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 974,
+      "ms": 821,
       "promptTokens": 95,
-      "completionTokens": 38,
-      "text": "アムステルダムは**オランダ**（正式国名：オランダ王国）の首都です。"
+      "completionTokens": 34,
+      "text": "アムステルダムは**オランダ**（オランダ王国）の首都です。"
     },
     {
       "config": "full",
@@ -561,9 +561,9 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 723,
+      "ms": 1331,
       "promptTokens": 94,
-      "completionTokens": 34,
+      "completionTokens": 71,
       "text": "富士山の標高は **3,776メートル** です。"
     },
     {
@@ -572,10 +572,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 2680,
+      "ms": 2867,
       "promptTokens": 99,
-      "completionTokens": 203,
-      "text": "ラマン分光法は、物質に光を当てたときの**ラマン散乱光**を観測し、物質の**分子振動**（または結晶のフォノン、分子の回転準位）の情報を得る手法です。\n\n具体的には、入射光と散乱光のエネルギー差（ラマンシフト）から、分子の結合や結晶構造に"
+      "completionTokens": 198,
+      "text": "ラマン分光法は、**物質中の分子の振動（および回転）の状態**を観測する手法です。\n\nレーザー光を物質に当てると、ごく一部の光が分子の振動エネルギー分だけシフトした波長（ラマン散乱光）になります。この「入射光とのエネルギー差（ラマンシフト）"
     },
     {
       "config": "full",
@@ -583,10 +583,10 @@
       "category": "knowledge",
       "ok": true,
       "verified": true,
-      "ms": 1395,
+      "ms": 1124,
       "promptTokens": 97,
-      "completionTokens": 95,
-      "text": "太陽から地球まで光が届くのにかかる時間は、約**8分20秒**です。  \n（距離は約1億4960万km、光速は秒速約30万km）"
+      "completionTokens": 59,
+      "text": "約8分20秒です。"
     }
   ],
   "note": "kind=real-api（実 API・数値は偽装しない）。同一タスク（12 問: 数学 6 / 知識 6）・同一モデル（deepseek-v4-flash）で 4 構成を比較。①素のプロンプト ②AVM が明示知識から必要ページを供給 ③Executive（aiosExecute）のみ ④AVM + Executive。正答は数値一致 or キーワード包含で検証。コストは token × 概算単価（in $0.28 / out $0.42 per 1M）。"
