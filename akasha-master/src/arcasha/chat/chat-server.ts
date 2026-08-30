@@ -61,6 +61,9 @@ if (key) {
   console.log('  ⚠️ DEEPSEEK_API_KEY が無いためモックノードで動作します（実タスクには .env を設定）');
   hub.addMockNode('mock-a', 'HuggingFaceTB/SmolLM2-135M-Instruct');
   hub.addMockNode('mock-b', 'HuggingFaceTB/SmolLM2-135M-Instruct');
+  // モックも艦隊に登録（routeExpert / answerConversation が fleet 空でクラッシュしないように）
+  fleet.push({ nodeId: 'mock-a', model: 'mock', role: 'general', label: 'Mock（汎用）' });
+  fleet.push({ nodeId: 'mock-b', model: 'mock', role: 'reasoning', label: 'Mock（推論）' });
 }
 
 /** タスクの種類（どのモデル・エキスパートに任せるか） */
@@ -162,6 +165,7 @@ async function answerConversation(
   let reply = '';
   let usedModel = expert.model;
   let usedNodeId = expert.nodeId;
+  let usedExpert = expert.label;
   try {
     reply = String((await hub.generate(expert.nodeId, prompt, maxTokens)) ?? '').trim();
   } catch (e) {
@@ -175,6 +179,7 @@ async function answerConversation(
       reply = String((await hub.generate(fallback.nodeId, prompt, maxTokens)) ?? '').trim();
       usedModel = fallback.model;
       usedNodeId = fallback.nodeId;
+      usedExpert = fallback.label;
     } catch (e2) {
       reply = `⚠️ モデル呼び出し失敗: ${String(e2).slice(0, 200)}`;
     }
@@ -189,7 +194,7 @@ async function answerConversation(
   ws.writeCache(title, 'summary', `answer:${msgSeq}`, reply, usedModel);
   trace.push('cache.write 回答');
 
-  return { reply, ms: Date.now() - t0, model: usedModel, nodeId: usedNodeId, kind, expert: expert.label, trace };
+  return { reply, ms: Date.now() - t0, model: usedModel, nodeId: usedNodeId, kind, expert: usedExpert, trace };
 }
 
 // ─── チャット WebUI（HTML）───────────────────────────────────────────
