@@ -74,6 +74,7 @@ export const ABLATION_TASKS: AblationTask[] = [
     id: 'k6', category: 'knowledge',
     task: '光が太陽から地球まで届くのにかかる時間は？',
     reference: '8分',
+    altNumbers: [8.2, 8.3, 8.33], // 「約8.2分」「約8.3分」等の小数近似も正解として受理（このタスク限定）
     context: '光の速度は秒速約 30 万キロメートル。太陽から地球までの距離は約 1 億 5000 万キロメートルで、光では約 8 分かかる。',
   },
 ];
