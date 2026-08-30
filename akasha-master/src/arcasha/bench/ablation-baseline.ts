@@ -28,6 +28,7 @@ export interface AblationTask {
   task: string;
   reference: string;   // 正答（数値 or キーワード）
   context?: string;    // AVM に渡す知識（knowledge タスクのみ）
+  altNumbers?: number[]; // このタスクでのみ許容する追加の数値正答（例: k26 の 365.25）
 }
 
 export const ABLATION_TASKS: AblationTask[] = [
@@ -198,6 +199,7 @@ export const ABLATION_TASKS_50: AblationTask[] = [
   {
     id: 'k26', category: 'knowledge',
     task: '地球が太陽の周りを一周するのに要する日数は？', reference: '365',
+    altNumbers: [365.25], // 「365.25日」というより精密な正解も受理する（このタスク限定）
     context: '地球の公転周期は約 365 日で、これが 1 年の長さの基準になっている。実際は約 365.25 日。',
   },
   {
@@ -301,8 +303,9 @@ function verify(task: AblationTask, text: string): boolean {
     // 数値の正答: 応答に同一数値が含まれるか（単位付き回答・カンマ区切りに対応）
     const nums = extractNumbers(out);
     if (nums.includes(refNum)) return true;
-    // 整数基準値の場合、より精密な回答（例: 365.25 は 365 と等価・「約8分20秒」の 8.2）を許容する
-    if (Number.isInteger(refNum)) return nums.some((n) => n !== refNum && Math.trunc(n) === refNum);
+    // タスク固有の許容代替値のみ明示的に受理（例: k26 は「365.25日」というより精密な正解を許容）。
+    // 他タスクの pass / accuracy / McNemar 集計には一切影響しない。
+    if (task.altNumbers && task.altNumbers.some((a) => nums.includes(a))) return true;
     return false;
   }
   // キーワード正答: 助詞・空白を正規化して包含判定（「分子振動」vs「分子の振動」を許容）
@@ -317,13 +320,15 @@ function verify(task: AblationTask, text: string): boolean {
 function assertTaskIntegrity(tasks: AblationTask[]): void {
   for (const t of tasks) {
     const refNum = extractNumbers(t.reference)[0];
-    if (refNum !== undefined) {
-      if (extractNumbers(t.task).includes(refNum)) {
+    const allNums = [...(refNum !== undefined ? [refNum] : []), ...(t.altNumbers ?? [])];
+    for (const rn of allNums) {
+      if (extractNumbers(t.task).includes(rn)) {
         throw new Error(
-          `ablation: タスク ${t.id} の正答（${t.reference}）が問題文に含まれます。エコーで正解になるため問題文を修正してください`,
+          `ablation: タスク ${t.id} の正答（${rn}）が問題文に含まれます。エコーで正解になるため問題文を修正してください`,
         );
       }
-    } else {
+    }
+    if (refNum === undefined) {
       const kw = normalizeKw(t.reference);
       if (kw !== '' && normalizeKw(t.task).includes(kw)) {
         throw new Error(
@@ -361,7 +366,12 @@ export async function runAblationBaseline(
   const tasks = opts.tasks ?? ABLATION_TASKS_50;
   if (tasks.length === 0) throw new Error('ablation: タスクが空です（tasks に 1 件以上を指定してください）');
   assertTaskIntegrity(tasks);
-  const runs = Math.max(1, Math.floor(opts.runs ?? 1));
+  // runs は正の安全な整数であることを最終検証境界として強制する
+  const runsRaw = opts.runs ?? 1;
+  if (!Number.isSafeInteger(runsRaw) || runsRaw < 1) {
+    throw new Error(`ablation: runs は正の安全な整数（1 以上）である必要があります（指定値: ${runsRaw}）`);
+  }
+  const runs = runsRaw;
   const maxTokens = opts.maxTokens ?? 256;
   const hub = new ExpertHub();
   const fleet = buildFleet(hub, { verbose: opts.verbose ?? false });
@@ -653,6 +663,6 @@ function interpret(r: AblationResult): string[] {
   } else {
     out.push(`AVM ON/OFF の差は統計的に有意ではない（McNemar 両側正確検定: b=${m.b} c=${m.c} p=${m.pValue.toFixed(4)} ≧ 0.05）。`);
   }
-  out.push(`※ ${r.rows[0]?.tasks ?? 0} 問 × ${r.runs} 回のサンプル。構成間の差は${Math.round((100 / (r.rows[0]?.tasks ?? 1)) * 100) / 100}%（1 問）単位の変動を含み得る。タスクを増やした再計測（Phase 4 継続）で有意性を詰める。`);
+  out.push(`※ ${r.rows[0]?.tasks ?? 0} 問 × ${r.runs} 回のサンプル。構成間の差は${Math.round((100 / ((r.rows[0]?.tasks ?? 1) * (r.runs ?? 1))) * 100) / 100}%（1 サンプル = タスク × 回）単位の変動を含み得る。タスクを増やした再計測（Phase 4 継続）で有意性を詰める。`);
   return out;
 }

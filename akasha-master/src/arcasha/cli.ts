@@ -52,7 +52,11 @@ export async function runCli(argv: string[]): Promise<string> {
       //   arcasha ablation quick     → 12 問 × 1 回（スモーク）
       //   arcasha ablation verbose N → 50 問 × N 回（詳細ログ + 統計検定）
       const mode = argv[1]; // 'quick' | 'verbose' | undefined
-      const runs = Math.max(1, Number(argv[2]) || 1);
+      const runsRaw = argv[2] === undefined ? 1 : Number(argv[2]);
+      if (!Number.isSafeInteger(runsRaw) || runsRaw < 1) {
+        throw new Error(`arcasha ablation: runs は正の安全な整数（1 以上）を指定してください（指定値: ${argv[2]}）`);
+      }
+      const runs = runsRaw;
       const { runAblationBaseline, renderAblationBaseline, writeAblationReport, ABLATION_TASKS, ABLATION_TASKS_50 } = await import('./bench/ablation-baseline.js');
       const tasks = mode === 'quick' ? ABLATION_TASKS : ABLATION_TASKS_50;
       const r = await runAblationBaseline({ tasks, verbose: mode === 'verbose', runs });
