@@ -61,7 +61,8 @@ export async function runCli(argv: string[]): Promise<string> {
       const tasks = mode === 'quick' ? ABLATION_TASKS : ABLATION_TASKS_50;
       const r = await runAblationBaseline({ tasks, verbose: mode === 'verbose', runs });
       console.log(renderAblationBaseline(r));
-      const jsonPath = await writeAblationReport(r);
+      // quick（12 問スモーク）は権威レポート（ablation.*）を上書きしないよう別名で書き出す
+      const jsonPath = await writeAblationReport(r, 'reports/ablation', mode === 'quick' ? 'ablation-quick' : 'ablation');
       // 全タスクが失敗した場合（API 全滅など）は実測として成立しないため失敗扱いにする
       const anyOk = r.perTask.some((p) => p.ok > 0);
       if (!anyOk) {

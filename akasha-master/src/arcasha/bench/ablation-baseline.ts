@@ -571,11 +571,11 @@ export function renderAblationBaseline(r: AblationResult): string {
   return lines.join('\n');
 }
 
-/** レポート書き出し（reports/ablation/） */
-export async function writeAblationReport(r: AblationResult, dir = 'reports/ablation'): Promise<string> {
+/** レポート書き出し（既定: reports/ablation/ablation.{json,md}。quick 等は name で分離） */
+export async function writeAblationReport(r: AblationResult, dir = 'reports/ablation', name = 'ablation'): Promise<string> {
   await mkdir(dir, { recursive: true });
-  const jsonPath = `${dir}/ablation.json`;
-  const mdPath = `${dir}/ablation.md`;
+  const jsonPath = `${dir}/${name}.json`;
+  const mdPath = `${dir}/${name}.md`;
   await writeFile(jsonPath, JSON.stringify(r, null, 2), 'utf8');
 
   const md = [
