@@ -152,8 +152,8 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
     const driverOk = ex.driverResponse?.ok !== false;
     if (w) {
       w.recordModelCall(expert.model, ms, `${expert.nodeId} へ ${maxTokens} tokens 上限で生成`);
-      // 回答を AVM に書き戻す（捕捉済みの title を再利用）
-      if (explicitContext && title) w.writeCache(title, 'summary', `answer:${seq}`, answer, expert.model);
+      // 回答を AVM に書き戻す（捕捉済みの title をキーにも再利用し、同時 submit でも対応を保つ）
+      if (explicitContext && title) w.writeCache(title, 'summary', `answer:${title}`, answer, expert.model);
     }
     trace.push(`model.call ${expert.model} (${ms}ms) fallback=${ex.fallback ?? false} driverOk=${driverOk}`);
     return { answer, learned: ex.learned ?? true, fallback: ex.fallback ?? false, driverOk, model: expert.model, nodeId: expert.nodeId, label: expert.label, ms };
