@@ -43,10 +43,11 @@
 | `selftest.ts` | 契約が mock モード（API 不要）で独立動作することを検証 |
 
 ```ts
-// 本命 Orchestrator 側の Adapter が接続する面（イメージ）
+// 本命 Orchestrator 側の Adapter が接続する面（イメージ。API キー設定時: Pro（推論）／未設定時: Mock）
 const rt = createIntelligenceRuntime();
 await rt.submit({ task: 'x^2+2x+1=0 を解いて', maxTokens: 512 });
 // → RuntimeResult { ok, answer, kind: 'math', expert: 'Pro（推論）', memory: {...}, trace: [...] }
+//   ※ DEEPSEEK_API_KEY 未設定時は expert='Mock（推論）'・model='mock' で動作する
 ```
 
 - **依存の向き**: ArcAsha は Orchestrator を知らない。`createIntelligenceRuntime()` は外部依存なしで単独動作（API キーなしでも mock で動く）。

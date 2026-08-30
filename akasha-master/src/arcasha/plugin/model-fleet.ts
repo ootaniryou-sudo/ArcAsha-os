@@ -19,10 +19,10 @@ export interface FleetExpert {
   label: string;
 }
 
-/** 発言からタスク種別を推定する（簡易キーワード分類） */
+/** 発言からタスク種別を推定する（簡易キーワード分類・英語キーワードは単語境界） */
 export function classifyTask(text: string): TaskKind {
   if (/[=∫∑√π∞]|\d+\s*[+\-*/^]\s*\d+|数学|算数|積分|微分|方程式|計算|因数分解|確率|幾何|行列|対数|三角関数|数式|数列|図形/i.test(text)) return 'math';
-  if (/コード|プログラム|実装|バグ|関数|クラス|型|アルゴリズム|リファクタ|typescript|python|javascript|rust|react|api/i.test(text)) return 'code';
+  if (/コード|プログラム|実装|バグ|関数|クラス|型|アルゴリズム|リファクタ|\b(typescript|python|javascript|rust|react|api)\b/i.test(text)) return 'code';
   if (/なぜ|理由|説明|考察|証明|戦略|計画|設計|比較|分析|仮説|どう思う/i.test(text)) return 'reasoning';
   if (/検索|調べて|とは|意味|定義|まとめ|要約|一覧/i.test(text)) return 'search';
   return 'general';
@@ -30,6 +30,7 @@ export function classifyTask(text: string): TaskKind {
 
 /** タスク種別 → 担当エキスパート（math/code/reasoning は Pro、search/general は Flash） */
 export function routeExpert(kind: TaskKind, fleet: FleetExpert[]): FleetExpert {
+  if (fleet.length === 0) throw new Error('routeExpert: 艦隊（fleet）が空です');
   if (kind === 'math' || kind === 'code' || kind === 'reasoning') {
     return fleet.find((e) => e.role === 'reasoning') ?? fleet[0];
   }

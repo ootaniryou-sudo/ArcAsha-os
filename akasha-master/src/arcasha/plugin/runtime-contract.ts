@@ -92,24 +92,45 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
     listNodes: () => hub.experts.map((e) => ({ nodeId: e.nodeId, modelId: e.modelId, paramsM: e.paramsM })),
     generate: async (nodeId, p, m = 256) => hub.generate(nodeId, String(p), Number(m) || 256),
   });
-  const memory = opts.memory ?? true;
-  const ws = memory ? new AvmWorkspace() : null;
+  const memoryEnabled = opts.memory ?? true;
   let seq = 0;
 
-  const memStats = () => {
-    if (!ws) return { reads: 0, writes: 0, modelCalls: 0, residentPages: 0, residentBytes: 0 };
-    const s = ws.snapshot(0).stats;
+  const memStats = (w: AvmWorkspace | null) => {
+    if (!w) return { reads: 0, writes: 0, modelCalls: 0, residentPages: 0, residentBytes: 0 };
+    const s = w.snapshot(0).stats;
     return { reads: s.reads, writes: s.writes, modelCalls: s.modelCalls, residentPages: s.residentPages, residentBytes: s.residentBytes };
   };
 
-  const runTurn = async (task: string, context: string | undefined, expert: FleetExpert, maxTokens: number, trace: string[]) => {
-    let contextSnippet = '';
-    if (ws) {
+  interface TurnResult {
+    answer: string;
+    learned: boolean;
+    fallback: boolean;
+    driverOk: boolean;
+    model: string;
+    nodeId: string;
+    label: string;
+    ms: number;
+  }
+
+  /**
+   * 1 ターン実行。AVM は呼び出し単位の workspace（w）で分離 — 他タスクの文脈を引かない。
+   * 明示された context のみ索引・プロンプトへ渡す（素のタスク文を知識として残さない）。
+   */
+  const runTurn = async (
+    task: string,
+    explicitContext: string | undefined,
+    expert: FleetExpert,
+    maxTokens: number,
+    w: AvmWorkspace | null,
+    trace: string[],
+  ): Promise<TurnResult> => {
+    let avmSnippet = '';
+    if (w && explicitContext) {
       const title = `task:${++seq}`;
-      ws.storeContext(title, context ?? task, 'user');
-      const load = ws.readSlice(title, 'search', task, 'search');
-      const kloads = ws.searchKnowledge(task, 2, 'search');
-      contextSnippet = [
+      w.storeContext(title, explicitContext, 'user');
+      const load = w.readSlice(title, 'search', task, 'search');
+      const kloads = w.searchKnowledge(task, 2, 'search');
+      avmSnippet = [
         load?.loadedText ?? '',
         ...kloads.map((k) => `[知識:${k.title}] ${k.loadedText.slice(0, 800)}`),
       ].filter(Boolean).join('\n').slice(0, 800);
@@ -117,14 +138,23 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
     }
     const prompt = [
       'あなたは ArcAsha（AI オペレーティングシステム）の上で動くエキスパートです。',
-      contextSnippet ? `以下は AVM（AI 仮想メモリ）から読み込んだコンテキストです:\n─── context ───\n${contextSnippet}\n──────────────` : '',
+      explicitContext ? `─── 提供コンテキスト ───\n${explicitContext.slice(0, 800)}\n──────────────` : '',
+      avmSnippet ? `─── AVM から読み込んだコンテキスト ───\n${avmSnippet}\n──────────────` : '',
       `質問: ${task}`,
       '簡潔に日本語で答えてください。',
     ].filter(Boolean).join('\n');
+    const t1 = Date.now();
     const ex = await aiosExecute(aios, prompt, expert.nodeId, { forceDelegate: true, maxTokens });
+    const ms = Date.now() - t1;
     const answer = ex.result !== null && ex.result !== undefined ? String(ex.result).trim() : '';
-    trace.push(`model.call ${expert.model} (${ex.ms}ms) fallback=${ex.fallback ?? false}`);
-    return { answer, learned: ex.learned ?? true, fallback: ex.fallback ?? false, ex };
+    const driverOk = ex.driverResponse?.ok !== false;
+    if (w) {
+      w.recordModelCall(expert.model, ms, `${expert.nodeId} へ ${maxTokens} tokens 上限で生成`);
+      // 回答を AVM に書き戻す（モデルによる書き込みを記録）
+      if (explicitContext) w.writeCache(`task:${seq}`, 'summary', `answer:${seq}`, answer, expert.model);
+    }
+    trace.push(`model.call ${expert.model} (${ms}ms) fallback=${ex.fallback ?? false} driverOk=${driverOk}`);
+    return { answer, learned: ex.learned ?? true, fallback: ex.fallback ?? false, driverOk, model: expert.model, nodeId: expert.nodeId, label: expert.label, ms };
   };
 
   return {
@@ -140,31 +170,69 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
       const trace: string[] = [];
       const kind = req.forceKind ?? classifyTask(req.task);
       const expert = routeExpert(kind, fleet);
-      trace.push(`classify → ${kind}（${expert.label} / ${expert.model}）`);
+      const deadline = req.deadlineMs ?? Infinity;
       const maxTokens = req.maxTokens ?? 256;
+      const w = memoryEnabled ? new AvmWorkspace() : null;
+      trace.push(`classify → ${kind}（${expert.label} / ${expert.model}）`);
+
+      if (Date.now() > deadline) {
+        return { ok: false, answer: null, kind, expert: '', model: '', nodeId: '', ms: 0, fallback: false, learned: false, memory: { reads: 0, writes: 0, modelCalls: 0, residentPages: 0, residentBytes: 0 }, trace: [...trace, 'deadline exceeded'], error: 'deadline exceeded' } satisfies RuntimeResult;
+      }
+
       try {
-        let { answer, learned, fallback } = await runTurn(req.task, req.context, expert, maxTokens, trace);
-        // 空応答（推論モデルが思考に予算を使い切った場合）→ 汎用モデルへフォールバック
-        if (answer === '') {
-          const fb = fleet.find((e) => e.role === 'general') ?? expert;
-          trace.push(`空応答 → フォールバック ${fb.label}`);
-          const r2 = await runTurn(req.task, req.context, fb, maxTokens, trace);
-          answer = r2.answer;
-          learned = r2.learned;
-          fallback = r2.fallback;
+        const first = await runTurn(req.task, req.context, expert, maxTokens, w, trace);
+        if (Date.now() > deadline) {
+          return { ok: false, answer: null, kind, expert: first.label, model: first.model, nodeId: first.nodeId, ms: Date.now() - t0, fallback: false, learned: false, memory: memStats(w), trace: [...trace, 'deadline exceeded'], error: 'deadline exceeded' } satisfies RuntimeResult;
         }
-        if (answer === '') answer = '（応答が空でした）';
+
+        // 空応答 or ドライバ失敗 → 汎用モデルへフォールバック
+        if (first.answer === '' || !first.driverOk) {
+          const fb = fleet.find((e) => e.role === 'general') ?? expert;
+          trace.push(`空応答/失敗 → フォールバック ${fb.label}`);
+          const second = await runTurn(req.task, req.context, fb, maxTokens, w, trace);
+          const used = second.answer !== '' && second.driverOk ? second : first;
+          if (used.answer === '' || !used.driverOk) {
+            // 両方失敗・空 → 成功と偽装しない
+            return {
+              ok: false,
+              answer: null,
+              kind,
+              expert: used.label,
+              model: used.model,
+              nodeId: used.nodeId,
+              ms: Date.now() - t0,
+              fallback: true,
+              learned: used.learned,
+              memory: memStats(w),
+              trace,
+              error: 'empty response or driver failure from both experts',
+            } satisfies RuntimeResult;
+          }
+          return {
+            ok: true,
+            answer: used.answer === '' ? '（応答が空でした）' : used.answer,
+            kind,
+            expert: used.label,
+            model: used.model,
+            nodeId: used.nodeId,
+            ms: Date.now() - t0,
+            fallback: true,
+            learned: used.learned,
+            memory: memStats(w),
+            trace,
+          } satisfies RuntimeResult;
+        }
         return {
           ok: true,
-          answer,
+          answer: first.answer,
           kind,
-          expert: expert.label,
-          model: expert.model,
-          nodeId: expert.nodeId,
+          expert: first.label,
+          model: first.model,
+          nodeId: first.nodeId,
           ms: Date.now() - t0,
-          fallback,
-          learned,
-          memory: memStats(),
+          fallback: first.fallback,
+          learned: first.learned,
+          memory: memStats(w),
           trace,
         } satisfies RuntimeResult;
       } catch (e) {
@@ -179,7 +247,7 @@ export function createIntelligenceRuntime(opts: CreateRuntimeOptions = {}): Inte
           ms: Date.now() - t0,
           fallback: false,
           learned: false,
-          memory: memStats(),
+          memory: memStats(w),
           trace,
           error: String(e).slice(0, 200),
         } satisfies RuntimeResult;

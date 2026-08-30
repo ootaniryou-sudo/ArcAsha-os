@@ -8,6 +8,7 @@
  *   - status() が艦隊情報を返す
  */
 import { createIntelligenceRuntime } from './runtime-contract.js';
+import { routeExpert } from './model-fleet.js';
 
 let pass = 0;
 let fail = 0;
@@ -25,12 +26,13 @@ async function main(): Promise<void> {
   check('capabilities が 3 つ以上公開される', caps.length >= 3);
   check('aios-execute 能力を含む', caps.some((c) => c.name === 'aios-execute'));
 
-  // 2) submit（数学タスク → math / reasoning 系モデルへ）
+  // 2) submit（数学タスク → math / reasoning モック mock-b へ）
   const r = await rt.submit({ task: '2 と 3 を足すといくつ？', forceKind: 'math' });
   check('ok = true', r.ok === true);
   check('answer が非空', typeof r.answer === 'string' && r.answer.length > 0);
   check('kind = math', r.kind === 'math');
   check('expert ラベルが設定されている', r.expert.length > 0);
+  check('math は reasoning モック（mock-b）へルーティング', r.nodeId === 'mock-b');
   check('model / nodeId が設定されている', r.model.length > 0 && r.nodeId.length > 0);
   check('memory 統計が数値（reads/writes/modelCalls）', typeof r.memory.reads === 'number' && typeof r.memory.modelCalls === 'number');
   check('trace に classify が含まれる', r.trace.some((t) => t.includes('classify')));
@@ -43,6 +45,11 @@ async function main(): Promise<void> {
   const s = rt.status();
   check('status.nodes > 0（mock 2 台）', s.nodes > 0);
   check('status.fleet が空でない', s.fleet.length > 0);
+
+  // 5) 空艦隊は routeExpert が例外を投げる（契約を守る）
+  let threw = false;
+  try { routeExpert('general', []); } catch { threw = true; }
+  check('routeExpert は空艦隊で例外を投げる', threw);
 
   console.log('');
   console.log(`  ${fail === 0 ? '✅ ALL PASS' : '❌ FAIL'} — plugin contract: ${pass} passed / ${fail} failed`);
