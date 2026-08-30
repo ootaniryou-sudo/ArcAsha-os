@@ -504,7 +504,8 @@ export async function runAblationBaseline(
         ms: Math.round(sumMs / runs),
         promptTokens: Math.round(sumPt / runs),
         completionTokens: Math.round(sumCt / runs),
-        text: lastText.slice(0, 120),
+        // 検証の証拠監査のため最終 run の応答を全文保存する（切り詰めない）
+        text: lastText,
         ...(lastError ? { error: lastError } : {}),
       });
     }
