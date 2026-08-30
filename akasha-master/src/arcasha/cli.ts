@@ -46,6 +46,14 @@ export async function runCli(argv: string[]): Promise<string> {
       console.log(text);
       return 'arcasha apiparallel-aios: done（kind=real-api・aiosExecute 経由並列）';
     }
+    case 'ablation': {
+      // Phase 4: 同一タスク・同一モデルで 4 構成（Baseline/+AVM/+Executive/Full）を比較
+      const { runAblationBaseline, renderAblationBaseline, writeAblationReport } = await import('./bench/ablation-baseline.js');
+      const r = await runAblationBaseline({ verbose: argv[1] === 'verbose' });
+      console.log(renderAblationBaseline(r));
+      const jsonPath = await writeAblationReport(r);
+      return `arcasha ablation: done（kind=real-api・4 構成比較・report: ${jsonPath}）`;
+    }
     case 'metaos50': {
       // 例: arcasha metaos50 50 50  (ノード数 同時実行数)
       // DeepSeek API を N 体の仮想ノードとして登録し、フル Meta OS（aiosExecute）を
@@ -103,6 +111,7 @@ export async function runCli(argv: string[]): Promise<string> {
         '  apiparallel     DeepSeek を N 体の仮想ノードとして並列駆動（実機テスト比較用）',
         '  apiparallel-aios 同上を aiosExecute（ArcAsha OS パイプライン）経由で駆動',
         '  metaos50        DeepSeek × N 体（既定 50）を N 並列で Meta OS 経由駆動し V1..V6 を検証（reports/metaos50/）',
+        '  ablation        Phase 4: 同一タスク・同一モデルで Baseline / +AVM / +Executive / Full の 4 構成を比較（reports/ablation/）',
         '  policy      OS ポリシー学習デモ（Decision Explanation を学習データにして Meta Executive のポリシーを更新）',
         '  hierarchy   Hierarchy Runtime デモ（Master → Caravan → Device → Expert の階層が自律判断）',
         '  cognitive   Cognitive Graph Runtime デモ（タスクごとに知能の配線を動的生成 → 共有メモリ + IR 通信 → Team Learning → Knowledge Oasis）',

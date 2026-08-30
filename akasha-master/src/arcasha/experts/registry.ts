@@ -224,6 +224,27 @@ export class ExpertHub {
   }
 
   /**
+   * キャッシュを使わずに生成する（ベンチ計測用・実 API を毎回呼ぶ）。
+   * generate は (nodeId, prompt) の決定論キャッシュを持つため、同じプロンプトを
+   * 複数構成で解かせる Ablation ではキャッシュヒットで latency/token が汚染される。
+   * このメソッドは常に実呼び出しを行い、lastApiUsage も毎回更新する。
+   */
+  async generateNoCache(nodeId: string, prompt: string, maxTokens = 200): Promise<string> {
+    const baseUrl = this.httpNodes.get(nodeId);
+    if (baseUrl) return this.httpGenerate(baseUrl, prompt, maxTokens);
+    const apiCfg = this.apiNodes.get(nodeId);
+    if (apiCfg) return this.apiGenerate(apiCfg, prompt, maxTokens);
+    if (this.mockNodes.has(nodeId)) {
+      const family = nodeId.split('-').pop() || 'mock';
+      return `[MOCK ${family}] received "${prompt.slice(0, 60)}" (max_tokens=${maxTokens})`;
+    }
+    const ws = this.sockets.get(nodeId);
+    if (!ws) throw new Error(`expert ${nodeId} not connected`);
+    const res = await this.sendCompute(ws, `gen-nc-${nodeId}`, prompt, true, maxTokens);
+    return res.text;
+  }
+
+  /**
    * HTTP デバイス（llama.cpp server / OpenAI 互換 API）を呼ぶ。
    * まず llama.cpp の POST /completion を試し、失敗したら /v1/chat/completions を試す。
    */
