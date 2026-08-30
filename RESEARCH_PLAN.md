@@ -57,7 +57,7 @@ graph LR
 
 ## 4. 単体テストと科学的検証の分離
 
-```
+```text
 Unit Validation        Scientific Validation
 ├── Compiler correctness  ├── Accuracy
 ├── IR correctness        ├── Efficiency（token / cost / latency）
