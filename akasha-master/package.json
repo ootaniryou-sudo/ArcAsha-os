@@ -27,6 +27,7 @@
     "benchmark": "tsx src/arcasha/bench/cli.ts",
     "metaos50": "tsx src/arcasha/cli.ts metaos50",
     "ablation": "tsx src/arcasha/cli.ts ablation",
+    "ablation:quick": "tsx src/arcasha/cli.ts ablation quick",
     "chat": "tsx src/arcasha/chat/chat-server.ts",
     "arcasha": "tsx src/arcasha/cli.ts"
   },

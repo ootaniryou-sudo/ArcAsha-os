@@ -47,17 +47,27 @@ export async function runCli(argv: string[]): Promise<string> {
       return 'arcasha apiparallel-aios: done（kind=real-api・aiosExecute 経由並列）';
     }
     case 'ablation': {
-      // Phase 4: 同一タスク・同一モデルで 4 構成（Baseline/+AVM/+Executive/Full）を比較
-      const { runAblationBaseline, renderAblationBaseline, writeAblationReport } = await import('./bench/ablation-baseline.js');
-      const r = await runAblationBaseline({ verbose: argv[1] === 'verbose' });
+      // Phase 4: 同一タスク・同一モデルで 4 構成（Baseline/+AVM/+Executive/Full）を比較 + McNemar 検定
+      //   arcasha ablation           → 50 問 × 1 回（標準）
+      //   arcasha ablation quick     → 12 問 × 1 回（スモーク）
+      //   arcasha ablation verbose N → 50 問 × N 回（詳細ログ + 統計検定）
+      const mode = argv[1]; // 'quick' | 'verbose' | undefined
+      const runsRaw = argv[2] === undefined ? 1 : Number(argv[2]);
+      if (!Number.isSafeInteger(runsRaw) || runsRaw < 1) {
+        throw new Error(`arcasha ablation: runs は正の安全な整数（1 以上）を指定してください（指定値: ${argv[2]}）`);
+      }
+      const runs = runsRaw;
+      const { runAblationBaseline, renderAblationBaseline, writeAblationReport, ABLATION_TASKS, ABLATION_TASKS_50 } = await import('./bench/ablation-baseline.js');
+      const tasks = mode === 'quick' ? ABLATION_TASKS : ABLATION_TASKS_50;
+      const r = await runAblationBaseline({ tasks, verbose: mode === 'verbose', runs });
       console.log(renderAblationBaseline(r));
       const jsonPath = await writeAblationReport(r);
       // 全タスクが失敗した場合（API 全滅など）は実測として成立しないため失敗扱いにする
-      const anyOk = r.perTask.some((p) => p.ok);
+      const anyOk = r.perTask.some((p) => p.ok > 0);
       if (!anyOk) {
         throw new Error(`ablation: 全タスクが失敗しました（success=0）。API キー・接続を確認してください（report: ${jsonPath}）`);
       }
-      return `arcasha ablation: done（kind=real-api・4 構成比較・report: ${jsonPath}）`;
+      return `arcasha ablation: done（kind=real-api・${tasks.length}問×${runs}回・4 構成比較・report: ${jsonPath}）`;
     }
     case 'metaos50': {
       // 例: arcasha metaos50 50 50  (ノード数 同時実行数)
@@ -116,7 +126,7 @@ export async function runCli(argv: string[]): Promise<string> {
         '  apiparallel     DeepSeek を N 体の仮想ノードとして並列駆動（実機テスト比較用）',
         '  apiparallel-aios 同上を aiosExecute（ArcAsha OS パイプライン）経由で駆動',
         '  metaos50        DeepSeek × N 体（既定 50）を N 並列で Meta OS 経由駆動し V1..V6 を検証（reports/metaos50/）',
-        '  ablation        Phase 4: 同一タスク・同一モデルで Baseline / +AVM / +Executive / Full の 4 構成を比較（reports/ablation/）',
+        '  ablation        Phase 4: 50 問（quick で 12 問）・同一モデルで Baseline / +AVM / +Executive / Full を比較し McNemar 検定（reports/ablation/）',
         '  policy      OS ポリシー学習デモ（Decision Explanation を学習データにして Meta Executive のポリシーを更新）',
         '  hierarchy   Hierarchy Runtime デモ（Master → Caravan → Device → Expert の階層が自律判断）',
         '  cognitive   Cognitive Graph Runtime デモ（タスクごとに知能の配線を動的生成 → 共有メモリ + IR 通信 → Team Learning → Knowledge Oasis）',
