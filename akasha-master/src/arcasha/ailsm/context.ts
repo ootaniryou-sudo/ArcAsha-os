@@ -14,12 +14,15 @@ import { AilsmBuilder } from './ailsm.js';
 import type { AilsmGraph } from './ailsm.js';
 
 export const DEFAULT_PAGE_SIZE = 64; // 文字単位の固定ページサイズ
+/** 既定のページ・オーバーラップ（スライド窓）。事実がページ境界で跨いでも片方のページに全体が収まるようにする */
+export const DEFAULT_PAGE_OVERLAP = 32;
 
 export interface ContextObject {
   id: number;
   title: string;
   text: string;
   pageSize: number;
+  overlap: number;
   pageCount: number;
 }
 
@@ -30,14 +33,28 @@ export interface PageObject {
   text: string;
 }
 
-/** 長文を固定サイズページへ分割（純関数 — CPU のページングに相当） */
-export function splitContext(text: string, pageSize = DEFAULT_PAGE_SIZE): string[] {
+/**
+ * 長文を固定サイズページへ分割（純関数 — CPU のページングに相当）。
+ * overlap > 0 のときスライド窓で分割し、隣接ページが重なる。
+ * これにより **overlap 文字以下の長さの事実**は必ずいずれかのページに全体として
+ * 含まれる（境界に跨っても検索から漏れない）。より長い事実は境界認識型 chunking
+ * が必要になる（overlap は保証範囲を表す）。
+ */
+export function splitContext(text: string, pageSize = DEFAULT_PAGE_SIZE, overlap = 0): string[] {
+  const o = normalizeOverlap(pageSize, overlap);
+  const stride = pageSize - o;
   const pages: string[] = [];
-  for (let i = 0; i < text.length; i += pageSize) {
+  for (let i = 0; i < text.length; i += stride) {
     pages.push(text.slice(i, i + pageSize));
   }
   if (pages.length === 0) pages.push('');
   return pages;
+}
+
+/** overlap を [0, pageSize-1] にクランプする（範囲外で文脈欠落や 1 文字 1 ページへの爆発を防ぐ） */
+function normalizeOverlap(pageSize: number, overlap: number): number {
+  const ps = Math.max(1, Math.floor(pageSize));
+  return Math.min(Math.max(0, Math.floor(overlap)), ps - 1);
 }
 
 export interface CreateContextResult {
@@ -52,8 +69,11 @@ export function createContext(
   title: string,
   text: string,
   pageSize = DEFAULT_PAGE_SIZE,
+  overlap = 0,
 ): CreateContextResult {
-  const pages = splitContext(text, pageSize);
+  const o = normalizeOverlap(pageSize, overlap);
+  const pages = splitContext(text, pageSize, o);
+  const stride = pageSize - o;
   const b = new AilsmBuilder();
   const remap = new Map<number, number>();
   for (const n of g.nodes) {
@@ -65,6 +85,7 @@ export function createContext(
     text, // 実体は Kernel（Context Object）が保持
     charCount: text.length,
     pageSize,
+    overlap,
     pageCount: pages.length,
   });
   const pageIds: number[] = [];
@@ -72,7 +93,7 @@ export function createContext(
     const pid = b.addNode('page', `${title} p${i + 1}`, 'string', {
       context: title,
       index: i,
-      offset: i * pageSize,
+      offset: i * stride,
       length: pageText.length,
       text: pageText,
     });
@@ -96,6 +117,7 @@ export function contextOf(g: AilsmGraph, contextId: number): ContextObject | und
     title: String(n.attrs.title ?? ''),
     text: String(n.attrs.text ?? ''),
     pageSize: Number(n.attrs.pageSize ?? DEFAULT_PAGE_SIZE),
+    overlap: Number(n.attrs.overlap ?? 0),
     pageCount: Number(n.attrs.pageCount ?? 0),
   };
 }

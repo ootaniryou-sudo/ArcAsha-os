@@ -60,8 +60,9 @@ export function storeContext(
   title: string,
   text: string,
   pageSize = DEFAULT_PAGE_SIZE,
+  overlap = 0,
 ): StoreResult {
-  const created = createContext(g, title, text, pageSize);
+  const created = createContext(g, title, text, pageSize, overlap);
   const context = contextOf(created.graph, created.contextId);
   if (!context) throw new Error('AVM: context を作成できませんでした');
   return { graph: created.graph, context };
