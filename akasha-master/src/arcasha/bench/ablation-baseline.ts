@@ -296,7 +296,7 @@ function normalizeKw(s: string): string {
   return s.toLowerCase().replace(/[\sの、。・（）()]/g, '');
 }
 
-function verify(task: AblationTask, text: string): boolean {
+export function verify(task: AblationTask, text: string): boolean {
   const out = (text ?? '').trim();
   if (out === '') return false;
   const refNum = extractNumbers(task.reference)[0];
@@ -318,7 +318,7 @@ function verify(task: AblationTask, text: string): boolean {
  * タスクの健全性検査: 正答（数値/キーワード）が問題文に含まれていないことを保証する。
  * 含まれているとモデルが問題文をエコーするだけで正解になり、検証が無意味になる。
  */
-function assertTaskIntegrity(tasks: AblationTask[]): void {
+export function assertTaskIntegrity(tasks: AblationTask[]): void {
   for (const t of tasks) {
     const refNum = extractNumbers(t.reference)[0];
     const allNums = [...(refNum !== undefined ? [refNum] : []), ...(t.altNumbers ?? [])];
