@@ -311,7 +311,7 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
     rows,
     perTask,
     avm: { tokenReduction, costReduction, fullInTokens, avmInTokens, residentPages, totalPages, residentRatio },
-    note: `kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（${doc.length} chars・架空事実 12 問）を同一モデル（${model}）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算で、costReduction は比率のため単価変動に不変。`,
+    note: `kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（${doc.length} chars・架空事実 12 問）を同一モデル（${model}）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算。costReduction は入出力の両単価を同じ倍率で変更した場合に不変（片方のみ変動すると変わりうる）。`,
   };
 }
 

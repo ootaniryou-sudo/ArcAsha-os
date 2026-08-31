@@ -17,10 +17,10 @@
       "successRate": 1,
       "pass": 0,
       "accuracy": 0,
-      "avgLatencyMs": 4616,
+      "avgLatencyMs": 4276,
       "avgInTokens": 98,
-      "avgOutTokens": 374,
-      "estCostUsd": 0.002214
+      "avgOutTokens": 358,
+      "estCostUsd": 0.002131
     },
     {
       "config": "full-context",
@@ -30,10 +30,10 @@
       "successRate": 1,
       "pass": 12,
       "accuracy": 1,
-      "avgLatencyMs": 1749,
+      "avgLatencyMs": 1843,
       "avgInTokens": 8382,
-      "avgOutTokens": 120,
-      "estCostUsd": 0.02877
+      "avgOutTokens": 130,
+      "estCostUsd": 0.028817
     },
     {
       "config": "avm",
@@ -43,10 +43,10 @@
       "successRate": 1,
       "pass": 11,
       "accuracy": 0.917,
-      "avgLatencyMs": 1741,
+      "avgLatencyMs": 2014,
       "avgInTokens": 286,
-      "avgOutTokens": 130,
-      "estCostUsd": 0.001615
+      "avgOutTokens": 161,
+      "estCostUsd": 0.001771
     }
   ],
   "perTask": [
@@ -56,8 +56,8 @@
       "correct": false,
       "inTokens": 96,
       "outTokens": 400,
-      "ms": 4874,
-      "text": "We need answer in Japanese. Question: \"第1世代エンジンの冷却方式は何を使う？\" Means \"What cooling method does the first generation engine use?\" Need context? \"第1世代エンジン\" could refer to something specific. Maybe in conte"
+      "ms": 4417,
+      "text": "We need answer in Japanese. Question: \"第1世代エンジンの冷却方式は何を使う？\" Means \"What cooling method does the first-generation engine use?\" Need context? \"第1世代エンジン\" could refer to SpaceX Raptor? Or Falcon 1? Or nuc"
     },
     {
       "config": "model-alone",
@@ -65,8 +65,8 @@
       "correct": false,
       "inTokens": 104,
       "outTokens": 400,
-      "ms": 5161,
-      "text": "We need answer in Japanese. Question: \"第2世代エンジンのアルゴンのリサイクル率は何パーセント？\" Means \"What is the argon recycling rate of the second-generation engine?\" Need context. Maybe from some technical spec? Second-gene"
+      "ms": 4812,
+      "text": "We need answer in Japanese. Question: \"第2世代エンジンのアルゴンのリサイクル率は何パーセント？\" This asks about second-generation engine argon recycling rate. Need context? Likely from some tech (semiconductor? ion implanter? r"
     },
     {
       "config": "model-alone",
@@ -74,8 +74,8 @@
       "correct": false,
       "inTokens": 100,
       "outTokens": 400,
-      "ms": 4708,
-      "text": "We need answer in Japanese. Question: \"第3世代エンジンの理論出力は何テラフロップス？\" This asks \"What is the theoretical output of the 3rd generation engine in teraflops?\" Need context. \"第3世代エンジン\" likely refers to Pokémon?"
+      "ms": 4506,
+      "text": "We need answer in Japanese. Question: \"第3世代エンジンの理論出力は何テラフロップス？\" Context? \"第3世代エンジン\" likely refers to something specific. Need identify. Could be PlayStation? \"Cell\" chip? Or \"Earth Simulator\"? \"第3世代エン"
     },
     {
       "config": "model-alone",
@@ -83,8 +83,8 @@
       "correct": false,
       "inTokens": 97,
       "outTokens": 400,
-      "ms": 4810,
-      "text": "We need answer in Japanese. Question: \"クアントムプロトコルの既定ポート番号は？\" Means \"What is the default port number of the Quantum protocol?\" Need identify. \"クアントムプロトコル\" maybe \"Quantom\" ? Could be \"Quantum\" protocol?"
+      "ms": 4811,
+      "text": "We need answer in Japanese. Question: \"クアントムプロトコルの既定ポート番号は？\" Means \"What is the default port number of the Quantom protocol?\" Need identify. Possibly \"Quantom\" typo? There is \"Quantum\" protocol? Or \"Q"
     },
     {
       "config": "model-alone",
@@ -92,8 +92,8 @@
       "correct": false,
       "inTokens": 96,
       "outTokens": 400,
-      "ms": 4629,
-      "text": "We need answer in Japanese. User asks \"ストレージの最大容量は何ゼタバイト？\" Means \"What is the maximum storage capacity in zettabytes?\" Ambiguous. Could be asking about current largest storage device? Or theoretical? "
+      "ms": 4624,
+      "text": "We need answer in Japanese. User asks \"ストレージの最大容量は何ゼタバイト？\" Means \"What is the maximum storage capacity in zettabytes?\" Ambiguous. Maybe refers to maximum storage capacity of something? Need context? C"
     },
     {
       "config": "model-alone",
@@ -101,17 +101,17 @@
       "correct": false,
       "inTokens": 102,
       "outTokens": 400,
-      "ms": 4695,
-      "text": "We need answer in Japanese. Question: \"虹彩と指静脈の複合認証の応答時間は何秒？\" Means \"What is the response time of combined iris and finger vein authentication in seconds?\" Need provide answer. Likely asking about biom"
+      "ms": 5207,
+      "text": "We need answer in Japanese. Question: \"虹彩と指静脈の複合認証の応答時間は何秒？\" Means \"What is the response time for combined iris and finger vein authentication?\" Need provide seconds. Need know typical. Could be from "
     },
     {
       "config": "model-alone",
       "taskId": "q7",
       "correct": false,
       "inTokens": 96,
-      "outTokens": 400,
-      "ms": 5322,
-      "text": "重力バッテリ（重力蓄電）の持続時間は、システムの設計によって異なるため、「何時間」と1つに決めることはできません。\n\n持続時間の目安：\n\n- 揚水発電（重力の一種）：約4〜16時間\n- 重量物を昇降させるタイプ（例：Energy Vaultなど）：約2〜12時間\n- ただし、設計次第で数時間から数日まで可能\n\n計算式：\n蓄電エネルギーは\n\\[\nE = mgh\n\\]\n（質量 \\(m\\)、高さ \\(h"
+      "outTokens": 233,
+      "ms": 3686,
+      "text": "重力バッテリー（重力式蓄電）に「何時間」という決まった持続時間はありません。\n\nシステムの設計（重量物の質量・落下距離・発電機の出力・貯蔵容量など）によって、**数秒〜数時間**まで変わります。\n\n- 短時間：数秒〜数分の瞬時調整用\n- 長時間：数時間〜数日規模の電力調整用（揚水発電など）\n\nつまり、目的と設計次第です。一般的な「1回の放電で何時間もつか」は、その重力バッテリーの仕様がないと答えら"
     },
     {
       "config": "model-alone",
@@ -119,7 +119,7 @@
       "correct": false,
       "inTokens": 96,
       "outTokens": 400,
-      "ms": 4813,
+      "ms": 4667,
       "text": "We need answer in Japanese. Question: \"冷却塔の冷媒に含まれる気体は？\" Means \"What gas is contained in the refrigerant of a cooling tower?\" Need interpret. Cooling tower refrigerant? Cooling tower typically uses wat"
     },
     {
@@ -128,8 +128,8 @@
       "correct": false,
       "inTokens": 104,
       "outTokens": 400,
-      "ms": 4807,
-      "text": "We need answer in Japanese. User asks \"ゼロディケイ方式の異常検知の閾値は何パーセント？\" Means \"What percentage is the threshold for anomaly detection in zero-day/decay method?\" Need parse. \"ゼロディケイ方式\" maybe \"zero decay metho"
+      "ms": 4194,
+      "text": "We need answer in Japanese. User asks \"ゼロディケイ方式の異常検知の閾値は何パーセント？\" Means \"What is the threshold percentage for zero-day detection method anomaly detection?\" Need parse. \"ゼロディケイ方式\" maybe \"Zero-day detect"
     },
     {
       "config": "model-alone",
@@ -137,61 +137,61 @@
       "correct": false,
       "inTokens": 94,
       "outTokens": 400,
-      "ms": 5140,
-      "text": "We need answer in Japanese. User asks \"定期点検は何日周期で実施される？\" Means \"At what interval (days) is periodic inspection carried out?\" Need context? Could be about something specific? Without context, ambiguous"
+      "ms": 4746,
+      "text": "定期点検の周期は、**対象や法令・製品によって異なります**が、一般的には：\n\n- **毎月（約30日）**\n- **3か月（約90日）**\n- **6か月（約180日）**\n- **1年（約365日"
     },
     {
       "config": "model-alone",
       "taskId": "q11",
       "correct": false,
       "inTokens": 98,
-      "outTokens": 383,
-      "ms": 4798,
-      "text": "故障時のコールドリブート所要時間は、**環境や故障内容によって大きく異なります**。\n\n一般的な目安としては：\n\n- **数分〜30分程度**：ハードウェアに異常がなく、OS再起動だけで復旧する場合\n- **1時間〜数時間**：ハードウェア診断やRAID再同期、ファイルシステムチェックなどが必要な場合\n- **半日以上**：部品交換や復旧作業、データ復旧が必要な場合\n\nそのため、「何時間」と一概に"
+      "outTokens": 344,
+      "ms": 4009,
+      "text": "故障時のコールドリブートの所要時間は、状況によって大きく異なります。\n\n一般的な目安としては：\n\n- **正常なコールドリブート（電源オフ→オン）**：数分～10分程度\n- **故障が疑われる場合**：\n  - OSのファイルシステムチェック（fsck）やハードウェア自己診断（POST）が入ると **10分～1時間程度**\n  - ハードウェアの交換や復旧作業が必要なら **数時間～1日以上** "
     },
     {
       "config": "model-alone",
       "taskId": "q12",
       "correct": false,
       "inTokens": 92,
-      "outTokens": 105,
-      "ms": 1639,
-      "text": "製品によって保証期間は異なります。  \n具体的な製品名や型番を教えていただければ、正確にお答えできます。"
+      "outTokens": 113,
+      "ms": 1636,
+      "text": "製品によって保証期間は異なります。  \n具体的な製品名や型番を教えていただければ、保証期間をお調べします。"
     },
     {
       "config": "full-context",
       "taskId": "q1",
       "correct": true,
       "inTokens": 8380,
-      "outTokens": 118,
-      "ms": 1733,
-      "text": "第1世代エンジンの冷却方式は**液体窒素**です。動作温度は摂氏マイナス190度以下に保たれ、冷却配管は二重構造となっています。"
+      "outTokens": 400,
+      "ms": 3790,
+      "text": "The user's question is in Japanese: \"第1世代エンジンの冷却方式は何を使う？\" which translates to \"What cooling method does the 1st generation engine use?\"\n\nLooking at the document provided, the user included a full manu"
     },
     {
       "config": "full-context",
       "taskId": "q2",
       "correct": true,
       "inTokens": 8388,
-      "outTokens": 102,
-      "ms": 1652,
-      "text": "第2世代エンジンのアルゴンのリサイクル率は **93パーセント** です。"
+      "outTokens": 96,
+      "ms": 1637,
+      "text": "第2世代エンジンのアルゴンのリサイクル率は **93パーセント**です。"
     },
     {
       "config": "full-context",
       "taskId": "q3",
       "correct": true,
       "inTokens": 8384,
-      "outTokens": 137,
-      "ms": 1633,
-      "text": "第3世代エンジンの理論出力は **2400テラフロップス**（＝ **2.4ペタフロップス**）です。"
+      "outTokens": 146,
+      "ms": 2049,
+      "text": "第3世代エンジンの理論出力は **2400テラフロップス**（**2.4ペタフロップス**）です。"
     },
     {
       "config": "full-context",
       "taskId": "q4",
       "correct": true,
       "inTokens": 8381,
-      "outTokens": 70,
-      "ms": 1228,
+      "outTokens": 102,
+      "ms": 1739,
       "text": "クアントムプロトコルの既定ポート番号は **7701** です。"
     },
     {
@@ -199,8 +199,8 @@
       "taskId": "q5",
       "correct": true,
       "inTokens": 8380,
-      "outTokens": 89,
-      "ms": 1947,
+      "outTokens": 98,
+      "ms": 1737,
       "text": "ストレージの最大容量は **512ゼタバイト**です。"
     },
     {
@@ -208,26 +208,26 @@
       "taskId": "q6",
       "correct": true,
       "inTokens": 8386,
-      "outTokens": 77,
-      "ms": 1641,
-      "text": "虹彩と指静脈の複合認証の応答時間は **0.37秒** です。"
+      "outTokens": 63,
+      "ms": 1438,
+      "text": "虹彩と指静脈の複合認証の応答時間は **0.37秒**です。"
     },
     {
       "config": "full-context",
       "taskId": "q7",
       "correct": true,
       "inTokens": 8380,
-      "outTokens": 280,
-      "ms": 2965,
-      "text": "重力バッテリの持続時間は **72時間** です（第8章「電源設計」に記載）。"
+      "outTokens": 80,
+      "ms": 1535,
+      "text": "重力バッテリの持続時間は **72時間** です。"
     },
     {
       "config": "full-context",
       "taskId": "q8",
       "correct": true,
       "inTokens": 8380,
-      "outTokens": 137,
-      "ms": 1639,
+      "outTokens": 102,
+      "ms": 1563,
       "text": "冷却塔の冷媒に含まれる気体は、**ヘリウム-4 とネオンの混合気体**です。"
     },
     {
@@ -235,8 +235,8 @@
       "taskId": "q9",
       "correct": true,
       "inTokens": 8388,
-      "outTokens": 127,
-      "ms": 1844,
+      "outTokens": 88,
+      "ms": 1407,
       "text": "ゼロディケイ方式の異常検知の閾値は **0.4パーセント** です。"
     },
     {
@@ -244,36 +244,36 @@
       "taskId": "q10",
       "correct": true,
       "inTokens": 8378,
-      "outTokens": 76,
-      "ms": 1432,
-      "text": "定期点検は **44日周期** で実施されます。"
+      "outTokens": 175,
+      "ms": 1733,
+      "text": "定期点検は**44日周期**で実施されます。"
     },
     {
       "config": "full-context",
       "taskId": "q11",
       "correct": true,
       "inTokens": 8382,
-      "outTokens": 112,
-      "ms": 1641,
-      "text": "故障時のコールドリブートの所要時間は**6時間**です（第13章 故障対応に記載）。"
+      "outTokens": 82,
+      "ms": 1646,
+      "text": "6時間です。"
     },
     {
       "config": "full-context",
       "taskId": "q12",
       "correct": true,
       "inTokens": 8376,
-      "outTokens": 119,
-      "ms": 1637,
-      "text": "製品の保証期間は **7年**です。  \n保証期間中は部品交換とソフトウェア更新が無償で提供されます。延長保証は3年単位で購入可能です。"
+      "outTokens": 124,
+      "ms": 1840,
+      "text": "製品の保証期間は **7年** です。  \n（第14章 保証・サポートに記載があります。）"
     },
     {
       "config": "avm",
       "taskId": "q1",
       "correct": false,
       "inTokens": 281,
-      "outTokens": 304,
-      "ms": 3173,
-      "text": "第1世代エンジンの冷却方式は、**液体冷却（冷媒を使った冷却方式）**です。  \n冷却配管は二重構造になっており、万一の漏洩時にも安全に切り離せる設計となっています。",
+      "outTokens": 400,
+      "ms": 3936,
+      "text": "We need answer in Japanese. Need parse provided knowledge. User asks: 第1世代エンジンの冷却方式は何を使う？ Need find in text. The text snippet: \"## 第2章 第1世代エンジン\n第1世代エンジンは冷却方式\n保たれる。また、冷却配管は二重構造としており、万一の漏洩時にも安全に切り離すことがで",
       "sliceContainsReference": false
     },
     {
@@ -281,8 +281,8 @@
       "taskId": "q2",
       "correct": true,
       "inTokens": 289,
-      "outTokens": 86,
-      "ms": 1540,
+      "outTokens": 79,
+      "ms": 1389,
       "text": "第2世代エンジンのアルゴンのリサイクル率は **93パーセント** です。",
       "sliceContainsReference": true
     },
@@ -291,8 +291,8 @@
       "taskId": "q3",
       "correct": true,
       "inTokens": 285,
-      "outTokens": 153,
-      "ms": 1430,
+      "outTokens": 90,
+      "ms": 1538,
       "text": "第3世代エンジンの理論出力は **2400テラフロップス（2.4ペタフロップス）** です。",
       "sliceContainsReference": true
     },
@@ -301,8 +301,8 @@
       "taskId": "q4",
       "correct": true,
       "inTokens": 287,
-      "outTokens": 69,
-      "ms": 1228,
+      "outTokens": 70,
+      "ms": 1088,
       "text": "クアントムプロトコルの既定ポート番号は **7701** です。",
       "sliceContainsReference": true
     },
@@ -311,9 +311,9 @@
       "taskId": "q5",
       "correct": true,
       "inTokens": 288,
-      "outTokens": 119,
-      "ms": 1946,
-      "text": "512ゼタバイトです。",
+      "outTokens": 123,
+      "ms": 2006,
+      "text": "ストレージの最大容量は **512ゼタバイト** です。",
       "sliceContainsReference": true
     },
     {
@@ -321,9 +321,9 @@
       "taskId": "q6",
       "correct": true,
       "inTokens": 295,
-      "outTokens": 54,
-      "ms": 1301,
-      "text": "虹彩と指静脈の複合認証の応答時間は **0.37秒** です。",
+      "outTokens": 57,
+      "ms": 1311,
+      "text": "0.37秒です。",
       "sliceContainsReference": true
     },
     {
@@ -331,9 +331,9 @@
       "taskId": "q7",
       "correct": true,
       "inTokens": 280,
-      "outTokens": 179,
-      "ms": 2182,
-      "text": "重力バッテリの持続時間は **72時間** です。",
+      "outTokens": 400,
+      "ms": 3942,
+      "text": "We need answer in Japanese. Need determine from reference knowledge. User asks \"重力バッテリの持続時間は何時間？\" Reference: \"通常は系統電源を使用するが、非常用電源として重力バッテリを搭載し、持続時間は 72 時間である。重力バッテリは物体の位置エ... 時間は 6 時間である。\" There is am",
       "sliceContainsReference": true
     },
     {
@@ -341,9 +341,9 @@
       "taskId": "q8",
       "correct": true,
       "inTokens": 297,
-      "outTokens": 130,
-      "ms": 1535,
-      "text": "冷却塔の冷媒に含まれる気体は、**ヘリウム-4**と**ネオン**の混合気体です。",
+      "outTokens": 400,
+      "ms": 4351,
+      "text": "冷却塔の冷媒には、**ヘリウム-4 とネオン**の混合気体が含まれ",
       "sliceContainsReference": true
     },
     {
@@ -351,9 +351,9 @@
       "taskId": "q9",
       "correct": true,
       "inTokens": 287,
-      "outTokens": 116,
-      "ms": 1527,
-      "text": "ゼロディケイ方式の異常検知の閾値は **0.4パーセント** です。",
+      "outTokens": 91,
+      "ms": 1434,
+      "text": "0.4パーセントです。",
       "sliceContainsReference": true
     },
     {
@@ -361,9 +361,9 @@
       "taskId": "q10",
       "correct": true,
       "inTokens": 281,
-      "outTokens": 58,
-      "ms": 1136,
-      "text": "44日周期で実施されます。",
+      "outTokens": 39,
+      "ms": 923,
+      "text": "定期点検は **44日周期** で実施されます。",
       "sliceContainsReference": true
     },
     {
@@ -371,8 +371,8 @@
       "taskId": "q11",
       "correct": true,
       "inTokens": 282,
-      "outTokens": 143,
-      "ms": 2047,
+      "outTokens": 66,
+      "ms": 1022,
       "text": "故障時のコールドリブートの所要時間は **6時間** です。",
       "sliceContainsReference": true
     },
@@ -381,20 +381,20 @@
       "taskId": "q12",
       "correct": true,
       "inTokens": 283,
-      "outTokens": 144,
-      "ms": 1843,
+      "outTokens": 112,
+      "ms": 1230,
       "text": "製品の保証期間は **7年** です。  \n保証期間中は部品交換とソフトウェア更新が無償で提供されます。延長保証は3年単位で購入できます。",
       "sliceContainsReference": true
     }
   ],
   "avm": {
     "tokenReduction": 0.9658792650918635,
-    "costReduction": 0.9438651372957942,
+    "costReduction": 0.9385432210153729,
     "fullInTokens": 8382,
     "avmInTokens": 286,
     "residentPages": 26,
     "totalPages": 198,
     "residentRatio": 0.13131313131313133
   },
-  "note": "kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（12668 chars・架空事実 12 問）を同一モデル（deepseek-v4-flash）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算で、costReduction は比率のため単価変動に不変。"
+  "note": "kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（12668 chars・架空事実 12 問）を同一モデル（deepseek-v4-flash）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算。costReduction は入出力の両単価を同じ倍率で変更した場合に不変（片方のみ変動すると変わりうる）。"
 }
