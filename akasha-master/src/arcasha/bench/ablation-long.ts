@@ -22,6 +22,7 @@ import { ExpertHub } from '../experts/registry.js';
 import { buildFleet } from '../plugin/model-fleet.js';
 import { AvmWorkspace } from '../chat/avm-telemetry.js';
 import { verify, assertTaskIntegrity, type AblationTask } from './ablation-baseline.js';
+import { DEFAULT_PAGE_SIZE, DEFAULT_PAGE_OVERLAP } from '../ailsm/context.js';
 
 // コスト概算（USD / 1M トークン。DeepSeek 料金の概算）
 const PRICE_IN_PER_MT = 0.28;
@@ -176,7 +177,7 @@ export interface LongPerTask {
 export interface LongAblationResult {
   kind: 'real-api';
   model: string;
-  document: { title: string; chars: number; approxTokens: number; pageCount: number; pageSize: number };
+  document: { title: string; chars: number; approxTokens: number; pageCount: number; pageSize: number; overlap: number };
   rows: LongRow[];
   perTask: LongPerTask[];
   avm: {
@@ -210,7 +211,9 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
 
   const doc = buildLongDocument();
   const w = new AvmWorkspace();
-  w.storeContext('マニュアル', doc, 'user');
+  // ページ・オーバーラップ（スライド窓）: 64 文字ページで事実が境界を跨いでも
+  // 全体が 1 ページに収まり、検索（キーワード n-gram）から漏れないようにする
+  w.storeContext('マニュアル', doc, 'user', { overlap: DEFAULT_PAGE_OVERLAP });
 
   const record = (): { promptTokens: number; completionTokens: number } =>
     hub.lastApiUsage
@@ -307,11 +310,11 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
   return {
     kind: 'real-api',
     model,
-    document: { title: 'マニュアル', chars: doc.length, approxTokens: Math.round(doc.length / 2), pageCount: totalPages, pageSize: snap.contexts[0]?.pageSize ?? 64 },
+    document: { title: 'マニュアル', chars: doc.length, approxTokens: Math.round(doc.length / 2), pageCount: totalPages, pageSize: snap.contexts[0]?.pageSize ?? DEFAULT_PAGE_SIZE, overlap: snap.contexts[0]?.overlap ?? DEFAULT_PAGE_OVERLAP },
     rows,
     perTask,
     avm: { tokenReduction, costReduction, fullInTokens, avmInTokens, residentPages, totalPages, residentRatio },
-    note: `kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（${doc.length} chars・架空事実 12 問）を同一モデル（${model}）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算。costReduction は入出力の両単価を同じ倍率で変更した場合に不変（片方のみ変動すると変わりうる）。`,
+    note: `kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（${doc.length} chars・架空事実 12 問）を同一モデル（${model}）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。ページは pageSize=${DEFAULT_PAGE_SIZE}・overlap=${DEFAULT_PAGE_OVERLAP}（スライド窓）で分割し、境界に跨る事実が検索から漏れないようにした。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算。costReduction は入出力の両単価を同じ倍率で変更した場合に不変（片方のみ変動すると変わりうる）。`,
   };
 }
 
@@ -321,7 +324,7 @@ export function renderAblationLong(r: LongAblationResult): string {
   const lines: string[] = [];
   lines.push('════════════════════════════════════════════════════════════════');
   lines.push(`Ablation Long — ${r.model}（合成長文マニュアル・実 API）`);
-  lines.push(`文書: ${d.chars} chars / 約 ${d.approxTokens} tokens / ${d.pageCount} pages（pageSize=${d.pageSize}）`);
+  lines.push(`文書: ${d.chars} chars / 約 ${d.approxTokens} tokens / ${d.pageCount} pages（pageSize=${d.pageSize}・overlap=${d.overlap}）`);
   lines.push('════════════════════════════════════════════════════════════════');
   lines.push(`${'構成'.padEnd(22)} ${'正答率'.padEnd(7)} ${'成功率'.padEnd(7)} ${'lat(ms)'.padEnd(8)} ${'in-tok'.padEnd(7)} ${'out-tok'.padEnd(8)} ${'cost$'.padEnd(9)}`);
   for (const row of r.rows) {
@@ -381,7 +384,8 @@ export async function writeAblationLongReport(r: LongAblationResult, dir = 'repo
     `# Ablation Long — 長文 AVM 効果（${r.model}）`,
     '',
     `- kind: real-api（実 API・数値は偽装しない）`,
-    `- 文書: ${r.document.chars} chars / 約 ${r.document.approxTokens} tokens / ${r.document.pageCount} pages（pageSize=${r.document.pageSize}）`,
+    `- 文書: ${r.document.chars} chars / 約 ${r.document.approxTokens} tokens / ${r.document.pageCount} pages（pageSize=${r.document.pageSize}・overlap=${r.document.overlap}）`,
+    `- ページ分割: pageSize=${r.document.pageSize}・overlap=${r.document.overlap}（スライド窓・境界に跨る事実が検索から漏れないようにする）`,
     `- タスク: ${r.rows[0]?.tasks ?? 0} 問（架空事実・持込知識では解けない）`,
     '',
     '## 構成別サマリ',

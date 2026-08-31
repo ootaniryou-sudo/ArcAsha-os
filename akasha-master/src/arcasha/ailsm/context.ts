@@ -14,12 +14,15 @@ import { AilsmBuilder } from './ailsm.js';
 import type { AilsmGraph } from './ailsm.js';
 
 export const DEFAULT_PAGE_SIZE = 64; // 文字単位の固定ページサイズ
+/** 既定のページ・オーバーラップ（スライド窓）。事実がページ境界で跨いでも片方のページに全体が収まるようにする */
+export const DEFAULT_PAGE_OVERLAP = 32;
 
 export interface ContextObject {
   id: number;
   title: string;
   text: string;
   pageSize: number;
+  overlap: number;
   pageCount: number;
 }
 
@@ -30,10 +33,15 @@ export interface PageObject {
   text: string;
 }
 
-/** 長文を固定サイズページへ分割（純関数 — CPU のページングに相当） */
-export function splitContext(text: string, pageSize = DEFAULT_PAGE_SIZE): string[] {
+/**
+ * 長文を固定サイズページへ分割（純関数 — CPU のページングに相当）。
+ * overlap > 0 のときスライド窓で分割し、隣接ページが重なるため
+ * ページ境界に跨る事実（文・数値）が必ずいずれかのページに全体として含まれる。
+ */
+export function splitContext(text: string, pageSize = DEFAULT_PAGE_SIZE, overlap = 0): string[] {
   const pages: string[] = [];
-  for (let i = 0; i < text.length; i += pageSize) {
+  const stride = Math.max(1, pageSize - overlap);
+  for (let i = 0; i < text.length; i += stride) {
     pages.push(text.slice(i, i + pageSize));
   }
   if (pages.length === 0) pages.push('');
@@ -52,8 +60,10 @@ export function createContext(
   title: string,
   text: string,
   pageSize = DEFAULT_PAGE_SIZE,
+  overlap = 0,
 ): CreateContextResult {
-  const pages = splitContext(text, pageSize);
+  const pages = splitContext(text, pageSize, overlap);
+  const stride = Math.max(1, pageSize - overlap);
   const b = new AilsmBuilder();
   const remap = new Map<number, number>();
   for (const n of g.nodes) {
@@ -65,6 +75,7 @@ export function createContext(
     text, // 実体は Kernel（Context Object）が保持
     charCount: text.length,
     pageSize,
+    overlap,
     pageCount: pages.length,
   });
   const pageIds: number[] = [];
@@ -72,7 +83,7 @@ export function createContext(
     const pid = b.addNode('page', `${title} p${i + 1}`, 'string', {
       context: title,
       index: i,
-      offset: i * pageSize,
+      offset: i * stride,
       length: pageText.length,
       text: pageText,
     });
@@ -96,6 +107,7 @@ export function contextOf(g: AilsmGraph, contextId: number): ContextObject | und
     title: String(n.attrs.title ?? ''),
     text: String(n.attrs.text ?? ''),
     pageSize: Number(n.attrs.pageSize ?? DEFAULT_PAGE_SIZE),
+    overlap: Number(n.attrs.overlap ?? 0),
     pageCount: Number(n.attrs.pageCount ?? 0),
   };
 }

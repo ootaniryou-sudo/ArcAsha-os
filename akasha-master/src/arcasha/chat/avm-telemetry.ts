@@ -49,6 +49,7 @@ export interface AvmContextView {
   chars: number;
   pageCount: number;
   pageSize: number;
+  overlap: number;
   residentPages: number;
 }
 
@@ -110,9 +111,13 @@ export class AvmWorkspace {
     if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
   }
 
-  /** 知識 / 会話を AVM に書き込む（Context Object 生成） */
-  storeContext(title: string, text: string, actor = 'user'): void {
-    const res = avmStoreContext(this.graph, title, text);
+  /**
+   * 知識 / 会話を AVM に書き込む（Context Object 生成）。
+   * opts.overlap > 0 でページ・オーバーラップ（スライド窓）を有効化し、
+   * ページ境界に跨る事実が検索から漏れないようにする。
+   */
+  storeContext(title: string, text: string, actor = 'user', opts: { pageSize?: number; overlap?: number } = {}): void {
+    const res = avmStoreContext(this.graph, title, text, opts.pageSize, opts.overlap);
     this.graph = res.graph;
     this.contexts.set(title, res.context.id);
     const ctx = res.context;
@@ -359,6 +364,7 @@ export class AvmWorkspace {
         chars: ctx?.text.length ?? 0,
         pageCount: all.length,
         pageSize: ctx?.pageSize ?? 0,
+        overlap: ctx?.overlap ?? 0,
         residentPages,
       });
     }
