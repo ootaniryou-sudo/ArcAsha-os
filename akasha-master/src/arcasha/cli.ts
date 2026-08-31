@@ -52,9 +52,10 @@ export async function runCli(argv: string[]): Promise<string> {
       const r = await runAblationLong({ verbose: argv[1] === 'verbose' });
       console.log(renderAblationLong(r));
       const jsonPath = await writeAblationLongReport(r);
-      const anyOk = r.perTask.some((p) => p.correct);
+      // API 成功は p.error / p.text で判定する（0% 正答は正当なベンチ結果なので correct では判定しない）
+      const anyOk = r.perTask.some((p) => !p.error && p.text !== '');
       if (!anyOk) {
-        throw new Error(`ablation-long: 全タスクが失敗しました。API キー・接続を確認してください（report: ${jsonPath}）`);
+        throw new Error(`ablation-long: 全タスクが API エラー／空応答でした。API キー・接続を確認してください（report: ${jsonPath}）`);
       }
       return `arcasha ablation-long: done（kind=real-api・長文 AVM 効果・report: ${jsonPath}）`;
     }

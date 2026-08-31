@@ -169,6 +169,8 @@ export interface LongPerTask {
   ms: number;
   text: string;
   error?: string;
+  /** AVM 構成のみ: 供給スライスに正答が含まれていたか（検索ミスの診断トレース） */
+  sliceContainsReference?: boolean;
 }
 
 export interface LongAblationResult {
@@ -222,7 +224,7 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
     return { text, ms: Date.now() - t0, ...u };
   };
 
-  const configs: { config: LongConfigId; name: string; run: (t: LongTask) => Promise<{ text: string; ms: number; promptTokens: number; completionTokens: number }> }[] = [
+  const configs: { config: LongConfigId; name: string; run: (t: LongTask) => Promise<{ text: string; ms: number; promptTokens: number; completionTokens: number; slice?: string }> }[] = [
     { config: 'model-alone', name: '① モデル単体（文書なし）', run: (t) => gen(t.task) },
     { config: 'full-context', name: '② AVM OFF（全文供給）', run: (t) => gen(`${t.task}\n\n[全文]\n${doc}`) },
     {
@@ -231,7 +233,7 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
       run: (t) => {
         const kloads = w.searchKnowledge(t.task, avmPages, 'search');
         const slice = kloads.map((k) => k.loadedText).join('\n');
-        return gen(`${t.task}\n\n[参照知識]\n${slice}`);
+        return gen(`${t.task}\n\n[参照知識]\n${slice}`).then((r) => ({ ...r, slice }));
       },
     },
   ];
@@ -252,10 +254,23 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
         totalMs += r.ms;
         inT += r.promptTokens;
         outT += r.completionTokens;
-        perTask.push({ config: cfg.config, taskId: t.id, correct, inTokens: r.promptTokens, outTokens: r.completionTokens, ms: r.ms, text: r.text.slice(0, 200) });
+        perTask.push({
+          config: cfg.config,
+          taskId: t.id,
+          correct,
+          inTokens: r.promptTokens,
+          outTokens: r.completionTokens,
+          ms: r.ms,
+          text: r.text.slice(0, 200),
+          // 検索ミスの診断トレース: 供給スライスに正答が含まれていたか
+          ...(r.slice !== undefined ? { sliceContainsReference: r.slice.includes(t.reference) } : {}),
+        });
         if (opts.verbose) console.log(`  ${t.id}: ${correct ? '✅' : '❌'} in=${r.promptTokens} out=${r.completionTokens} ${r.ms}ms "${r.text.slice(0, 40)}"`);
       } catch (e) {
-        perTask.push({ config: cfg.config, taskId: t.id, correct: false, inTokens: 0, outTokens: 0, ms: Date.now() - t0, text: '', error: String(e).slice(0, 120) });
+        // 失敗時も実測の経過時間を記録し、平均レイテンシ（成功・失敗を含む全タスク）に反映する
+        const ms = Date.now() - t0;
+        totalMs += ms;
+        perTask.push({ config: cfg.config, taskId: t.id, correct: false, inTokens: 0, outTokens: 0, ms, text: '', error: String(e).slice(0, 120) });
         if (opts.verbose) console.log(`  ${t.id}: ⚠ ${String(e).slice(0, 80)}`);
       }
     }
@@ -293,7 +308,7 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
     rows,
     perTask,
     avm: { tokenReduction, costReduction, fullInTokens, avmInTokens, residentPages, totalPages, residentRatio },
-    note: `kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（${doc.length} chars・架空事実 12 問）を同一モデル（${model}）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは token × 概算単価（in $0.28 / out $0.42 per 1M）。`,
+    note: `kind=real-api（実 API・数値は偽装しない）。同一の合成長文マニュアル（${doc.length} chars・架空事実 12 問）を同一モデル（${model}）で 3 構成に解かせる。①モデル単体（文書なし）②AVM OFF（全文供給）③AVM ON（AVM が検索して関連ページのみ供給）。入力トークンは API 実測。コストは概算単価（in $0.28 / out $0.42 per 1M）に基づく概算で、costReduction は比率のため単価変動に不変。`,
   };
 }
 
@@ -334,9 +349,15 @@ function interpretLong(r: LongAblationResult): string[] {
   // ③ AVM の効果
   const miss = r.perTask.filter((p) => p.config === 'avm' && !p.correct).map((p) => p.taskId);
   out.push(`③ AVM ON は ${acc(avm.accuracy)}（${r.rows[0]?.tasks ?? 0} 問中 ${(r.rows[0]?.tasks ?? 0) - miss.length} 問）で、入力トークンを平均 ${avm.avgInTokens}（削減率 ${(r.avm.tokenReduction * 100).toFixed(1)}%）・コスト ${(r.avm.costReduction * 100).toFixed(1)}% 削減。`);
-  // ④ 失敗の診断
-  if (miss.length > 0) {
-    out.push(`失敗タスク（${miss.join(', ')}）は「クエリのキーワードと回答値が 64 文字ページ境界で別ページに分かれ、回答ページがクエリ n-gram と重複せず取得対象から外れる」決定的な検索ミス。AVM のトークン効率は実在するが、文単位 chunking / ページサイズ拡大 / 連続ページ供給などの検索改善が課題。`);
+  // ④ 失敗の診断（検索トレースに基づく。根拠がなければ「未確定」とする）
+  const fail = r.perTask.filter((p) => p.config === 'avm' && !p.correct);
+  const missTrace = fail.filter((p) => p.sliceContainsReference === false).map((p) => p.taskId);
+  const modelErrTrace = fail.filter((p) => p.sliceContainsReference !== false).map((p) => p.taskId);
+  if (missTrace.length > 0) {
+    out.push(`失敗タスク（${missTrace.join(', ')}）は「供給スライスに正答が含まれない検索ミス」。原因はクエリのキーワードと回答値がページ境界で分かれるなど、ページ選択に起因する可能性（要トレース））。`);
+  }
+  if (modelErrTrace.length > 0) {
+    out.push(`失敗タスク（${modelErrTrace.join(', ')}）は供給スライスに正答が含まれていたにも関わらず誤答（モデルの抽出ミス）。`);
   }
   out.push(`※ 入力トークンは実 API の usage 実測。文書は合成（架空事実）のため現実のマニュアルとは異なる。`);
   return out;
