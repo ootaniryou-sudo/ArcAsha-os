@@ -302,10 +302,23 @@ export class AvmWorkspace {
     return out;
   }
 
+  /**
+   * クエリを検索トークン化する。
+   * - 英数は単語（2 文字以上）
+   * - 日本語（かな・漢字の連続）は 2 文字の n-gram に細分化する
+   *   （自然言語クエリでも文書内の部分文字列と一致させ、関連ページを拾えるようにする。
+   *     従来は連続塊を 1 トークンにしていたため、言い回しが違うと全ページ不一致になった）
+   */
   private tokenize(s: string): string[] {
     const t = s.toLowerCase();
-    const tokens = t.match(/[a-z0-9]+|[\u3040-\u30ff\u4e00-\u9fff]{2,}/g) ?? [];
-    return [...new Set(tokens)].filter((x) => x.length >= 2);
+    const tokens = new Set<string>();
+    for (const m of t.match(/[a-z0-9]+/g) ?? []) {
+      if (m.length >= 2) tokens.add(m);
+    }
+    for (const run of t.match(/[\u3040-\u30ff\u4e00-\u9fff]+/g) ?? []) {
+      for (let i = 0; i < run.length - 1; i++) tokens.add(run.slice(i, i + 2));
+    }
+    return [...tokens];
   }
 
   /** コンテキストごとの TierManager（ページインデックスが衝突しないよう分離） */
