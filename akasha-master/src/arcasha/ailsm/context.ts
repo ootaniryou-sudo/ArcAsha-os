@@ -35,17 +35,26 @@ export interface PageObject {
 
 /**
  * 長文を固定サイズページへ分割（純関数 — CPU のページングに相当）。
- * overlap > 0 のときスライド窓で分割し、隣接ページが重なるため
- * ページ境界に跨る事実（文・数値）が必ずいずれかのページに全体として含まれる。
+ * overlap > 0 のときスライド窓で分割し、隣接ページが重なる。
+ * これにより **overlap 文字以下の長さの事実**は必ずいずれかのページに全体として
+ * 含まれる（境界に跨っても検索から漏れない）。より長い事実は境界認識型 chunking
+ * が必要になる（overlap は保証範囲を表す）。
  */
 export function splitContext(text: string, pageSize = DEFAULT_PAGE_SIZE, overlap = 0): string[] {
+  const o = normalizeOverlap(pageSize, overlap);
+  const stride = pageSize - o;
   const pages: string[] = [];
-  const stride = Math.max(1, pageSize - overlap);
   for (let i = 0; i < text.length; i += stride) {
     pages.push(text.slice(i, i + pageSize));
   }
   if (pages.length === 0) pages.push('');
   return pages;
+}
+
+/** overlap を [0, pageSize-1] にクランプする（範囲外で文脈欠落や 1 文字 1 ページへの爆発を防ぐ） */
+function normalizeOverlap(pageSize: number, overlap: number): number {
+  const ps = Math.max(1, Math.floor(pageSize));
+  return Math.min(Math.max(0, Math.floor(overlap)), ps - 1);
 }
 
 export interface CreateContextResult {
@@ -62,8 +71,9 @@ export function createContext(
   pageSize = DEFAULT_PAGE_SIZE,
   overlap = 0,
 ): CreateContextResult {
-  const pages = splitContext(text, pageSize, overlap);
-  const stride = Math.max(1, pageSize - overlap);
+  const o = normalizeOverlap(pageSize, overlap);
+  const pages = splitContext(text, pageSize, o);
+  const stride = pageSize - o;
   const b = new AilsmBuilder();
   const remap = new Map<number, number>();
   for (const n of g.nodes) {
