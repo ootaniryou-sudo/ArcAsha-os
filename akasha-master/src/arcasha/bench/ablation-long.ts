@@ -230,10 +230,13 @@ export async function runAblationLong(opts: { verbose?: boolean; maxTokens?: num
     {
       config: 'avm',
       name: '③ AVM ON（関連ページのみ供給）',
-      run: (t) => {
+      run: async (t) => {
+        // 検索（searchKnowledge）から API 生成までの end-to-end を計測する（検索時間も含める）
+        const t0 = Date.now();
         const kloads = w.searchKnowledge(t.task, avmPages, 'search');
         const slice = kloads.map((k) => k.loadedText).join('\n');
-        return gen(`${t.task}\n\n[参照知識]\n${slice}`).then((r) => ({ ...r, slice }));
+        const r = await gen(`${t.task}\n\n[参照知識]\n${slice}`);
+        return { ...r, slice, ms: Date.now() - t0 };
       },
     },
   ];
@@ -345,16 +348,20 @@ function interpretLong(r: LongAblationResult): string[] {
   const aloneCorrect = r.perTask.filter((p) => p.config === 'model-alone' && p.correct).length;
   out.push(`① モデル単体（文書なし）は ${acc(alone.accuracy)}（${(r.rows[0]?.tasks ?? 0) - aloneCorrect} / ${r.rows[0]?.tasks ?? 0} 問誤答）。架空事実のため、文書（参照知識）なしではほぼ解けないことを確認。`);
   // ② 全文供給の精度
-  out.push(`② AVM OFF（全文供給）は ${acc(full.accuracy)} と正答するが、1 問あたり平均 ${full.avgInTokens} 入力トークン（全文 8,382 tok 相当）を消費。`);
+  out.push(`② AVM OFF（全文供給）は ${acc(full.accuracy)} と正答するが、1 問あたり平均 ${full.avgInTokens} 入力トークンを消費。`);
   // ③ AVM の効果
   const miss = r.perTask.filter((p) => p.config === 'avm' && !p.correct).map((p) => p.taskId);
   out.push(`③ AVM ON は ${acc(avm.accuracy)}（${r.rows[0]?.tasks ?? 0} 問中 ${(r.rows[0]?.tasks ?? 0) - miss.length} 問）で、入力トークンを平均 ${avm.avgInTokens}（削減率 ${(r.avm.tokenReduction * 100).toFixed(1)}%）・コスト ${(r.avm.costReduction * 100).toFixed(1)}% 削減。`);
-  // ④ 失敗の診断（検索トレースに基づく。根拠がなければ「未確定」とする）
+  // ④ 失敗の診断（検索トレースに基づく。API エラー / 検索ミス / モデル抽出ミスを区別）
   const fail = r.perTask.filter((p) => p.config === 'avm' && !p.correct);
-  const missTrace = fail.filter((p) => p.sliceContainsReference === false).map((p) => p.taskId);
-  const modelErrTrace = fail.filter((p) => p.sliceContainsReference !== false).map((p) => p.taskId);
+  const apiErrTrace = fail.filter((p) => p.error).map((p) => p.taskId);
+  const missTrace = fail.filter((p) => !p.error && p.sliceContainsReference === false).map((p) => p.taskId);
+  const modelErrTrace = fail.filter((p) => !p.error && p.sliceContainsReference !== false).map((p) => p.taskId);
+  if (apiErrTrace.length > 0) {
+    out.push(`失敗タスク（${apiErrTrace.join(', ')}）は API エラー。`);
+  }
   if (missTrace.length > 0) {
-    out.push(`失敗タスク（${missTrace.join(', ')}）は「供給スライスに正答が含まれない検索ミス」。原因はクエリのキーワードと回答値がページ境界で分かれるなど、ページ選択に起因する可能性（要トレース））。`);
+    out.push(`失敗タスク（${missTrace.join(', ')}）は「供給スライスに正答が含まれない検索ミス」。原因はクエリのキーワードと回答値がページ境界で分かれるなど、ページ選択に起因する可能性（要トレース）。`);
   }
   if (modelErrTrace.length > 0) {
     out.push(`失敗タスク（${modelErrTrace.join(', ')}）は供給スライスに正答が含まれていたにも関わらず誤答（モデルの抽出ミス）。`);
