@@ -99,7 +99,7 @@ Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`
 | ④ Full ArcAsha | 100% | 1442ms | 187 |
 
 - AVM ON/OFF の有意性は **McNemar 検定**で判定（不一致 b=2 / c=0、両側 p=0.50 — 有意差なし・悪化もなし）
-- タスク別詳細: `reports/ablation/ablation.md`（権威版）。`ablation-quick.md` は**分離前**の quick 計測（12 問）
+- タスク別詳細: `akasha-master/reports/ablation/ablation.md`（権威版）。`akasha-master/reports/ablation/ablation-quick.md` は**分離前**の quick 計測（12 問）
 
 ### 長文 AVM 効果（12,668 chars / 396 pages）
 
@@ -110,12 +110,12 @@ Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`
 | AVM ON（関連ページのみ供給） | 100% | **290** |
 
 - **トークン削減 96.5%・コスト削減 94.7%** で精度 100% を維持（ページ供給 39/396 = 9.8%）
-- ページ境界を跨ぐ検索漏れは **ページ・オーバーラップ（スライド窓）** で修正、検索 precision は **IDF 重み付け** で向上（`reports/ablation-long/`）
+- ページ境界を跨ぐ検索漏れは **ページ・オーバーラップ（スライド窓）** で修正、検索 precision は **IDF 重み付け** で向上（`akasha-master/reports/ablation-long/`）
 
 ### Executive ボトルネック（50 問）
 
 - 計測により **`forceDelegate` 時の二重モデル呼び出しバグ**（12% のタスクで 2 回目の空/同一プロンプト呼び出し）を発見 → 修正
-- 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**、TS 側オーバーヘッド ≈0.2ms（`reports/ablation-exec/`）
+- 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**、TS 側オーバーヘッド ≈0.2ms（`akasha-master/reports/ablation-exec/`）
 
 ## 🧪 ステータス
 

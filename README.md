@@ -154,7 +154,7 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 | ④ Full ArcAsha | 100% | 1442ms | 187 |
 
 - AVM ON vs OFF significance via **McNemar** test (discordant b=2 / c=0, two-sided p=0.50 — no significant difference, and no regression)
-- Per-task detail: `reports/ablation/ablation.md` (authoritative). `ablation-quick.md` is a **pre-separation** quick measurement (12 tasks)
+- Per-task detail: `akasha-master/reports/ablation/ablation.md` (authoritative). `akasha-master/reports/ablation/ablation-quick.md` is a **pre-separation** quick measurement (12 tasks)
 
 ### Long-context AVM (12,668 chars / 396 pages)
 
@@ -165,12 +165,12 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 | AVM ON (relevant pages only) | 100% | **290** |
 
 - **96.5% token reduction / 94.7% cost reduction** at 100% accuracy (page supply 39/396 = 9.8%)
-- Boundary-crossing search misses fixed by **page overlap (slide window)**; search precision improved by **IDF weighting** (`reports/ablation-long/`)
+- Boundary-crossing search misses fixed by **page overlap (slide window)**; search precision improved by **IDF weighting** (`akasha-master/reports/ablation-long/`)
 
 ### Executive bottleneck (50 tasks)
 
 - Measurement exposed a **double model-call bug** under `forceDelegate` (12% of tasks made a second empty/duplicate call) → fixed
-- After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms**; TS-side overhead ≈ 0.2ms (`reports/ablation-exec/`)
+- After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms**; TS-side overhead ≈ 0.2ms (`akasha-master/reports/ablation-exec/`)
 
 ---
 

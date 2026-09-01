@@ -138,7 +138,7 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 | ④ Full ArcAsha | 100% | 1442ms | 187 |
 
 - AVM ON vs OFF significance via **McNemar** test (discordant b=2 / c=0, two-sided p=0.50 — no significant difference, and no regression)
-- Per-task detail: `reports/ablation/ablation.md` (authoritative). `ablation-quick.md` is a **pre-separation** quick measurement (12 tasks)
+- Per-task detail: `reports/ablation/ablation.md` (authoritative). `reports/ablation/ablation-quick.md` is a **pre-separation** quick measurement (12 tasks)
 
 ### Long-context AVM (12,668 chars / 396 pages)
 

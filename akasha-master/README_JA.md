@@ -99,7 +99,7 @@ Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`
 | ④ Full ArcAsha | 100% | 1442ms | 187 |
 
 - AVM ON/OFF の有意性は **McNemar 検定**で判定（不一致 b=2 / c=0、両側 p=0.50 — 有意差なし・悪化もなし）
-- タスク別詳細: `reports/ablation/ablation.md`（権威版）。`ablation-quick.md` は**分離前**の quick 計測（12 問）
+- タスク別詳細: `reports/ablation/ablation.md`（権威版）。`reports/ablation/ablation-quick.md` は**分離前**の quick 計測（12 問）
 
 ### 長文 AVM 効果（12,668 chars / 396 pages）
 
