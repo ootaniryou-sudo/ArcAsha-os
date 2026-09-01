@@ -12,11 +12,11 @@
       "successRate": 1,
       "pass": 147,
       "accuracy": 0.98,
-      "avgLatencyMs": 1196,
-      "avgTokens": 160,
+      "avgLatencyMs": 1297,
+      "avgTokens": 161,
       "avgPromptTokens": 98,
-      "avgCompletionTokens": 61,
-      "estCostUsd": 0.007997
+      "avgCompletionTokens": 63,
+      "estCostUsd": 0.008095
     },
     {
       "config": "avm",
@@ -25,13 +25,13 @@
       "runs": 3,
       "success": 150,
       "successRate": 1,
-      "pass": 150,
-      "accuracy": 1,
-      "avgLatencyMs": 1298,
-      "avgTokens": 169,
-      "avgPromptTokens": 102,
-      "avgCompletionTokens": 66,
-      "estCostUsd": 0.008478
+      "pass": 149,
+      "accuracy": 0.993,
+      "avgLatencyMs": 1256,
+      "avgTokens": 186,
+      "avgPromptTokens": 125,
+      "avgCompletionTokens": 61,
+      "estCostUsd": 0.009103
     },
     {
       "config": "executive",
@@ -40,13 +40,13 @@
       "runs": 3,
       "success": 150,
       "successRate": 1,
-      "pass": 146,
-      "accuracy": 0.973,
-      "avgLatencyMs": 1544,
-      "avgTokens": 164,
+      "pass": 147,
+      "accuracy": 0.98,
+      "avgLatencyMs": 1334,
+      "avgTokens": 163,
       "avgPromptTokens": 98,
-      "avgCompletionTokens": 66,
-      "estCostUsd": 0.008278
+      "avgCompletionTokens": 64,
+      "estCostUsd": 0.008187
     },
     {
       "config": "full",
@@ -55,13 +55,13 @@
       "runs": 3,
       "success": 150,
       "successRate": 1,
-      "pass": 148,
-      "accuracy": 0.987,
-      "avgLatencyMs": 1517,
-      "avgTokens": 168,
-      "avgPromptTokens": 102,
-      "avgCompletionTokens": 66,
-      "estCostUsd": 0.008458
+      "pass": 150,
+      "accuracy": 1,
+      "avgLatencyMs": 1442,
+      "avgTokens": 187,
+      "avgPromptTokens": 125,
+      "avgCompletionTokens": 63,
+      "estCostUsd": 0.009172
     }
   ],
   "perTask": [
@@ -72,10 +72,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1264,
+      "ms": 1371,
       "promptTokens": 126,
-      "completionTokens": 50,
-      "text": "合計は **600円** です。"
+      "completionTokens": 69,
+      "text": "バナナ：3本 × 100円 = 300円  \nりんご：2個 × 150円 = 300円  \n\n合計：**600円**"
     },
     {
       "config": "baseline",
@@ -84,9 +84,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1075,
+      "ms": 1018,
       "promptTokens": 107,
-      "completionTokens": 53,
+      "completionTokens": 46,
       "text": "総労働時間は **24時間** です。"
     },
     {
@@ -96,7 +96,7 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 808,
+      "ms": 1256,
       "promptTokens": 105,
       "completionTokens": 31,
       "text": "女子は **12人** です。"
@@ -108,9 +108,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1103,
+      "ms": 1032,
       "promptTokens": 103,
-      "completionTokens": 44,
+      "completionTokens": 37,
       "text": "150 km"
     },
     {
@@ -120,9 +120,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1059,
+      "ms": 945,
       "promptTokens": 110,
-      "completionTokens": 29,
+      "completionTokens": 27,
       "text": "2000円"
     },
     {
@@ -132,10 +132,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1263,
+      "ms": 1068,
       "promptTokens": 104,
-      "completionTokens": 63,
-      "text": "年間 **520時間** です。"
+      "completionTokens": 41,
+      "text": "520 時間です。"
     },
     {
       "config": "baseline",
@@ -144,22 +144,22 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2936,
+      "ms": 3212,
       "promptTokens": 104,
       "completionTokens": 256,
-      "text": "We need to answer in Japanese. Question: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" It asks which expert handles mathematical for"
+      "text": "We need answer in Japanese. User asks: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Means \"In ArcAsha, which expert handles mathematical formula processing?\" Need know ArcAsha? Possibly \"ArcAsha\" is an AI assistant framework with experts? Maybe \"ArckAsha\" or \"ArcAsha\" from \"arch\" + \"Asha\"? Need infer. Maybe from \"Arc\" coding? Need answer based on context. I don't have data. Need be honest. Could be \"ArcAsha\" is a typo? Maybe \"ArcAsha\" refers to \"ARCADIA\" or \"Arasha\"? Let's think.\n\nUser asks specifically \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" This sounds like asking about a system with multiple \"experts\" (エキスパート) for tasks. Need identify which expert handles math formulas. Perhaps in \"ArcAsha\" there are named experts like \"Math Expert\", \"Code Expert\", etc. Need answer: \"数式の処理は「数学エキスパート」が担当します\" or \"Math Expert\". But need verify"
     },
     {
       "config": "baseline",
       "taskId": "k2",
       "category": "knowledge",
       "ok": 3,
-      "verified": 0,
+      "verified": 1,
       "runs": 3,
-      "ms": 3029,
+      "ms": 3243,
       "promptTokens": 106,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. User asks: \"DeepSeek V4 で、max_tokens を小さくすると回答が空になる原因は？\" Means \"In DeepSeek V4, why does set"
+      "text": "We need answer in Japanese. Need explain why DeepSeek V4? Actually \"DeepSeek V4\" maybe hypothetical? User asks: \"DeepSeek V4 で、max_tokens を小さくすると回答が空になる原因は？\" Means \"In DeepSeek V4, why does setting max_tokens small cause empty responses?\" Need provide likely causes. Need be careful: DeepSeek V4 doesn't exist? As of knowledge? There is DeepSeek V3, R1, etc. But question mentions V4 maybe future. We can answer generic. Need explain: max_tokens is maximum output tokens. If set too small, model may not finish even first token? Actually if max_tokens=0 or 1? Many APIs: if max_tokens too small, response empty because generation stops before any content? Need discuss tokenization, special tokens, reasoning models, etc. Need likely causes:\n\n- max_tokens is hard cap on generated tokens. If set to 0, no output. If set very small (e.g., 1), model might use all budget for internal reasoning/thinking, leaving no room for answer. For reasoning models (like DeepSeek-R1), the model first generates"
     },
     {
       "config": "baseline",
@@ -168,10 +168,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1237,
+      "ms": 1101,
       "promptTokens": 95,
-      "completionTokens": 64,
-      "text": "オランダの首都です。"
+      "completionTokens": 54,
+      "text": "アムステルダムは**オランダ**（正式名称：オランダ王国）の首都です。"
     },
     {
       "config": "baseline",
@@ -180,22 +180,22 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1195,
+      "ms": 1160,
       "promptTokens": 94,
-      "completionTokens": 52,
-      "text": "富士山の標高は **3,776メートル**（正確には 3,776.12 m）です。"
+      "completionTokens": 47,
+      "text": "富士山の標高は **3,776メートル** です。"
     },
     {
       "config": "baseline",
       "taskId": "k5",
       "category": "knowledge",
       "ok": 3,
-      "verified": 3,
+      "verified": 2,
       "runs": 3,
-      "ms": 2121,
+      "ms": 2662,
       "promptTokens": 99,
-      "completionTokens": 147,
-      "text": "ラマン分光法は、物質に光を当てたときに生じる**非弾性散乱光（ラマン散乱）**を観測し、物質の**分子の振動・回転状態**（結晶の場合は格子振動＝フォノン）を調べる手法です。これにより、分子構造や化学結合、結晶性などの情報が得られます。"
+      "completionTokens": 178,
+      "text": "ラマン分光法は、物質中の**分子の振動・回転モード**（結晶中では**フォノン**）を観測する手法です。レーザー光を当てたときの非弾性散乱（ラマン散乱）によるエネルギー変化から、化学結合や分子構造、結晶構造、相転移などを調べます。"
     },
     {
       "config": "baseline",
@@ -204,10 +204,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1327,
+      "ms": 1488,
       "promptTokens": 97,
-      "completionTokens": 82,
-      "text": "約8分19秒です。"
+      "completionTokens": 89,
+      "text": "約8分20秒です。  \n（太陽と地球の平均距離に基づく値で、約1億5000万kmを光速で割った時間です。）"
     },
     {
       "config": "baseline",
@@ -216,9 +216,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 716,
+      "ms": 764,
       "promptTokens": 95,
-      "completionTokens": 25,
+      "completionTokens": 24,
       "text": "56 です。"
     },
     {
@@ -228,10 +228,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1053,
+      "ms": 979,
       "promptTokens": 110,
-      "completionTokens": 34,
-      "text": "支払額は **3400円** です。"
+      "completionTokens": 27,
+      "text": "3400円"
     },
     {
       "config": "baseline",
@@ -240,10 +240,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 944,
+      "ms": 879,
       "promptTokens": 98,
-      "completionTokens": 39,
-      "text": "3.5キロメートルは **3500メートル** です。"
+      "completionTokens": 41,
+      "text": "3.5 キロメートルは **3500 メートル** です。"
     },
     {
       "config": "baseline",
@@ -252,10 +252,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 938,
+      "ms": 941,
       "promptTokens": 93,
-      "completionTokens": 35,
-      "text": "三角形の内角の和は **180度** です。"
+      "completionTokens": 34,
+      "text": "180度です。"
     },
     {
       "config": "baseline",
@@ -264,9 +264,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 864,
+      "ms": 1031,
       "promptTokens": 94,
-      "completionTokens": 31,
+      "completionTokens": 29,
       "text": "2 の 10 乗は **1024** です。"
     },
     {
@@ -276,10 +276,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 753,
+      "ms": 1035,
       "promptTokens": 101,
-      "completionTokens": 28,
-      "text": "60個です。"
+      "completionTokens": 33,
+      "text": "60個"
     },
     {
       "config": "baseline",
@@ -288,9 +288,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1031,
+      "ms": 965,
       "promptTokens": 110,
-      "completionTokens": 42,
+      "completionTokens": 29,
       "text": "700円です。"
     },
     {
@@ -300,10 +300,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 899,
+      "ms": 1167,
       "promptTokens": 102,
-      "completionTokens": 39,
-      "text": "100 km"
+      "completionTokens": 37,
+      "text": "時速50kmで2時間走ったので、\n\n距離 = 速さ × 時間 = 50 × 2 = **100km**"
     },
     {
       "config": "baseline",
@@ -312,10 +312,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1239,
+      "ms": 1444,
       "promptTokens": 107,
-      "completionTokens": 103,
-      "text": "最小の偶数を \\(x\\) とすると、\n\n\\[\nx + (x+2) + (x+4) = 30\n\\]\n\n\\[\n3x + 6 = 30\n\\]\n\n\\[\n3x = 24\n\\]\n\n\\[\nx = 8\n\\]\n\n答え：**8**"
+      "completionTokens": 109,
+      "text": "最小の偶数は **8** です。\n\n（8 + 10 + 12 = 30）"
     },
     {
       "config": "baseline",
@@ -324,10 +324,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 994,
+      "ms": 989,
       "promptTokens": 91,
-      "completionTokens": 41,
-      "text": "168時間です。"
+      "completionTokens": 40,
+      "text": "168 時間です。"
     },
     {
       "config": "baseline",
@@ -336,9 +336,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 969,
+      "ms": 1583,
       "promptTokens": 95,
-      "completionTokens": 65,
+      "completionTokens": 59,
       "text": "五角形の内角の和は **540度** です。"
     },
     {
@@ -348,9 +348,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 812,
+      "ms": 848,
       "promptTokens": 95,
-      "completionTokens": 34,
+      "completionTokens": 30,
       "text": "25% を小数で表すと **0.25** です。"
     },
     {
@@ -360,10 +360,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 790,
+      "ms": 1060,
       "promptTokens": 97,
-      "completionTokens": 35,
-      "text": "平均は **8** です。"
+      "completionTokens": 39,
+      "text": "8です。"
     },
     {
       "config": "baseline",
@@ -372,10 +372,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
+      "ms": 1220,
       "promptTokens": 111,
-      "completionTokens": 64,
-      "text": "斜辺の長さは **5cm** です。  \n\n（三平方の定理：\\(\\sqrt{3^2+4^2}=\\sqrt{25}=5\\)）"
+      "completionTokens": 56,
+      "text": "斜辺の長さは **5cm** です。  \n（3² + 4² = 9 + 16 = 25、√25 = 5）"
     },
     {
       "config": "baseline",
@@ -384,10 +384,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1134,
+      "ms": 1037,
       "promptTokens": 88,
-      "completionTokens": 50,
-      "text": "日本の首都は**東京都**です。"
+      "completionTokens": 36,
+      "text": "日本の首都は**東京都（東京）**です。"
     },
     {
       "config": "baseline",
@@ -396,9 +396,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 995,
+      "ms": 1047,
       "promptTokens": 96,
-      "completionTokens": 65,
+      "completionTokens": 59,
       "text": "ヒマラヤ山脈です。"
     },
     {
@@ -408,10 +408,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 897,
+      "ms": 977,
       "promptTokens": 93,
-      "completionTokens": 43,
-      "text": "太陽系で最も大きい惑星は**木星**です。"
+      "completionTokens": 49,
+      "text": "太陽系で最も大きい惑星は**木星（Jupiter）**です。"
     },
     {
       "config": "baseline",
@@ -420,10 +420,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1285,
+      "ms": 1536,
       "promptTokens": 93,
-      "completionTokens": 75,
-      "text": "アメリカ合衆国の通貨の単位は **ドル（米ドル）** です。補助単位として **セント** があります。"
+      "completionTokens": 92,
+      "text": "アメリカ合衆国の通貨の単位は **ドル（Dollar, 記号: $）** です。補助単位として **セント（cent）** があります。"
     },
     {
       "config": "baseline",
@@ -432,9 +432,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1163,
+      "ms": 1114,
       "promptTokens": 93,
-      "completionTokens": 42,
+      "completionTokens": 46,
       "text": "面積が世界で最も大きい国は**ロシア**です。"
     },
     {
@@ -444,10 +444,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1165,
+      "ms": 1294,
       "promptTokens": 93,
-      "completionTokens": 39,
-      "text": "Pb（元素記号）は **鉛（なまり）** です。"
+      "completionTokens": 45,
+      "text": "元素記号 Pb は **鉛（なまり）** という元素です。  \n英語名は **Lead（レッド）**、ラテン語名の *Plumbum* に由来します。"
     },
     {
       "config": "baseline",
@@ -456,9 +456,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1225,
+      "ms": 1098,
       "promptTokens": 94,
-      "completionTokens": 33,
+      "completionTokens": 29,
       "text": "スペインです。"
     },
     {
@@ -468,9 +468,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1399,
+      "ms": 1614,
       "promptTokens": 97,
-      "completionTokens": 56,
+      "completionTokens": 77,
       "text": "ドイツです。"
     },
     {
@@ -480,10 +480,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
+      "ms": 1058,
       "promptTokens": 96,
-      "completionTokens": 26,
-      "text": "ナイル川は**地中海**に流れ込みます。"
+      "completionTokens": 35,
+      "text": "ナイル川は、**地中海**に流れ込んでいます。"
     },
     {
       "config": "baseline",
@@ -492,9 +492,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 989,
+      "ms": 1057,
       "promptTokens": 101,
-      "completionTokens": 48,
+      "completionTokens": 25,
       "text": "イタリアです。"
     },
     {
@@ -504,10 +504,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1708,
+      "ms": 1639,
       "promptTokens": 92,
-      "completionTokens": 86,
-      "text": "世界で最も深い海溝は**マリアナ海溝**です。その最深部は**チャレンジャー海淵**（チャレンジャー・ディープ）と呼ばれ、深さは約**10,920メートル**とされています。"
+      "completionTokens": 87,
+      "text": "世界で最も深い海溝は**マリアナ海溝**です。\n\nその最深部は**チャレンジャー海溝**（チャレンジャー・ディープ）と呼ばれ、深さは約**10,920メートル**とされています。"
     },
     {
       "config": "baseline",
@@ -516,9 +516,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1128,
+      "ms": 1296,
       "promptTokens": 92,
-      "completionTokens": 60,
+      "completionTokens": 79,
       "text": "ミツバチ（蜜蜂）です。"
     },
     {
@@ -528,10 +528,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 920,
+      "ms": 871,
       "promptTokens": 91,
-      "completionTokens": 25,
-      "text": "カナダの首都は**オタワ**です。"
+      "completionTokens": 27,
+      "text": "カナダの首都は **オタワ（Ottawa）** です。"
     },
     {
       "config": "baseline",
@@ -540,9 +540,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1059,
+      "ms": 949,
       "promptTokens": 93,
-      "completionTokens": 38,
+      "completionTokens": 39,
       "text": "オーストラリアの首都は**キャンベラ（Canberra）**です。"
     },
     {
@@ -552,10 +552,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1014,
+      "ms": 1048,
       "promptTokens": 90,
-      "completionTokens": 33,
-      "text": "ブラジルの首都は **ブラジリア** です。"
+      "completionTokens": 47,
+      "text": "ブラジルの首都は**ブラジリア**（Brasília）です。"
     },
     {
       "config": "baseline",
@@ -564,9 +564,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 727,
+      "ms": 1049,
       "promptTokens": 90,
-      "completionTokens": 27,
+      "completionTokens": 34,
       "text": "スイスの首都は**ベルン**です。"
     },
     {
@@ -576,10 +576,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1189,
+      "ms": 1625,
       "promptTokens": 96,
-      "completionTokens": 86,
-      "text": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**（ソ連）です。  \n1957年10月4日に打ち上げられました。"
+      "completionTokens": 96,
+      "text": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**（Sputnik 1）です。\n\n1957年10月4日に、ソビエト連邦によって打ち上げられました。"
     },
     {
       "config": "baseline",
@@ -588,10 +588,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1542,
+      "ms": 1455,
       "promptTokens": 97,
-      "completionTokens": 78,
-      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。"
+      "completionTokens": 71,
+      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。  \n1969年7月20日、アポロ11号の月面着陸の際に、人類として初めて月面に足を踏み入れました。"
     },
     {
       "config": "baseline",
@@ -600,10 +600,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1377,
+      "ms": 1433,
       "promptTokens": 94,
-      "completionTokens": 70,
-      "text": "ハマダラカ（Anopheles属）です。"
+      "completionTokens": 68,
+      "text": "ハマダラカ（Anopheles属の蚊）です。"
     },
     {
       "config": "baseline",
@@ -612,10 +612,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1273,
+      "ms": 1673,
       "promptTokens": 99,
-      "completionTokens": 67,
-      "text": "約365.25日（365日と約6時間）です。"
+      "completionTokens": 93,
+      "text": "約365.25日です（正確には約365日6時間9分、平均太陽年では約365.2422日）。"
     },
     {
       "config": "baseline",
@@ -624,9 +624,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1207,
+      "ms": 1236,
       "promptTokens": 98,
-      "completionTokens": 74,
+      "completionTokens": 71,
       "text": "うるう年（閏年）と呼びます。"
     },
     {
@@ -636,10 +636,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1808,
+      "ms": 2278,
       "promptTokens": 96,
-      "completionTokens": 113,
-      "text": "イギリス（英国）です。1825年に「ストックトン・アンド・ダーリントン鉄道」が世界で最初の公共鉄道として開通しました。"
+      "completionTokens": 142,
+      "text": "世界で最初に鉄道が開通した国は、**イギリス**です。\n\n1825年に、イギリスのストックトン・アンド・ダーリントン鉄道が開通し、蒸気機関車による旅客・貨物輸送が始まりました。"
     },
     {
       "config": "baseline",
@@ -648,9 +648,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1058,
+      "ms": 887,
       "promptTokens": 94,
-      "completionTokens": 46,
+      "completionTokens": 49,
       "text": "エジプトです。"
     },
     {
@@ -660,9 +660,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 956,
+      "ms": 1131,
       "promptTokens": 97,
-      "completionTokens": 48,
+      "completionTokens": 35,
       "text": "ペルーです。"
     },
     {
@@ -672,10 +672,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1331,
+      "ms": 1292,
       "promptTokens": 126,
-      "completionTokens": 71,
-      "text": "合計は **600円** です。"
+      "completionTokens": 73,
+      "text": "600円です。"
     },
     {
       "config": "avm",
@@ -684,9 +684,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1421,
+      "ms": 1165,
       "promptTokens": 107,
-      "completionTokens": 56,
+      "completionTokens": 51,
       "text": "総労働時間は **24時間** です。"
     },
     {
@@ -696,9 +696,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1173,
+      "ms": 1156,
       "promptTokens": 105,
-      "completionTokens": 29,
+      "completionTokens": 33,
       "text": "女子は **12人** です。"
     },
     {
@@ -708,10 +708,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1160,
+      "ms": 1209,
       "promptTokens": 103,
-      "completionTokens": 54,
-      "text": "時速60kmで2時間半（2.5時間）走ったので、\n\n距離 = 速さ × 時間 = 60 × 2.5 = **150km**\n\n答え：**150km**"
+      "completionTokens": 35,
+      "text": "150 km"
     },
     {
       "config": "avm",
@@ -720,9 +720,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 854,
+      "ms": 1419,
       "promptTokens": 110,
-      "completionTokens": 31,
+      "completionTokens": 60,
       "text": "2000円"
     },
     {
@@ -732,10 +732,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1160,
+      "ms": 1297,
       "promptTokens": 104,
-      "completionTokens": 56,
-      "text": "1年は52週で、毎週10時間勉強すると、\n\n**52週 × 10時間 = 520時間**\n\n年間で **520時間** です。"
+      "completionTokens": 53,
+      "text": "1年は52週なので、  \n52週 × 10時間 = **520時間**  \n\n年間 **520時間** 勉強することになります。"
     },
     {
       "config": "avm",
@@ -744,22 +744,22 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2594,
-      "promptTokens": 148,
-      "completionTokens": 256,
-      "text": "We need answer in Japanese. Need answer based on reference knowledge? User asks \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" We hav"
+      "ms": 1672,
+      "promptTokens": 188,
+      "completionTokens": 116,
+      "text": "数式の処理は **math エキスパート** が担当します。"
     },
     {
       "config": "avm",
       "taskId": "k2",
       "category": "knowledge",
       "ok": 3,
-      "verified": 3,
+      "verified": 2,
       "runs": 3,
-      "ms": 2901,
+      "ms": 3093,
       "promptTokens": 176,
       "completionTokens": 256,
-      "text": "DeepSeek V4 は推論モデル（reasoning model）のため、応答が **reasoning_content（思考・推論）** と **content（最終回答）** に分離されています。\n\n`max_tokens` を小さ"
+      "text": "DeepSeek V4 は推論モデルであり、応答が「`reasoning_content`（思考）」「`content`（最終回答）」に分離されています。\n\n`max_tokens` はこの両方を合計した出力ト"
     },
     {
       "config": "avm",
@@ -768,9 +768,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1126,
-      "promptTokens": 95,
-      "completionTokens": 63,
+      "ms": 1240,
+      "promptTokens": 144,
+      "completionTokens": 59,
       "text": "アムステルダムは**オランダ**の首都です。"
     },
     {
@@ -780,10 +780,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1304,
-      "promptTokens": 94,
-      "completionTokens": 56,
-      "text": "富士山の標高は **3,776メートル** です。"
+      "ms": 1265,
+      "promptTokens": 140,
+      "completionTokens": 44,
+      "text": "富士山の標高は **3776メートル** です。"
     },
     {
       "config": "avm",
@@ -792,10 +792,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3161,
-      "promptTokens": 99,
-      "completionTokens": 219,
-      "text": "ラマン分光法は、物質の**分子振動**や**結晶格子振動（フォノン）**などの「振動状態」を観測する手法です。\n\nレーザー光を物質に当て、その散乱光の中から、物質の振動エネルギーによって波長（エネルギー）がわずかにシフトした光（ラマン散乱光"
+      "ms": 1781,
+      "promptTokens": 157,
+      "completionTokens": 126,
+      "text": "ラマン分光法は、物質の**分子振動（分子の骨格振動や結晶の格子振動）**を観測する手法です。レーザー光の非弾性散乱（ラマン散乱）を利用して、物質固有の振動モードを調べます。"
     },
     {
       "config": "avm",
@@ -804,10 +804,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1781,
-      "promptTokens": 97,
-      "completionTokens": 125,
-      "text": "光が太陽から地球まで届くのにかかる時間は、約**8分20秒**です。\n\n太陽と地球の距離は平均で約1億4960万kmあり、光の速さ（秒速約30万km）で割ると、約499秒（8分19秒）になります。このため、私たちが見ている太陽の光は、実際に"
+      "ms": 1530,
+      "promptTokens": 151,
+      "completionTokens": 112,
+      "text": "光が太陽から地球まで届くのにかかる時間は、約 **8分20秒** です。\n\n（太陽と地球の距離は約1億5000万km、光の速さは秒速約30万kmのためです。）"
     },
     {
       "config": "avm",
@@ -816,9 +816,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1164,
+      "ms": 957,
       "promptTokens": 95,
-      "completionTokens": 29,
+      "completionTokens": 30,
       "text": "7 と 8 の積は **56** です。"
     },
     {
@@ -828,10 +828,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 918,
+      "ms": 1124,
       "promptTokens": 110,
-      "completionTokens": 34,
-      "text": "3400円"
+      "completionTokens": 45,
+      "text": "3400円です。"
     },
     {
       "config": "avm",
@@ -840,9 +840,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1025,
+      "ms": 1075,
       "promptTokens": 98,
-      "completionTokens": 47,
+      "completionTokens": 43,
       "text": "3.5 キロメートルは **3500 メートル** です。"
     },
     {
@@ -852,9 +852,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 928,
+      "ms": 1079,
       "promptTokens": 93,
-      "completionTokens": 30,
+      "completionTokens": 28,
       "text": "三角形の内角の和は **180度** です。"
     },
     {
@@ -864,7 +864,7 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 923,
+      "ms": 931,
       "promptTokens": 94,
       "completionTokens": 30,
       "text": "2 の 10 乗は **1024** です。"
@@ -876,10 +876,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 862,
+      "ms": 1182,
       "promptTokens": 101,
       "completionTokens": 29,
-      "text": "60 個です。"
+      "text": "60個です。"
     },
     {
       "config": "avm",
@@ -888,9 +888,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 980,
+      "ms": 1092,
       "promptTokens": 110,
-      "completionTokens": 40,
+      "completionTokens": 46,
       "text": "700円です。"
     },
     {
@@ -900,10 +900,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1106,
+      "ms": 954,
       "promptTokens": 102,
-      "completionTokens": 36,
-      "text": "100 km"
+      "completionTokens": 41,
+      "text": "時速50kmで2時間走ったので、\n\n**距離 = 50 × 2 = 100km**\n\n答え：**100km**"
     },
     {
       "config": "avm",
@@ -912,10 +912,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1652,
+      "ms": 1549,
       "promptTokens": 107,
-      "completionTokens": 131,
-      "text": "最小の偶数を \\(x\\) とすると、連続する3つの偶数は\n\n\\(x,\\ x+2,\\ x+4\\)\n\nと表せます。\n\n\\[\nx+(x+2)+(x+4)=30\n\\]\n\n\\[\n3x+6=30\n\\]\n\n\\[\n3x=24\n\\]\n\n\\[\nx=8\n\\]\n\n"
+      "completionTokens": 110,
+      "text": "最小の偶数は **8** です。\n\n（8 + 10 + 12 = 30）"
     },
     {
       "config": "avm",
@@ -924,9 +924,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
+      "ms": 1018,
       "promptTokens": 91,
-      "completionTokens": 42,
+      "completionTokens": 46,
       "text": "1週間は **168時間** です。  \n（7日 × 24時間 = 168時間）"
     },
     {
@@ -936,9 +936,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1195,
+      "ms": 1053,
       "promptTokens": 95,
-      "completionTokens": 46,
+      "completionTokens": 49,
       "text": "五角形の内角の和は **540度** です。"
     },
     {
@@ -948,7 +948,7 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 994,
+      "ms": 960,
       "promptTokens": 95,
       "completionTokens": 38,
       "text": "25% を小数で表すと **0.25** です。"
@@ -960,9 +960,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 939,
+      "ms": 1223,
       "promptTokens": 97,
-      "completionTokens": 41,
+      "completionTokens": 34,
       "text": "平均は **8** です。"
     },
     {
@@ -972,10 +972,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1101,
+      "ms": 1073,
       "promptTokens": 111,
-      "completionTokens": 52,
-      "text": "斜辺の長さは **5cm** です。  \n\n（3² + 4² = 9 + 16 = 25 → √25 = 5）"
+      "completionTokens": 63,
+      "text": "斜辺の長さは **5cm** です。  \n（三平方の定理：\\(\\sqrt{3^2+4^2}=\\sqrt{9+16}=\\sqrt{25}=5\\)）"
     },
     {
       "config": "avm",
@@ -984,10 +984,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1105,
-      "promptTokens": 88,
-      "completionTokens": 34,
-      "text": "日本の首都は**東京都（東京）**です。"
+      "ms": 1199,
+      "promptTokens": 127,
+      "completionTokens": 31,
+      "text": "日本の首都は**東京**です。"
     },
     {
       "config": "avm",
@@ -996,9 +996,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1345,
-      "promptTokens": 96,
-      "completionTokens": 64,
+      "ms": 1224,
+      "promptTokens": 141,
+      "completionTokens": 55,
       "text": "ヒマラヤ山脈です。"
     },
     {
@@ -1008,10 +1008,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1065,
-      "promptTokens": 93,
-      "completionTokens": 33,
-      "text": "太陽系で最も大きい惑星は**木星（Jupiter）**です。"
+      "ms": 1520,
+      "promptTokens": 130,
+      "completionTokens": 38,
+      "text": "太陽系で最も大きい惑星は**木星**です。"
     },
     {
       "config": "avm",
@@ -1020,10 +1020,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1207,
-      "promptTokens": 93,
-      "completionTokens": 79,
-      "text": "アメリカ合衆国の通貨の単位は **ドル（USドル、$）** です。補助単位として **セント（¢）** もあります。"
+      "ms": 1377,
+      "promptTokens": 130,
+      "completionTokens": 87,
+      "text": "アメリカ合衆国の通貨の単位は **USドル（米ドル）** です。  \n補助単位は **セント**（1ドル = 100セント）です。"
     },
     {
       "config": "avm",
@@ -1032,9 +1032,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1162,
-      "promptTokens": 93,
-      "completionTokens": 52,
+      "ms": 1140,
+      "promptTokens": 130,
+      "completionTokens": 54,
       "text": "面積が世界で最も大きい国は**ロシア**です。"
     },
     {
@@ -1044,10 +1044,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1133,
+      "ms": 1392,
       "promptTokens": 136,
-      "completionTokens": 65,
-      "text": "元素記号 **Pb** は **鉛（なまり）** という元素です。  \nラテン語の *plumbum* に由来します。"
+      "completionTokens": 72,
+      "text": "元素記号 **Pb** は **鉛（なまり）** という元素です。\n\nラテン語の **plumbum** に由来しており、そこから配管を意味する “plumbing” という言葉も生まれました。"
     },
     {
       "config": "avm",
@@ -1056,10 +1056,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 856,
-      "promptTokens": 94,
-      "completionTokens": 29,
-      "text": "スペイン（マラガ）です。"
+      "ms": 924,
+      "promptTokens": 135,
+      "completionTokens": 36,
+      "text": "ピカソが生まれた国は**スペイン**です。"
     },
     {
       "config": "avm",
@@ -1068,9 +1068,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1374,
-      "promptTokens": 97,
-      "completionTokens": 71,
+      "ms": 1106,
+      "promptTokens": 146,
+      "completionTokens": 39,
       "text": "ドイツです。"
     },
     {
@@ -1080,10 +1080,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 995,
-      "promptTokens": 96,
-      "completionTokens": 43,
-      "text": "地中海に流れ込みます。"
+      "ms": 929,
+      "promptTokens": 134,
+      "completionTokens": 55,
+      "text": "ナイル川は**地中海**に流れ込んでいます。"
     },
     {
       "config": "avm",
@@ -1092,10 +1092,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1034,
-      "promptTokens": 101,
-      "completionTokens": 25,
-      "text": "イタリアです。"
+      "ms": 1339,
+      "promptTokens": 143,
+      "completionTokens": 49,
+      "text": "イタリア（ピサ）です。"
     },
     {
       "config": "avm",
@@ -1104,10 +1104,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1663,
-      "promptTokens": 92,
-      "completionTokens": 88,
-      "text": "世界で最も深い海溝は**マリアナ海溝**です。  \nその最深部は**チャレンジャー海淵**で、水深約**10,920メートル**とされています。"
+      "ms": 1283,
+      "promptTokens": 136,
+      "completionTokens": 90,
+      "text": "世界で最も深い海溝は**マリアナ海溝**です。最深部は**チャレンジャー海淵**と呼ばれ、深さは約**1万1000メートル**です。"
     },
     {
       "config": "avm",
@@ -1116,10 +1116,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1365,
-      "promptTokens": 92,
-      "completionTokens": 71,
-      "text": "ハチ（ミツバチ）です。"
+      "ms": 1221,
+      "promptTokens": 125,
+      "completionTokens": 67,
+      "text": "ハチミツを作る昆虫は**ミツバチ**です。"
     },
     {
       "config": "avm",
@@ -1128,10 +1128,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 955,
-      "promptTokens": 91,
-      "completionTokens": 25,
-      "text": "カナダの首都は**オタワ**です。"
+      "ms": 997,
+      "promptTokens": 126,
+      "completionTokens": 41,
+      "text": "カナダの首都は**オタワ（Ottawa）**です。オンタリオ州にあります。"
     },
     {
       "config": "avm",
@@ -1140,10 +1140,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1093,
-      "promptTokens": 93,
-      "completionTokens": 30,
-      "text": "オーストラリアの首都は**キャンベラ（Canberra）**です。"
+      "ms": 1162,
+      "promptTokens": 128,
+      "completionTokens": 46,
+      "text": "オーストラリアの首都は**キャンベラ**です。"
     },
     {
       "config": "avm",
@@ -1152,9 +1152,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1263,
-      "promptTokens": 90,
-      "completionTokens": 41,
+      "ms": 1293,
+      "promptTokens": 126,
+      "completionTokens": 59,
       "text": "ブラジルの首都は**ブラジリア**です。"
     },
     {
@@ -1164,9 +1164,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 922,
-      "promptTokens": 90,
-      "completionTokens": 24,
+      "ms": 1096,
+      "promptTokens": 124,
+      "completionTokens": 33,
       "text": "スイスの首都は**ベルン**です。"
     },
     {
@@ -1176,10 +1176,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1365,
-      "promptTokens": 96,
-      "completionTokens": 87,
-      "text": "最初の人工衛星は、**ソビエト連邦**が1957年10月4日に打ち上げた**スプートニク1号**です。"
+      "ms": 1167,
+      "promptTokens": 139,
+      "completionTokens": 83,
+      "text": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**です。  \n1957年にソビエト連邦によって打ち上げられ、地球周回軌道に投入されました。"
     },
     {
       "config": "avm",
@@ -1188,10 +1188,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1365,
-      "promptTokens": 97,
-      "completionTokens": 60,
-      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。"
+      "ms": 1359,
+      "promptTokens": 135,
+      "completionTokens": 83,
+      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です（1969年、アポロ11号）。"
     },
     {
       "config": "avm",
@@ -1200,10 +1200,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1161,
-      "promptTokens": 94,
-      "completionTokens": 70,
-      "text": "ハマダラカ（Anopheles属）です。"
+      "ms": 1097,
+      "promptTokens": 138,
+      "completionTokens": 63,
+      "text": "ハマダラカ（ハマダラカ属の蚊）です。"
     },
     {
       "config": "avm",
@@ -1212,10 +1212,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1737,
-      "promptTokens": 99,
-      "completionTokens": 103,
-      "text": "約 **365.25日**（1年）です。  \n厳密には約 **365日6時間9分10秒**（太陽年）ですが、暦では約365.25日として4年に一度うるう年を置いています。"
+      "ms": 1805,
+      "promptTokens": 139,
+      "completionTokens": 111,
+      "text": "地球が太陽の周りを一周するのにかかる日数は、**約365日（約1年）**です。\n\n正確には約 **365.25日** かかるため、4年に1度うるう年（366日）を設けて調整しています。"
     },
     {
       "config": "avm",
@@ -1224,9 +1224,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1130,
+      "ms": 1328,
       "promptTokens": 150,
-      "completionTokens": 62,
+      "completionTokens": 61,
       "text": "うるう年（閏年）と呼びます。"
     },
     {
@@ -1236,10 +1236,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2581,
-      "promptTokens": 96,
-      "completionTokens": 166,
-      "text": "イギリス（英国）です。\n\n1825年に、イギリスのストックトン・アンド・ダーリントン鉄道が世界で初めて蒸気機関車による公共鉄道として開通しました。"
+      "ms": 1319,
+      "promptTokens": 137,
+      "completionTokens": 83,
+      "text": "イギリスです。1825年にストックトン・アンド・ダーリントン鉄道が開通しました。"
     },
     {
       "config": "avm",
@@ -1248,9 +1248,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 953,
-      "promptTokens": 94,
-      "completionTokens": 47,
+      "ms": 1069,
+      "promptTokens": 128,
+      "completionTokens": 51,
       "text": "エジプトです。"
     },
     {
@@ -1260,9 +1260,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1210,
-      "promptTokens": 97,
-      "completionTokens": 44,
+      "ms": 1089,
+      "promptTokens": 135,
+      "completionTokens": 36,
       "text": "ペルーです。"
     },
     {
@@ -1272,9 +1272,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1234,
+      "ms": 1333,
       "promptTokens": 126,
-      "completionTokens": 71,
+      "completionTokens": 84,
       "text": "合計は **600円** です。"
     },
     {
@@ -1284,10 +1284,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1208,
+      "ms": 1034,
       "promptTokens": 107,
-      "completionTokens": 59,
-      "text": "総労働時間は **24時間** です。"
+      "completionTokens": 36,
+      "text": "24時間です。"
     },
     {
       "config": "executive",
@@ -1296,9 +1296,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1176,
+      "ms": 947,
       "promptTokens": 105,
-      "completionTokens": 31,
+      "completionTokens": 30,
       "text": "女子は **12人** です。"
     },
     {
@@ -1308,9 +1308,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1106,
+      "ms": 1092,
       "promptTokens": 103,
-      "completionTokens": 35,
+      "completionTokens": 36,
       "text": "150 km"
     },
     {
@@ -1320,10 +1320,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3434,
+      "ms": 967,
       "promptTokens": 110,
-      "completionTokens": 30,
-      "text": "2000円です。"
+      "completionTokens": 28,
+      "text": "2000円"
     },
     {
       "config": "executive",
@@ -1332,10 +1332,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1161,
+      "ms": 1068,
       "promptTokens": 104,
-      "completionTokens": 47,
-      "text": "年間勉強時間は **520時間** です。"
+      "completionTokens": 35,
+      "text": "年間 **520時間** です。"
     },
     {
       "config": "executive",
@@ -1344,10 +1344,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3209,
+      "ms": 3085,
       "promptTokens": 104,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. User asks: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Means \"In ArcAsha, which expert handles mathema"
+      "text": "We need answer in Japanese. User asks: \"In ArcAsha, which expert handles mathematical formula processing?\" Need know ArcAsha? Maybe \"ArcAsha\" is a system? Need infer. Could be \"ArcAsha\" as in \"Arc-Asha\" maybe a multi-agent framework? Need answer based on knowledge. Let's parse: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Means \"In ArcAsha, which expert is in charge of formula processing?\" Possibly ArcAsha is a platform with expert roles. Need know specifics.\n\nWe need think. ArcAsha? Could be \"ArcAsha\" from Meta? Maybe \"ArchAsha\" AI? Let's search memory. I recall \"ArcAsha\" is an open-source project? Maybe a question from Japanese about \"Dify\" or \"Flowise\"? Hmm.\n\nAlternatively, \"ArcAsha\" might be a misspelling of \"Arcadia\" or \"Arc AI\"? Let's investigate from memory.\n\nNo internet. Need derive. \"ArcAsha\" sounds like \"Arc + Asha\" maybe \"astha\"? Could be \"ArcAsha\" is a multi-agent system from Japanese"
     },
     {
       "config": "executive",
@@ -1356,10 +1356,10 @@
       "ok": 3,
       "verified": 1,
       "runs": 3,
-      "ms": 3047,
+      "ms": 3434,
       "promptTokens": 106,
       "completionTokens": 256,
-      "text": "We need answer in Japanese. Need address DeepSeek V4? Actually DeepSeek V4 maybe not exist? User asks: \"DeepSeek V4 で、ma"
+      "text": "DeepSeek V4（または DeepSeek の推論系モデル）で `max_tokens` を小さくすると回答が空になる原因は、主に以下の通りです。\n\n## 1. 推論（思考）トークンが上限"
     },
     {
       "config": "executive",
@@ -1368,10 +1368,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1526,
+      "ms": 1275,
       "promptTokens": 95,
-      "completionTokens": 71,
-      "text": "アムステルダムは**オランダ**（正式名称：オランダ王国）の首都です。"
+      "completionTokens": 54,
+      "text": "アムステルダムは**オランダ**（正式国名：オランダ王国）の首都です。"
     },
     {
       "config": "executive",
@@ -1380,9 +1380,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1195,
+      "ms": 956,
       "promptTokens": 94,
-      "completionTokens": 45,
+      "completionTokens": 46,
       "text": "富士山の標高は **3,776メートル** です。"
     },
     {
@@ -1390,12 +1390,12 @@
       "taskId": "k5",
       "category": "knowledge",
       "ok": 3,
-      "verified": 2,
+      "verified": 3,
       "runs": 3,
-      "ms": 2320,
+      "ms": 2529,
       "promptTokens": 99,
-      "completionTokens": 155,
-      "text": "ラマン分光法は、物質中の**分子振動（原子の振動）**や**回転**、結晶では**格子振動（フォノン）**を観測する手法です。これにより、分子構造や化学結合、結晶性、相転移、ひずみなどの情報が得られます。"
+      "completionTokens": 173,
+      "text": "ラマン分光法は、物質に光を当てたときの**非弾性散乱光（ラマン散乱光）**を観測し、物質の**分子振動・回転（フォノン）のエネルギー準位**を調べる手法です。\n\nこれにより、分子の**化学結合や構造、結晶性、相（状態）、ひずみ**などの情報が得られます。"
     },
     {
       "config": "executive",
@@ -1404,10 +1404,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1878,
+      "ms": 2215,
       "promptTokens": 97,
-      "completionTokens": 121,
-      "text": "約8分20秒（平均）です。太陽と地球の距離は約1億4960万kmで、光速（秒速約30万km）で割ると、だいたい499秒になります。"
+      "completionTokens": 138,
+      "text": "光が太陽から地球まで届くのにかかる時間は、**約8分20秒**です。\n\n太陽と地球の平均距離は約1億4960万kmで、光の速さは秒速約30万kmなので、\n\n**1億4960万km ÷ 30万km/秒 ≈ 499秒 ≈ 8分20秒**\n\nとなります。  \n地球が太陽のまわりを楕円軌道で回っているため、実際には約8分10秒〜8分30秒ほど変わります。"
     },
     {
       "config": "executive",
@@ -1416,9 +1416,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 750,
+      "ms": 819,
       "promptTokens": 95,
-      "completionTokens": 21,
+      "completionTokens": 23,
       "text": "56 です。"
     },
     {
@@ -1428,10 +1428,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3038,
+      "ms": 1465,
       "promptTokens": 110,
-      "completionTokens": 29,
-      "text": "支払額は **3400円** です。"
+      "completionTokens": 55,
+      "text": "15%引きなので、定価の85%を支払います。\n\n4000円 × 0.85 = 3400円\n\n**支払額は 3400円 です。**"
     },
     {
       "config": "executive",
@@ -1440,7 +1440,7 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1133,
+      "ms": 959,
       "promptTokens": 98,
       "completionTokens": 40,
       "text": "3.5キロメートルは **3500メートル** です。"
@@ -1452,9 +1452,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2491,
+      "ms": 1099,
       "promptTokens": 93,
-      "completionTokens": 26,
+      "completionTokens": 36,
       "text": "三角形の内角の和は **180度** です。"
     },
     {
@@ -1464,9 +1464,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 985,
+      "ms": 842,
       "promptTokens": 94,
-      "completionTokens": 31,
+      "completionTokens": 28,
       "text": "2 の 10 乗は **1024** です。"
     },
     {
@@ -1476,9 +1476,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 922,
+      "ms": 881,
       "promptTokens": 101,
-      "completionTokens": 32,
+      "completionTokens": 33,
       "text": "5ダースは **60個** です。"
     },
     {
@@ -1488,10 +1488,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3636,
+      "ms": 1239,
       "promptTokens": 110,
-      "completionTokens": 41,
-      "text": "700円"
+      "completionTokens": 35,
+      "text": "700円です。"
     },
     {
       "config": "executive",
@@ -1500,10 +1500,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1379,
+      "ms": 1161,
       "promptTokens": 102,
-      "completionTokens": 51,
-      "text": "時速50kmで2時間走ったので、\n\n距離 = 速さ × 時間 = 50 × 2 = **100km**\n\n答え：**100km**"
+      "completionTokens": 33,
+      "text": "100 km"
     },
     {
       "config": "executive",
@@ -1512,10 +1512,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1687,
+      "ms": 1446,
       "promptTokens": 107,
-      "completionTokens": 135,
-      "text": "最小の偶数を \\(x\\) とすると、\n\n\\[\nx + (x+2) + (x+4) = 30\n\\]\n\n\\[\n3x + 6 = 30\n\\]\n\n\\[\n3x = 24\n\\]\n\n\\[\nx = 8\n\\]\n\n答え：**8**"
+      "completionTokens": 122,
+      "text": "最小の偶数を \\(x\\) とすると、\n\n\\[\nx+(x+2)+(x+4)=30\n\\]\n\n\\[\n3x+6=30\n\\]\n\n\\[\n3x=24\n\\]\n\n\\[\nx=8\n\\]\n\n答え：**8**"
     },
     {
       "config": "executive",
@@ -1524,9 +1524,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 976,
+      "ms": 944,
       "promptTokens": 91,
-      "completionTokens": 43,
+      "completionTokens": 35,
       "text": "1週間は **168時間** です。"
     },
     {
@@ -1536,9 +1536,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1263,
+      "ms": 1023,
       "promptTokens": 95,
-      "completionTokens": 53,
+      "completionTokens": 51,
       "text": "五角形の内角の和は **540度** です。"
     },
     {
@@ -1548,9 +1548,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 970,
+      "ms": 1009,
       "promptTokens": 95,
-      "completionTokens": 31,
+      "completionTokens": 36,
       "text": "0.25 です。"
     },
     {
@@ -1560,9 +1560,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 878,
+      "ms": 1004,
       "promptTokens": 97,
-      "completionTokens": 40,
+      "completionTokens": 42,
       "text": "平均は **8** です。"
     },
     {
@@ -1572,10 +1572,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3296,
+      "ms": 1331,
       "promptTokens": 111,
-      "completionTokens": 68,
-      "text": "斜辺の長さは **5cm** です。  \n\n（3² + 4² = 9 + 16 = 25 → √25 = 5）"
+      "completionTokens": 73,
+      "text": "斜辺の長さは **5cm** です。  \n（3² + 4² = 9 + 16 = 25、√25 = 5）"
     },
     {
       "config": "executive",
@@ -1584,10 +1584,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1342,
+      "ms": 1167,
       "promptTokens": 88,
-      "completionTokens": 50,
-      "text": "日本の首都は東京です。"
+      "completionTokens": 45,
+      "text": "日本の首都は**東京**です。"
     },
     {
       "config": "executive",
@@ -1596,10 +1596,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1229,
+      "ms": 1441,
       "promptTokens": 96,
-      "completionTokens": 61,
-      "text": "ヒマラヤ山脈（ヒマラヤ山系）です。"
+      "completionTokens": 64,
+      "text": "ヒマラヤ山脈（ヒマラヤさんみゃく）です。"
     },
     {
       "config": "executive",
@@ -1608,10 +1608,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1059,
+      "ms": 1046,
       "promptTokens": 93,
-      "completionTokens": 35,
-      "text": "木星です。"
+      "completionTokens": 43,
+      "text": "太陽系で最も大きい惑星は**木星（Jupiter）**です。"
     },
     {
       "config": "executive",
@@ -1620,10 +1620,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1331,
+      "ms": 1465,
       "promptTokens": 93,
-      "completionTokens": 84,
-      "text": "アメリカ合衆国の通貨の単位は **ドル（USドル）** です。補助単位は **セント** で、1ドル = 100セントです。"
+      "completionTokens": 92,
+      "text": "アメリカ合衆国の通貨の単位は **ドル（Dollar）** です。  \n補助単位は **セント（Cent）** です。  \n通貨コードは **USD** です。"
     },
     {
       "config": "executive",
@@ -1632,10 +1632,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
+      "ms": 1163,
       "promptTokens": 93,
-      "completionTokens": 60,
-      "text": "面積が世界で最も大きい国は**ロシア**です。"
+      "completionTokens": 48,
+      "text": "ロシアです。"
     },
     {
       "config": "executive",
@@ -1644,10 +1644,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1024,
+      "ms": 1224,
       "promptTokens": 93,
-      "completionTokens": 35,
-      "text": "元素記号 Pb は「鉛（なまり）」です。英語名は lead です。"
+      "completionTokens": 43,
+      "text": "Pb（元素記号）は「鉛（なまり）」です。英語名は lead です。"
     },
     {
       "config": "executive",
@@ -1656,10 +1656,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1024,
+      "ms": 923,
       "promptTokens": 94,
       "completionTokens": 37,
-      "text": "スペインです。"
+      "text": "ピカソは**スペイン**で生まれました。"
     },
     {
       "config": "executive",
@@ -1668,10 +1668,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1297,
+      "ms": 1316,
       "promptTokens": 97,
-      "completionTokens": 71,
-      "text": "ドイツ（現在のドイツ・ボン）です。"
+      "completionTokens": 60,
+      "text": "ドイツです。"
     },
     {
       "config": "executive",
@@ -1680,10 +1680,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 922,
+      "ms": 1004,
       "promptTokens": 96,
-      "completionTokens": 30,
-      "text": "ナイル川は**地中海**に流れ込んでいます。"
+      "completionTokens": 32,
+      "text": "ナイル川は**地中海**に流れ込みます。"
     },
     {
       "config": "executive",
@@ -1692,10 +1692,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1057,
+      "ms": 1182,
       "promptTokens": 101,
-      "completionTokens": 34,
-      "text": "イタリア（ピサ）です。"
+      "completionTokens": 39,
+      "text": "イタリアです。"
     },
     {
       "config": "executive",
@@ -1704,10 +1704,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1332,
+      "ms": 1584,
       "promptTokens": 92,
-      "completionTokens": 76,
-      "text": "世界で最も深い海溝は**マリアナ海溝**です。その最深部は**チャレンジャー海淵**（約10,920m）とされています。"
+      "completionTokens": 80,
+      "text": "世界で最も深い海溝は、**マリアナ海溝**（マリアナ諸島の東）です。その最深部は**チャレンジャー海淵**で、深さは約 **10,920メートル**（測定によって約10,994メートル）とされています。"
     },
     {
       "config": "executive",
@@ -1716,10 +1716,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2526,
+      "ms": 1452,
       "promptTokens": 92,
-      "completionTokens": 76,
-      "text": "ハチミツを作る昆虫は **ミツバチ（蜜蜂）** です。"
+      "completionTokens": 67,
+      "text": "ハチミツを作る昆虫は**ミツバチ**です。"
     },
     {
       "config": "executive",
@@ -1728,10 +1728,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1126,
+      "ms": 978,
       "promptTokens": 91,
-      "completionTokens": 35,
-      "text": "カナダの首都は**オタワ（Ottawa）**です。"
+      "completionTokens": 27,
+      "text": "カナダの首都は **オタワ（Ottawa）** です。"
     },
     {
       "config": "executive",
@@ -1740,9 +1740,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 955,
+      "ms": 936,
       "promptTokens": 93,
-      "completionTokens": 39,
+      "completionTokens": 33,
       "text": "オーストラリアの首都は**キャンベラ（Canberra）**です。"
     },
     {
@@ -1752,10 +1752,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 888,
+      "ms": 1155,
       "promptTokens": 90,
       "completionTokens": 40,
-      "text": "ブラジルの首都は**ブラジリア**です。"
+      "text": "ブラジルの首都は**ブラジリア**（Brasília）です。"
     },
     {
       "config": "executive",
@@ -1764,9 +1764,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
+      "ms": 913,
       "promptTokens": 90,
-      "completionTokens": 29,
+      "completionTokens": 26,
       "text": "スイスの首都は**ベルン**です。"
     },
     {
@@ -1776,10 +1776,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1400,
+      "ms": 2074,
       "promptTokens": 96,
-      "completionTokens": 89,
-      "text": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**（Спутник-1）です。\n\n1957年10月4日に、ソビエト連邦によって打ち上げられました。"
+      "completionTokens": 79,
+      "text": "人類が打ち上げた最初の人工衛星は、**ソビエト連邦（現ロシア）の「スプートニク1号」**です。  \n1957年10月4日に打ち上げられました。"
     },
     {
       "config": "executive",
@@ -1788,10 +1788,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1877,
+      "ms": 1566,
       "promptTokens": 97,
-      "completionTokens": 107,
-      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。  \n（1969年7月20日、アポロ11号の月面着陸の際に「ひとつの小さな一歩」の名言でも知られています。）"
+      "completionTokens": 82,
+      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。\n\n（アポロ11号、1969年7月20日）"
     },
     {
       "config": "executive",
@@ -1800,10 +1800,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1331,
+      "ms": 1803,
       "promptTokens": 94,
-      "completionTokens": 63,
-      "text": "ハマダラカ（Anopheles属）です。"
+      "completionTokens": 88,
+      "text": "ハマダラカ（Anopheles属の蚊）です。"
     },
     {
       "config": "executive",
@@ -1812,10 +1812,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1672,
+      "ms": 1386,
       "promptTokens": 99,
-      "completionTokens": 108,
-      "text": "約365.25日です（正確には約365.2422日）。"
+      "completionTokens": 72,
+      "text": "約365.25日（365日と約6時間）です。"
     },
     {
       "config": "executive",
@@ -1824,10 +1824,10 @@
       "ok": 3,
       "verified": 2,
       "runs": 3,
-      "ms": 1399,
+      "ms": 1304,
       "promptTokens": 98,
       "completionTokens": 70,
-      "text": "閏年（うるう年）と呼びます。"
+      "text": "閏年（うるうどし）と呼びます。"
     },
     {
       "config": "executive",
@@ -1836,10 +1836,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2291,
+      "ms": 2146,
       "promptTokens": 96,
-      "completionTokens": 148,
-      "text": "イギリス（英国）です。  \n1825年にストックトン・アンド・ダーリントン鉄道が世界で初めて蒸気機関車による公共鉄道として開通しました。"
+      "completionTokens": 141,
+      "text": "世界で最初に鉄道が開通した国は、**イギリス**です。  \n1825年に「ストックトン・アンド・ダーリントン鉄道」が開通しました。"
     },
     {
       "config": "executive",
@@ -1848,9 +1848,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 985,
+      "ms": 1147,
       "promptTokens": 94,
-      "completionTokens": 50,
+      "completionTokens": 48,
       "text": "エジプトです。"
     },
     {
@@ -1860,9 +1860,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1042,
+      "ms": 1163,
       "promptTokens": 97,
-      "completionTokens": 50,
+      "completionTokens": 54,
       "text": "ペルーです。"
     },
     {
@@ -1872,10 +1872,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1245,
+      "ms": 1668,
       "promptTokens": 126,
-      "completionTokens": 70,
-      "text": "合計は **600円** です。  \n（バナナ 3×100=300円、りんご 2×150=300円）"
+      "completionTokens": 57,
+      "text": "合計は **600円** です。"
     },
     {
       "config": "full",
@@ -1884,10 +1884,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1263,
+      "ms": 1981,
       "promptTokens": 107,
-      "completionTokens": 47,
-      "text": "総労働時間は **24時間** です。"
+      "completionTokens": 60,
+      "text": "24時間です。"
     },
     {
       "config": "full",
@@ -1896,9 +1896,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1054,
+      "ms": 1569,
       "promptTokens": 105,
-      "completionTokens": 28,
+      "completionTokens": 29,
       "text": "女子は **12人** です。"
     },
     {
@@ -1908,10 +1908,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1318,
+      "ms": 1609,
       "promptTokens": 103,
-      "completionTokens": 59,
-      "text": "時速60kmで2時間半（2.5時間）走ったので、\n\n距離 = 時速 × 時間 = 60 × 2.5 = 150km\n\n**答え：150km**"
+      "completionTokens": 48,
+      "text": "150 km"
     },
     {
       "config": "full",
@@ -1920,9 +1920,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2361,
+      "ms": 1526,
       "promptTokens": 110,
-      "completionTokens": 28,
+      "completionTokens": 43,
       "text": "2000円"
     },
     {
@@ -1932,10 +1932,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1395,
+      "ms": 1917,
       "promptTokens": 104,
-      "completionTokens": 72,
-      "text": "年間 **520時間** です。"
+      "completionTokens": 61,
+      "text": "1年は52週、毎週10時間勉強すると：\n\n**52週 × 10時間 = 520時間**\n\n年間 **520時間** です。"
     },
     {
       "config": "full",
@@ -1944,22 +1944,22 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2644,
-      "promptTokens": 148,
-      "completionTokens": 256,
-      "text": "We need answer in Japanese. Need understand question: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" with reference knowledge: \"ArcAs"
+      "ms": 1825,
+      "promptTokens": 188,
+      "completionTokens": 96,
+      "text": "数式の処理は **math エキスパート** が担当します。"
     },
     {
       "config": "full",
       "taskId": "k2",
       "category": "knowledge",
       "ok": 3,
-      "verified": 2,
+      "verified": 3,
       "runs": 3,
-      "ms": 2876,
+      "ms": 3430,
       "promptTokens": 176,
       "completionTokens": 256,
-      "text": "DeepSeek V4 は推論モデル（Reasoning Model）のため、応答が以下の2つに分かれます。\n\n- `reasoning_content`：内部の思考・推論プロセス\n- `content`：最終的な回答\n\n`max_toke"
+      "text": "DeepSeek V4 のような推論モデルでは、応答が以下の2つに分離されます。\n\n- **reasoning_content**：思考・推論プロセスのトークン\n- **content**：最終的な回答トークン\n\n`max_tokens`（または `max_completion_tokens`）は、**reasoning_content と content の"
     },
     {
       "config": "full",
@@ -1968,10 +1968,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1054,
-      "promptTokens": 95,
-      "completionTokens": 45,
-      "text": "アムステルダムは**オランダ**（正式にはオランダ王国）の首都です。"
+      "ms": 1298,
+      "promptTokens": 144,
+      "completionTokens": 59,
+      "text": "アムステルダムは**オランダ**の首都です。"
     },
     {
       "config": "full",
@@ -1980,22 +1980,22 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1129,
-      "promptTokens": 94,
-      "completionTokens": 34,
-      "text": "富士山の標高は **3,776メートル** です。"
+      "ms": 1127,
+      "promptTokens": 140,
+      "completionTokens": 51,
+      "text": "富士山の標高は **3776メートル** です。日本一高い山で、山梨県と静岡県にまたがっています。"
     },
     {
       "config": "full",
       "taskId": "k5",
       "category": "knowledge",
       "ok": 3,
-      "verified": 2,
+      "verified": 3,
       "runs": 3,
-      "ms": 2083,
-      "promptTokens": 99,
-      "completionTokens": 148,
-      "text": "ラマン分光法は、物質に光を当てたときの**非弾性散乱光（ラマン散乱）**を観測し、分子の**振動**・**回転**などの情報を得る手法です。これにより、分子の結合状態や結晶構造、物質の同定などを調べることができます。"
+      "ms": 1974,
+      "promptTokens": 157,
+      "completionTokens": 150,
+      "text": "ラマン分光法は、物質の**分子振動（格子振動）**を観測する手法です。レーザー光の非弾性散乱（ラマン散乱）を測定することで、物質の同定や構造・状態解析などに利用されます。"
     },
     {
       "config": "full",
@@ -2004,10 +2004,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1870,
-      "promptTokens": 97,
-      "completionTokens": 121,
-      "text": "約8分19秒です。光は太陽から地球まで、平均で約1億4960万kmの距離を進みます。"
+      "ms": 2051,
+      "promptTokens": 151,
+      "completionTokens": 133,
+      "text": "光が太陽から地球まで届くのにかかる時間は、**約8分20秒**です。\n\n正確には、太陽と地球の平均距離（約1億4960万km）を光速（秒速約30万km）で割ると、**約499秒 = 約8分19秒**になります。"
     },
     {
       "config": "full",
@@ -2016,9 +2016,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 931,
+      "ms": 894,
       "promptTokens": 95,
-      "completionTokens": 20,
+      "completionTokens": 31,
       "text": "56 です。"
     },
     {
@@ -2028,9 +2028,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2936,
+      "ms": 1052,
       "promptTokens": 110,
-      "completionTokens": 34,
+      "completionTokens": 31,
       "text": "支払額は **3400円** です。"
     },
     {
@@ -2040,7 +2040,7 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1058,
+      "ms": 1046,
       "promptTokens": 98,
       "completionTokens": 40,
       "text": "3.5キロメートルは **3500メートル** です。"
@@ -2052,10 +2052,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2492,
+      "ms": 1069,
       "promptTokens": 93,
-      "completionTokens": 25,
-      "text": "180度です。"
+      "completionTokens": 31,
+      "text": "三角形の内角の和は **180度** です。"
     },
     {
       "config": "full",
@@ -2076,10 +2076,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
+      "ms": 990,
       "promptTokens": 101,
-      "completionTokens": 33,
-      "text": "5ダースは **60個** です。"
+      "completionTokens": 34,
+      "text": "60個です。"
     },
     {
       "config": "full",
@@ -2088,10 +2088,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2868,
+      "ms": 1570,
       "promptTokens": 110,
-      "completionTokens": 43,
-      "text": "700円です。"
+      "completionTokens": 44,
+      "text": "700円"
     },
     {
       "config": "full",
@@ -2100,10 +2100,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 955,
+      "ms": 1673,
       "promptTokens": 102,
-      "completionTokens": 42,
-      "text": "時速50km × 2時間 = **100km**"
+      "completionTokens": 28,
+      "text": "100 km"
     },
     {
       "config": "full",
@@ -2112,10 +2112,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1652,
+      "ms": 2048,
       "promptTokens": 107,
-      "completionTokens": 112,
-      "text": "最小の偶数は **8** です。\n\n（8＋10＋12＝30）"
+      "completionTokens": 84,
+      "text": "最小の偶数は **8** です。\n\n（8 + 10 + 12 = 30）"
     },
     {
       "config": "full",
@@ -2124,9 +2124,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 977,
+      "ms": 1808,
       "promptTokens": 91,
-      "completionTokens": 43,
+      "completionTokens": 42,
       "text": "1週間は **168時間** です。"
     },
     {
@@ -2136,9 +2136,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1296,
+      "ms": 1621,
       "promptTokens": 95,
-      "completionTokens": 50,
+      "completionTokens": 58,
       "text": "五角形の内角の和は **540度** です。"
     },
     {
@@ -2148,10 +2148,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 990,
+      "ms": 1650,
       "promptTokens": 95,
-      "completionTokens": 32,
-      "text": "25% を小数で表すと **0.25** です。"
+      "completionTokens": 51,
+      "text": "0.25 です。"
     },
     {
       "config": "full",
@@ -2160,10 +2160,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1058,
+      "ms": 1473,
       "promptTokens": 97,
-      "completionTokens": 38,
-      "text": "平均は **8** です。"
+      "completionTokens": 41,
+      "text": "8 です。"
     },
     {
       "config": "full",
@@ -2172,10 +2172,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 3618,
+      "ms": 1404,
       "promptTokens": 111,
-      "completionTokens": 88,
-      "text": "斜辺の長さは **5cm** です。  \n\n（三平方の定理：\\(\\sqrt{3^2+4^2}=\\sqrt{9+16}=\\sqrt{25}=5\\)）"
+      "completionTokens": 66,
+      "text": "斜辺の長さは **5cm** です。  \n（三平方の定理：\\(3^2 + 4^2 = 9 + 16 = 25 = 5^2\\)）"
     },
     {
       "config": "full",
@@ -2184,10 +2184,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
-      "promptTokens": 88,
-      "completionTokens": 54,
-      "text": "日本の首都は**東京都**です。"
+      "ms": 962,
+      "promptTokens": 127,
+      "completionTokens": 28,
+      "text": "日本の首都は**東京**（東京都）です。"
     },
     {
       "config": "full",
@@ -2196,10 +2196,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1196,
-      "promptTokens": 96,
-      "completionTokens": 67,
-      "text": "ヒマラヤ山脈（ヒマラヤ山系）です。"
+      "ms": 1286,
+      "promptTokens": 141,
+      "completionTokens": 59,
+      "text": "ヒマラヤ山脈です。"
     },
     {
       "config": "full",
@@ -2208,10 +2208,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 784,
-      "promptTokens": 93,
-      "completionTokens": 40,
-      "text": "太陽系で最も大きい惑星は **木星（Jupiter）** です。"
+      "ms": 1072,
+      "promptTokens": 130,
+      "completionTokens": 38,
+      "text": "太陽系で最も大きい惑星は**木星（Jupiter）**です。"
     },
     {
       "config": "full",
@@ -2220,10 +2220,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1468,
-      "promptTokens": 93,
-      "completionTokens": 81,
-      "text": "アメリカ合衆国の通貨の単位は **ドル（Dollar）** です。補助単位として **セント（Cent）** があります（1ドル = 100セント）。"
+      "ms": 1420,
+      "promptTokens": 130,
+      "completionTokens": 86,
+      "text": "アメリカ合衆国の通貨の単位は **USドル（アメリカ・ドル）** です。補助単位は **セント** で、1ドル = 100セントです。"
     },
     {
       "config": "full",
@@ -2232,9 +2232,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1501,
-      "promptTokens": 93,
-      "completionTokens": 53,
+      "ms": 1123,
+      "promptTokens": 130,
+      "completionTokens": 41,
       "text": "面積が世界で最も大きい国は**ロシア**です。"
     },
     {
@@ -2244,10 +2244,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1698,
+      "ms": 1436,
       "promptTokens": 136,
-      "completionTokens": 63,
-      "text": "元素記号 **Pb** は **鉛（なまり）** です。  \nラテン語の **plumbum** に由来します。"
+      "completionTokens": 70,
+      "text": "元素記号 **Pb** は **鉛（なまり）** という元素です。  \nラテン語の **plumbum（プルンブム）** に由来します。"
     },
     {
       "config": "full",
@@ -2256,10 +2256,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1170,
-      "promptTokens": 94,
-      "completionTokens": 37,
-      "text": "スペインです。"
+      "ms": 1196,
+      "promptTokens": 135,
+      "completionTokens": 39,
+      "text": "スペイン（マラガ）です。"
     },
     {
       "config": "full",
@@ -2268,10 +2268,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1468,
-      "promptTokens": 97,
-      "completionTokens": 68,
-      "text": "ドイツ（現在のドイツ・ボン）です。"
+      "ms": 1022,
+      "promptTokens": 146,
+      "completionTokens": 43,
+      "text": "ドイツです。"
     },
     {
       "config": "full",
@@ -2280,10 +2280,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 956,
-      "promptTokens": 96,
-      "completionTokens": 41,
-      "text": "地中海に流れ込みます。"
+      "ms": 1034,
+      "promptTokens": 134,
+      "completionTokens": 39,
+      "text": "地中海に流れ込む。"
     },
     {
       "config": "full",
@@ -2292,9 +2292,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1024,
-      "promptTokens": 101,
-      "completionTokens": 30,
+      "ms": 1115,
+      "promptTokens": 143,
+      "completionTokens": 53,
       "text": "イタリアです。"
     },
     {
@@ -2304,10 +2304,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1570,
-      "promptTokens": 92,
-      "completionTokens": 87,
-      "text": "世界で最も深い海溝は**マリアナ海溝**です。その最深部は**チャレンジャー海淵**（約10,920m）とされています。"
+      "ms": 1571,
+      "promptTokens": 136,
+      "completionTokens": 92,
+      "text": "世界で最も深い海溝は**マリアナ海溝**です。その最深部は**チャレンジャー海淵**と呼ばれ、深さは約**1万1000メートル**です。"
     },
     {
       "config": "full",
@@ -2316,10 +2316,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2696,
-      "promptTokens": 92,
-      "completionTokens": 72,
-      "text": "ミツバチ（蜜蜂）です。"
+      "ms": 2261,
+      "promptTokens": 125,
+      "completionTokens": 133,
+      "text": "ハチミツを作る昆虫は**ミツバチ（蜜蜂）**です。  \n花の蜜を集めて巣の中に蓄え、ハチミツに変えます。社会性の昆虫で、養蜂の対象にもなります。"
     },
     {
       "config": "full",
@@ -2328,10 +2328,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 955,
-      "promptTokens": 91,
-      "completionTokens": 30,
-      "text": "カナダの首都は**オタワ（Ottawa）**です。"
+      "ms": 1220,
+      "promptTokens": 126,
+      "completionTokens": 40,
+      "text": "カナダの首都は**オタワ**です。オンタリオ州にあります。"
     },
     {
       "config": "full",
@@ -2340,10 +2340,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1092,
-      "promptTokens": 93,
-      "completionTokens": 36,
-      "text": "オーストラリアの首都は**キャンベラ（Canberra）**です。"
+      "ms": 1229,
+      "promptTokens": 128,
+      "completionTokens": 47,
+      "text": "オーストラリアの首都は**キャンベラ**です。"
     },
     {
       "config": "full",
@@ -2352,10 +2352,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 956,
-      "promptTokens": 90,
-      "completionTokens": 31,
-      "text": "ブラジルの首都は**ブラジリア**です。"
+      "ms": 1126,
+      "promptTokens": 126,
+      "completionTokens": 40,
+      "text": "ブラジルの首都は**ブラジリア**です。\n\n1960年に内陸部へ遷都された計画都市で、最大都市は**サンパウロ**です。"
     },
     {
       "config": "full",
@@ -2364,10 +2364,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 923,
-      "promptTokens": 90,
-      "completionTokens": 27,
-      "text": "スイスの首都は**ベルン（Bern）**です。"
+      "ms": 1201,
+      "promptTokens": 124,
+      "completionTokens": 30,
+      "text": "スイスの首都は**ベルン**です。"
     },
     {
       "config": "full",
@@ -2376,10 +2376,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1501,
-      "promptTokens": 96,
-      "completionTokens": 80,
-      "text": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**（Sputnik 1）です。\n\n1957年10月4日、ソビエト連邦によって打ち上げられました。"
+      "ms": 1580,
+      "promptTokens": 139,
+      "completionTokens": 89,
+      "text": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**です。  \n1957年にソビエト連邦によって打ち上げられました。"
     },
     {
       "config": "full",
@@ -2388,10 +2388,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1741,
-      "promptTokens": 97,
-      "completionTokens": 122,
-      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。\n\n1969年7月20日、アポロ11号の月面着陸の際に、彼は「これは一人の人間にとっては小さな一歩だが、人類にとっては大きな飛躍である」という名言を残しました。"
+      "ms": 1139,
+      "promptTokens": 135,
+      "completionTokens": 71,
+      "text": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。  \n1969年、アポロ11号のミッションで月面に降り立ちました。"
     },
     {
       "config": "full",
@@ -2400,10 +2400,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1434,
-      "promptTokens": 94,
-      "completionTokens": 72,
-      "text": "ハマダラカ（Anopheles属の蚊）です。"
+      "ms": 1121,
+      "promptTokens": 138,
+      "completionTokens": 63,
+      "text": "ハマダラカ（ハマダラカ属の蚊）です。"
     },
     {
       "config": "full",
@@ -2412,10 +2412,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1787,
-      "promptTokens": 99,
-      "completionTokens": 108,
-      "text": "約365.25日（365日と約6時間）です。"
+      "ms": 1348,
+      "promptTokens": 139,
+      "completionTokens": 96,
+      "text": "地球が太陽の周りを一周するのにかかる日数は、**約365日**です。\n\n正確には約**365.25日**なので、4年に1度「うるう年」を設けて調整しています。"
     },
     {
       "config": "full",
@@ -2424,9 +2424,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1421,
+      "ms": 1867,
       "promptTokens": 150,
-      "completionTokens": 64,
+      "completionTokens": 116,
       "text": "うるう年（閏年）と呼びます。"
     },
     {
@@ -2436,10 +2436,10 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 2151,
-      "promptTokens": 96,
-      "completionTokens": 143,
-      "text": "世界で最初に鉄道が開通した国は、**イギリス（イングランド）**です。\n\n1825年に、イギリスのストックトン・アンド・ダーリントン鉄道が、蒸気機関車を使って開通しました。これが世界初の旅客・貨物を運ぶ鉄道とされています。"
+      "ms": 1303,
+      "promptTokens": 137,
+      "completionTokens": 67,
+      "text": "イギリスです。  \n1825年にストックトン・アンド・ダーリントン鉄道が開通しました。"
     },
     {
       "config": "full",
@@ -2448,9 +2448,9 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 990,
-      "promptTokens": 94,
-      "completionTokens": 47,
+      "ms": 1024,
+      "promptTokens": 128,
+      "completionTokens": 51,
       "text": "エジプトです。"
     },
     {
@@ -2460,18 +2460,18 @@
       "ok": 3,
       "verified": 3,
       "runs": 3,
-      "ms": 1055,
-      "promptTokens": 97,
-      "completionTokens": 50,
-      "text": "世界遺産マチュ・ピチュがある国は、**ペルー**です。"
+      "ms": 1168,
+      "promptTokens": 135,
+      "completionTokens": 40,
+      "text": "ペルーです。"
     }
   ],
   "stats": {
     "mcnemarAvm": {
-      "n": 3,
-      "b": 3,
+      "n": 2,
+      "b": 2,
       "c": 0,
-      "pValue": 0.25000000000000006,
+      "pValue": 0.5,
       "significant": false
     }
   },

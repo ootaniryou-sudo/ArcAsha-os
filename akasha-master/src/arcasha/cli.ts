@@ -46,6 +46,18 @@ export async function runCli(argv: string[]): Promise<string> {
       console.log(text);
       return 'arcasha apiparallel-aios: done（kind=real-api・aiosExecute 経由並列）';
     }
+    case 'ablation-exec': {
+      // Phase 4.4: Executive（aiosExecute）のボトルネック計測（モデル呼び出し回数 / TS オーバーヘッドの分離）
+      const { runAblationExec, renderAblationExec, writeAblationExecReport } = await import('./bench/ablation-exec.js');
+      const r = await runAblationExec({ verbose: argv[1] === 'verbose' });
+      console.log(renderAblationExec(r));
+      const jsonPath = await writeAblationExecReport(r);
+      const anyOk = r.perTask.some((p) => p.ok);
+      if (!anyOk) {
+        throw new Error(`ablation-exec: 全タスクが API エラー／空応答でした（report: ${jsonPath}）`);
+      }
+      return `arcasha ablation-exec: done（kind=real-api・Executive ボトルネック計測・report: ${jsonPath}）`;
+    }
     case 'ablation-long': {
       // Phase 4.2: 長文コンテキストでの AVM 効果（全文供給 vs 関連ページのみ供給）を実測
       const { runAblationLong, renderAblationLong, writeAblationLongReport } = await import('./bench/ablation-long.js');
@@ -142,6 +154,7 @@ export async function runCli(argv: string[]): Promise<string> {
         '  metaos50        DeepSeek × N 体（既定 50）を N 並列で Meta OS 経由駆動し V1..V6 を検証（reports/metaos50/）',
         '  ablation        Phase 4: 50 問（quick で 12 問）・同一モデルで Baseline / +AVM / +Executive / Full を比較し McNemar 検定（reports/ablation/）',
         '  ablation-long   Phase 4.2: 長文コンテキストで AVM の効果（全文供給 vs 関連ページのみ供給）を実測（reports/ablation-long/）',
+        '  ablation-exec   Phase 4.4: Executive（aiosExecute）のボトルネック計測（モデル呼び出し回数 / TS オーバーヘッドを分離・reports/ablation-exec/）',
         '  policy      OS ポリシー学習デモ（Decision Explanation を学習データにして Meta Executive のポリシーを更新）',
         '  hierarchy   Hierarchy Runtime デモ（Master → Caravan → Device → Expert の階層が自律判断）',
         '  cognitive   Cognitive Graph Runtime デモ（タスクごとに知能の配線を動的生成 → 共有メモリ + IR 通信 → Team Learning → Knowledge Oasis）',
