@@ -167,23 +167,32 @@ export async function aiosExecute(
   }
   const resolver = (expert: string): ExpertDriver | undefined => driverFor(aios, target, expert);
   let ex: AiosExecution;
-  try {
-    const base = await execute(text, booted, resolver);
-    // ローカル解決に失敗した場合（ドライバ未使用 & resolvedValue なし）も委譲する。
-    // 例: 「バナナ3本とりんご2個…合計は？」は math と解釈されるが、
-    //     決定論コンパイラが値を出せない → そのまま null を返すのではなく
-    //     実機 LLM（general）へ Stage-2 フォールバックして回答させる。
-    const localFailed =
-      base.driverId === null &&
-      (base.trace.resolvedValue === null || base.trace.resolvedValue === undefined);
-    if (opts?.forceDelegate || localFailed) {
-      ex = await fallbackExecute(aios, text, target, new AilsmError(opts?.forceDelegate ? 'forced delegate (benchmark)' : 'local resolution failed: no value'));
-    } else {
-      ex = { ...base, deviceId: target ?? null, learned: base.driverId !== null, fallback: false };
+  if (opts?.forceDelegate) {
+    // forceDelegate は「必ず実機 LLM へ委譲して同じ問題を同じモデルで解かせる」ことが意図。
+    // 先に execute() を走らせると、ルーティング先エキスパートが RemoteDriver 経由で
+    // 実モデルを 1 回呼んだ上で、fallbackExecute が再び呼ぶ = 二重呼び出しになる
+    // （ベンチ実測: 12% のタスクで空/同一プロンプトの無駄な 2 回目が発生・+数百 ms）。
+    // そのため forceDelegate 時は execute() をスキップして直接委譲する（1 回だけの呼び出し）。
+    ex = await fallbackExecute(aios, text, target, new AilsmError('forced delegate (benchmark)'));
+  } else {
+    try {
+      const base = await execute(text, booted, resolver);
+      // ローカル解決に失敗した場合（ドライバ未使用 & resolvedValue なし）も委譲する。
+      // 例: 「バナナ3本とりんご2個…合計は？」は math と解釈されるが、
+      //     決定論コンパイラが値を出せない → そのまま null を返すのではなく
+      //     実機 LLM（general）へ Stage-2 フォールバックして回答させる。
+      const localFailed =
+        base.driverId === null &&
+        (base.trace.resolvedValue === null || base.trace.resolvedValue === undefined);
+      if (localFailed) {
+        ex = await fallbackExecute(aios, text, target, new AilsmError('local resolution failed: no value'));
+      } else {
+        ex = { ...base, deviceId: target ?? null, learned: base.driverId !== null, fallback: false };
+      }
+    } catch (e) {
+      if (!(e instanceof AilsmError)) throw e;
+      ex = await fallbackExecute(aios, text, target, e);
     }
-  } catch (e) {
-    if (!(e instanceof AilsmError)) throw e;
-    ex = await fallbackExecute(aios, text, target, e);
   }
   if (ex.driverId && ex.driverResponse) {
     const dev = target ? booted.deviceTree.node(target) : undefined;
