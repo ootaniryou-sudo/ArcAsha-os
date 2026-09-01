@@ -8,9 +8,9 @@
       "category": "math",
       "correct": true,
       "ok": true,
-      "totalMs": 958,
+      "totalMs": 2490,
       "modelCalls": 1,
-      "modelMs": 958,
+      "modelMs": 2490,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -18,42 +18,42 @@
           "prompt": "バナナ 3 本（1 本 100 円）とりんご 2 個（1 個 150 円）を買った。合計はいくら？",
           "promptChars": 49,
           "promptTokens": 126,
-          "completionTokens": 44,
-          "ms": 958
+          "completionTokens": 143,
+          "ms": 2490
         }
       ],
-      "resultText": "合計は **600円** です。"
+      "resultText": "合計は **600円** です。\n\n（バナナ：3本 × 100円 = 300円）  \n（りんご：2個 × 150円 = 300円）  \n300円 + 300円 = **600円**"
     },
     {
       "taskId": "m2",
       "category": "math",
       "correct": true,
       "ok": true,
-      "totalMs": 1272,
+      "totalMs": 797,
       "modelCalls": 1,
-      "modelMs": 1272,
-      "tsOverheadMs": 0,
+      "modelMs": 796,
+      "tsOverheadMs": 1,
       "calls": [
         {
           "seq": 1,
           "prompt": "1 日 8 時間働いて 3 日間働いた。総労働時間は何時間？",
           "promptChars": 30,
           "promptTokens": 107,
-          "completionTokens": 48,
-          "ms": 1272
+          "completionTokens": 31,
+          "ms": 796
         }
       ],
-      "resultText": "総労働時間は **24時間** です。"
+      "resultText": "24時間です。"
     },
     {
       "taskId": "m3",
       "category": "math",
       "correct": true,
       "ok": true,
-      "totalMs": 1034,
+      "totalMs": 1146,
       "modelCalls": 1,
-      "modelMs": 1034,
-      "tsOverheadMs": 0,
+      "modelMs": 1145,
+      "tsOverheadMs": 1,
       "calls": [
         {
           "seq": 1,
@@ -61,7 +61,7 @@
           "promptChars": 31,
           "promptTokens": 105,
           "completionTokens": 31,
-          "ms": 1034
+          "ms": 1145
         }
       ],
       "resultText": "女子は **12人** です。"
@@ -71,10 +71,10 @@
       "category": "math",
       "correct": true,
       "ok": true,
-      "totalMs": 662,
+      "totalMs": 919,
       "modelCalls": 1,
-      "modelMs": 662,
-      "tsOverheadMs": 0,
+      "modelMs": 918,
+      "tsOverheadMs": 1,
       "calls": [
         {
           "seq": 1,
@@ -82,7 +82,7 @@
           "promptChars": 27,
           "promptTokens": 103,
           "completionTokens": 35,
-          "ms": 662
+          "ms": 918
         }
       ],
       "resultText": "150 km"
@@ -92,18 +92,18 @@
       "category": "math",
       "correct": true,
       "ok": true,
-      "totalMs": 761,
+      "totalMs": 1048,
       "modelCalls": 1,
-      "modelMs": 761,
-      "tsOverheadMs": 0,
+      "modelMs": 1047,
+      "tsOverheadMs": 1,
       "calls": [
         {
           "seq": 1,
           "prompt": "定価 2500 円の商品を 20% 引きで買った。支払額はいくら？",
           "promptChars": 33,
           "promptTokens": 110,
-          "completionTokens": 25,
-          "ms": 761
+          "completionTokens": 28,
+          "ms": 1047
         }
       ],
       "resultText": "2000円"
@@ -113,9 +113,9 @@
       "category": "math",
       "correct": true,
       "ok": true,
-      "totalMs": 1337,
+      "totalMs": 2275,
       "modelCalls": 1,
-      "modelMs": 1337,
+      "modelMs": 2275,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -123,20 +123,20 @@
           "prompt": "1 年は 52 週。毎週 10 時間勉強すると年間何時間？",
           "promptChars": 29,
           "promptTokens": 104,
-          "completionTokens": 47,
-          "ms": 1337
+          "completionTokens": 70,
+          "ms": 2275
         }
       ],
-      "resultText": "520 時間です。"
+      "resultText": "1年は52週、毎週10時間なので、\n\n52 × 10 = 520\n\n**年間520時間**です。"
     },
     {
       "taskId": "k1",
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 3477,
+      "totalMs": 3539,
       "modelCalls": 1,
-      "modelMs": 3476,
+      "modelMs": 3538,
       "tsOverheadMs": 1,
       "calls": [
         {
@@ -145,19 +145,19 @@
           "promptChars": 31,
           "promptTokens": 104,
           "completionTokens": 256,
-          "ms": 3476
+          "ms": 3538
         }
       ],
-      "resultText": "We need answer in Japanese. User asks: \"ArcAsha で数式の処理はどのエキスパートが担当しますか？\" Means \"In ArcAsha, which expert handles mathema"
+      "resultText": "We need answer in Japanese. Need know ArcAsha? Maybe \"ArcAsha\" is some system? Need infer. User asks: \"ArcAsha で数式の処理はどの"
     },
     {
       "taskId": "k2",
       "category": "knowledge",
       "correct": false,
       "ok": true,
-      "totalMs": 3115,
+      "totalMs": 3988,
       "modelCalls": 1,
-      "modelMs": 3115,
+      "modelMs": 3988,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -166,727 +166,13 @@
           "promptChars": 43,
           "promptTokens": 106,
           "completionTokens": 256,
-          "ms": 3115
+          "ms": 3988
         }
       ],
-      "resultText": "We need answer in Japanese. Need address DeepSeek V4? Actually current DeepSeek maybe V3/V3.1? User asks \"DeepSeek V4 で、"
+      "resultText": "We need answer in Japanese. Need address \"DeepSeek V4 で、max_tokens を小さくすると回答が空になる原因は？\" Need explain likely cause. Need b"
     },
     {
       "taskId": "k3",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1186,
-      "modelCalls": 1,
-      "modelMs": 1186,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "アムステルダムは何という国の首都？",
-          "promptChars": 17,
-          "promptTokens": 95,
-          "completionTokens": 54,
-          "ms": 1186
-        }
-      ],
-      "resultText": "オランダです。"
-    },
-    {
-      "taskId": "k4",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1176,
-      "modelCalls": 1,
-      "modelMs": 1176,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "富士山の標高は何メートル？",
-          "promptChars": 13,
-          "promptTokens": 94,
-          "completionTokens": 49,
-          "ms": 1176
-        }
-      ],
-      "resultText": "富士山の標高は **3,776メートル** です。"
-    },
-    {
-      "taskId": "k5",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 2306,
-      "modelCalls": 1,
-      "modelMs": 2306,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "ラマン分光法は物質の何を観測する手法？",
-          "promptChars": 19,
-          "promptTokens": 99,
-          "completionTokens": 148,
-          "ms": 2306
-        }
-      ],
-      "resultText": "ラマン分光法は、物質中の**分子振動（格子振動・フォノン）**や**回転準位**を観測する手法です。\n\nレーザー光を物質に当て、その散乱光のうち波長がわずかにずれる**ラマン散乱光**を検出することで、分子の結合や結晶構造、化学状態などを知"
-    },
-    {
-      "taskId": "k6",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1869,
-      "modelCalls": 1,
-      "modelMs": 1868,
-      "tsOverheadMs": 1,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "光が太陽から地球まで届くのにかかる時間は？",
-          "promptChars": 21,
-          "promptTokens": 97,
-          "completionTokens": 163,
-          "ms": 1868
-        }
-      ],
-      "resultText": "光が太陽から地球に届くまでにかかる時間は、約**8分20秒**です。\n\n太陽と地球の平均距離は約1億4960万kmで、光の速さは秒速約30万kmなので、\n\n\\[\n149,600,000 \\div 300,000 \\approx 499 \\t"
-    },
-    {
-      "taskId": "m7",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 728,
-      "modelCalls": 1,
-      "modelMs": 728,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "7 と 8 の積はいくつ？",
-          "promptChars": 13,
-          "promptTokens": 95,
-          "completionTokens": 26,
-          "ms": 728
-        }
-      ],
-      "resultText": "56 です。"
-    },
-    {
-      "taskId": "m8",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 782,
-      "modelCalls": 1,
-      "modelMs": 782,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "定価 4000 円の商品を 15% 引きで買った。支払額はいくら？",
-          "promptChars": 33,
-          "promptTokens": 110,
-          "completionTokens": 26,
-          "ms": 782
-        }
-      ],
-      "resultText": "3400円"
-    },
-    {
-      "taskId": "m9",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 880,
-      "modelCalls": 1,
-      "modelMs": 880,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "3.5 キロメートルは何メートル？",
-          "promptChars": 17,
-          "promptTokens": 98,
-          "completionTokens": 39,
-          "ms": 880
-        }
-      ],
-      "resultText": "3.5キロメートルは **3500メートル** です。"
-    },
-    {
-      "taskId": "m10",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 962,
-      "modelCalls": 1,
-      "modelMs": 962,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "三角形の内角の和は何度？",
-          "promptChars": 12,
-          "promptTokens": 93,
-          "completionTokens": 29,
-          "ms": 962
-        }
-      ],
-      "resultText": "三角形の内角の和は **180度** です。"
-    },
-    {
-      "taskId": "m11",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1003,
-      "modelCalls": 1,
-      "modelMs": 1003,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "2 の 10 乗はいくつ？",
-          "promptChars": 13,
-          "promptTokens": 94,
-          "completionTokens": 30,
-          "ms": 1003
-        }
-      ],
-      "resultText": "2 の 10 乗は **1024** です。"
-    },
-    {
-      "taskId": "m12",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 764,
-      "modelCalls": 1,
-      "modelMs": 764,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "1 ダースは 12 個。5 ダースは何個？",
-          "promptChars": 21,
-          "promptTokens": 101,
-          "completionTokens": 37,
-          "ms": 764
-        }
-      ],
-      "resultText": "5 ダースは **60個** です。"
-    },
-    {
-      "taskId": "m13",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1315,
-      "modelCalls": 1,
-      "modelMs": 1315,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "定価 1000 円の商品を 3 割引きで買った。支払額はいくら？",
-          "promptChars": 32,
-          "promptTokens": 110,
-          "completionTokens": 54,
-          "ms": 1315
-        }
-      ],
-      "resultText": "700円"
-    },
-    {
-      "taskId": "m14",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1149,
-      "modelCalls": 1,
-      "modelMs": 1149,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "時速 50km で 2 時間走った。距離は何 km？",
-          "promptChars": 26,
-          "promptTokens": 102,
-          "completionTokens": 29,
-          "ms": 1149
-        }
-      ],
-      "resultText": "100 km"
-    },
-    {
-      "taskId": "m15",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1341,
-      "modelCalls": 1,
-      "modelMs": 1341,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "連続する 3 つの偶数の和が 30 のとき、最小の偶数はいくつ？",
-          "promptChars": 32,
-          "promptTokens": 107,
-          "completionTokens": 114,
-          "ms": 1341
-        }
-      ],
-      "resultText": "最小の偶数を \\(x\\) とすると、\n\n\\[\nx + (x+2) + (x+4) = 30\n\\]\n\n\\[\n3x + 6 = 30\n\\]\n\n\\[\n3x = 24\n\\]\n\n\\[\nx = 8\n\\]\n\n答え：**8**"
-    },
-    {
-      "taskId": "m16",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 982,
-      "modelCalls": 1,
-      "modelMs": 982,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "1 週間は何時間？",
-          "promptChars": 9,
-          "promptTokens": 91,
-          "completionTokens": 50,
-          "ms": 982
-        }
-      ],
-      "resultText": "168時間です。"
-    },
-    {
-      "taskId": "m17",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1024,
-      "modelCalls": 1,
-      "modelMs": 1024,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "五角形の内角の和は何度？",
-          "promptChars": 12,
-          "promptTokens": 95,
-          "completionTokens": 47,
-          "ms": 1024
-        }
-      ],
-      "resultText": "五角形の内角の和は **540度** です。"
-    },
-    {
-      "taskId": "m18",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 819,
-      "modelCalls": 1,
-      "modelMs": 819,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "25% を小数で表すといくつ？",
-          "promptChars": 15,
-          "promptTokens": 95,
-          "completionTokens": 37,
-          "ms": 819
-        }
-      ],
-      "resultText": "25% を小数で表すと **0.25** です。"
-    },
-    {
-      "taskId": "m19",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1126,
-      "modelCalls": 1,
-      "modelMs": 1126,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "4, 9, 11 の平均はいくつ？",
-          "promptChars": 17,
-          "promptTokens": 97,
-          "completionTokens": 34,
-          "ms": 1126
-        }
-      ],
-      "resultText": "平均は **8** です。"
-    },
-    {
-      "taskId": "m20",
-      "category": "math",
-      "correct": true,
-      "ok": true,
-      "totalMs": 941,
-      "modelCalls": 1,
-      "modelMs": 941,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "直角を挟む 2 辺が 3cm と 4cm の直角三角形の斜辺の長さは？",
-          "promptChars": 35,
-          "promptTokens": 111,
-          "completionTokens": 67,
-          "ms": 941
-        }
-      ],
-      "resultText": "斜辺の長さは **5cm** です。  \n（ピタゴラスの定理：\\(\\sqrt{3^2+4^2}=\\sqrt{25}=5\\)）"
-    },
-    {
-      "taskId": "k7",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1005,
-      "modelCalls": 1,
-      "modelMs": 1005,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "日本の首都はどこ？",
-          "promptChars": 9,
-          "promptTokens": 88,
-          "completionTokens": 41,
-          "ms": 1005
-        }
-      ],
-      "resultText": "日本の首都は**東京都（東京）**です。"
-    },
-    {
-      "taskId": "k8",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1050,
-      "modelCalls": 1,
-      "modelMs": 1050,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "世界一高い山エベレストがある山系は？",
-          "promptChars": 18,
-          "promptTokens": 96,
-          "completionTokens": 61,
-          "ms": 1050
-        }
-      ],
-      "resultText": "ヒマラヤ山脈です。"
-    },
-    {
-      "taskId": "k9",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 716,
-      "modelCalls": 1,
-      "modelMs": 716,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "太陽系で最も大きい惑星は？",
-          "promptChars": 13,
-          "promptTokens": 93,
-          "completionTokens": 46,
-          "ms": 716
-        }
-      ],
-      "resultText": "太陽系で最も大きい惑星は**木星**です。"
-    },
-    {
-      "taskId": "k10",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1402,
-      "modelCalls": 1,
-      "modelMs": 1402,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "アメリカ合衆国の通貨の単位は？",
-          "promptChars": 15,
-          "promptTokens": 93,
-          "completionTokens": 96,
-          "ms": 1402
-        }
-      ],
-      "resultText": "アメリカ合衆国の通貨の単位は **ドル（Dollar, $）** です。補助単位は **セント（cent）** で、1ドル＝100セントです。"
-    },
-    {
-      "taskId": "k11",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1470,
-      "modelCalls": 1,
-      "modelMs": 1470,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "面積が世界で最も大きい国は？",
-          "promptChars": 14,
-          "promptTokens": 93,
-          "completionTokens": 63,
-          "ms": 1470
-        }
-      ],
-      "resultText": "面積が世界で最も大きい国は**ロシア**です。"
-    },
-    {
-      "taskId": "k12",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1240,
-      "modelCalls": 1,
-      "modelMs": 1239,
-      "tsOverheadMs": 1,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "元素記号 Pb は何という元素？",
-          "promptChars": 16,
-          "promptTokens": 93,
-          "completionTokens": 33,
-          "ms": 1239
-        }
-      ],
-      "resultText": "Pb は「鉛（なまり）」という元素です。"
-    },
-    {
-      "taskId": "k13",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1083,
-      "modelCalls": 1,
-      "modelMs": 1083,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "画家ピカソが生まれた国は？",
-          "promptChars": 13,
-          "promptTokens": 94,
-          "completionTokens": 41,
-          "ms": 1083
-        }
-      ],
-      "resultText": "スペインです。"
-    },
-    {
-      "taskId": "k14",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 2049,
-      "modelCalls": 1,
-      "modelMs": 2049,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "作曲家ベートーヴェンが生まれた国は？",
-          "promptChars": 18,
-          "promptTokens": 97,
-          "completionTokens": 96,
-          "ms": 2049
-        }
-      ],
-      "resultText": "ドイツ（現在のドイツ・ボン）です。"
-    },
-    {
-      "taskId": "k15",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1246,
-      "modelCalls": 1,
-      "modelMs": 1245,
-      "tsOverheadMs": 1,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "ナイル川は何という海に流れ込む？",
-          "promptChars": 16,
-          "promptTokens": 96,
-          "completionTokens": 44,
-          "ms": 1245
-        }
-      ],
-      "resultText": "地中海に流れ込みます。"
-    },
-    {
-      "taskId": "k16",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1623,
-      "modelCalls": 1,
-      "modelMs": 1623,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "科学者ガリレオ・ガリレイが生まれた国は？",
-          "promptChars": 20,
-          "promptTokens": 101,
-          "completionTokens": 77,
-          "ms": 1623
-        }
-      ],
-      "resultText": "イタリア（当時のトスカーナ大公国・ピサ）です。"
-    },
-    {
-      "taskId": "k17",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1616,
-      "modelCalls": 1,
-      "modelMs": 1615,
-      "tsOverheadMs": 1,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "世界で最も深い海溝は？",
-          "promptChars": 11,
-          "promptTokens": 92,
-          "completionTokens": 88,
-          "ms": 1615
-        }
-      ],
-      "resultText": "世界で最も深い海溝は**マリアナ海溝**です。\n\nその最深部は**チャレンジャー海淵（Challenger Deep）**と呼ばれ、深さは約**10,900メートル**（約10,935メートル）とされています。"
-    },
-    {
-      "taskId": "k18",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1359,
-      "modelCalls": 1,
-      "modelMs": 1359,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "ハチミツを作る昆虫は？",
-          "promptChars": 11,
-          "promptTokens": 92,
-          "completionTokens": 59,
-          "ms": 1359
-        }
-      ],
-      "resultText": "ハチミツを作る昆虫は**ミツバチ（蜜蜂）**です。"
-    },
-    {
-      "taskId": "k19",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1017,
-      "modelCalls": 1,
-      "modelMs": 1017,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "カナダの首都はどこ？",
-          "promptChars": 10,
-          "promptTokens": 91,
-          "completionTokens": 30,
-          "ms": 1017
-        }
-      ],
-      "resultText": "カナダの首都は**オタワ（Ottawa）**です。"
-    },
-    {
-      "taskId": "k20",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1037,
-      "modelCalls": 1,
-      "modelMs": 1037,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "オーストラリアの首都はどこ？",
-          "promptChars": 14,
-          "promptTokens": 93,
-          "completionTokens": 61,
-          "ms": 1037
-        }
-      ],
-      "resultText": "オーストラリアの首都は **キャンベラ（Canberra）** です。"
-    },
-    {
-      "taskId": "k21",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1009,
-      "modelCalls": 1,
-      "modelMs": 1009,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "ブラジルの首都はどこ？",
-          "promptChars": 11,
-          "promptTokens": 90,
-          "completionTokens": 47,
-          "ms": 1009
-        }
-      ],
-      "resultText": "ブラジルの首都は**ブラジリア**です。"
-    },
-    {
-      "taskId": "k22",
-      "category": "knowledge",
-      "correct": true,
-      "ok": true,
-      "totalMs": 1026,
-      "modelCalls": 1,
-      "modelMs": 1026,
-      "tsOverheadMs": 0,
-      "calls": [
-        {
-          "seq": 1,
-          "prompt": "スイスの首都はどこ？",
-          "promptChars": 10,
-          "promptTokens": 90,
-          "completionTokens": 26,
-          "ms": 1026
-        }
-      ],
-      "resultText": "スイスの首都は**ベルン**です。"
-    },
-    {
-      "taskId": "k23",
       "category": "knowledge",
       "correct": true,
       "ok": true,
@@ -897,23 +183,737 @@
       "calls": [
         {
           "seq": 1,
-          "prompt": "人類が打ち上げた最初の人工衛星は？",
+          "prompt": "アムステルダムは何という国の首都？",
           "promptChars": 17,
-          "promptTokens": 96,
-          "completionTokens": 74,
+          "promptTokens": 95,
+          "completionTokens": 90,
           "ms": 1540
         }
       ],
-      "resultText": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**（ソビエト連邦）です。  \n1957年10月4日に打ち上げられました。"
+      "resultText": "アムステルダムは**オランダ（ネーデルランド）**の首都です。"
+    },
+    {
+      "taskId": "k4",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1324,
+      "modelCalls": 1,
+      "modelMs": 1324,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "富士山の標高は何メートル？",
+          "promptChars": 13,
+          "promptTokens": 94,
+          "completionTokens": 45,
+          "ms": 1324
+        }
+      ],
+      "resultText": "富士山の標高は **3,776メートル** です。"
+    },
+    {
+      "taskId": "k5",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 2875,
+      "modelCalls": 1,
+      "modelMs": 2875,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "ラマン分光法は物質の何を観測する手法？",
+          "promptChars": 19,
+          "promptTokens": 99,
+          "completionTokens": 174,
+          "ms": 2875
+        }
+      ],
+      "resultText": "ラマン分光法は、物質に光（レーザー光）を当てたときに生じる**ラマン散乱光**を観測する手法です。この散乱光の波長ずれ（ラマンシフト）から、物質の**分子振動・回転・格子振動**などの情報を得ます。\n\nつまり、物質の**化学結合や分子構造、"
+    },
+    {
+      "taskId": "k6",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 931,
+      "modelCalls": 1,
+      "modelMs": 930,
+      "tsOverheadMs": 1,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "光が太陽から地球まで届くのにかかる時間は？",
+          "promptChars": 21,
+          "promptTokens": 97,
+          "completionTokens": 56,
+          "ms": 930
+        }
+      ],
+      "resultText": "約8分20秒です。"
+    },
+    {
+      "taskId": "m7",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1069,
+      "modelCalls": 1,
+      "modelMs": 1069,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "7 と 8 の積はいくつ？",
+          "promptChars": 13,
+          "promptTokens": 95,
+          "completionTokens": 18,
+          "ms": 1069
+        }
+      ],
+      "resultText": "56 です。"
+    },
+    {
+      "taskId": "m8",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1502,
+      "modelCalls": 1,
+      "modelMs": 1502,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "定価 4000 円の商品を 15% 引きで買った。支払額はいくら？",
+          "promptChars": 33,
+          "promptTokens": 110,
+          "completionTokens": 37,
+          "ms": 1502
+        }
+      ],
+      "resultText": "支払額は **3400円** です。"
+    },
+    {
+      "taskId": "m9",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1312,
+      "modelCalls": 1,
+      "modelMs": 1312,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "3.5 キロメートルは何メートル？",
+          "promptChars": 17,
+          "promptTokens": 98,
+          "completionTokens": 44,
+          "ms": 1312
+        }
+      ],
+      "resultText": "3.5キロメートルは **3500メートル** です。"
+    },
+    {
+      "taskId": "m10",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1367,
+      "modelCalls": 1,
+      "modelMs": 1366,
+      "tsOverheadMs": 1,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "三角形の内角の和は何度？",
+          "promptChars": 12,
+          "promptTokens": 93,
+          "completionTokens": 32,
+          "ms": 1366
+        }
+      ],
+      "resultText": "三角形の内角の和は **180度** です。"
+    },
+    {
+      "taskId": "m11",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 987,
+      "modelCalls": 1,
+      "modelMs": 986,
+      "tsOverheadMs": 1,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "2 の 10 乗はいくつ？",
+          "promptChars": 13,
+          "promptTokens": 94,
+          "completionTokens": 23,
+          "ms": 986
+        }
+      ],
+      "resultText": "1024 です。"
+    },
+    {
+      "taskId": "m12",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1126,
+      "modelCalls": 1,
+      "modelMs": 1126,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "1 ダースは 12 個。5 ダースは何個？",
+          "promptChars": 21,
+          "promptTokens": 101,
+          "completionTokens": 35,
+          "ms": 1126
+        }
+      ],
+      "resultText": "5ダースは **60個** です。"
+    },
+    {
+      "taskId": "m13",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1401,
+      "modelCalls": 1,
+      "modelMs": 1401,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "定価 1000 円の商品を 3 割引きで買った。支払額はいくら？",
+          "promptChars": 32,
+          "promptTokens": 110,
+          "completionTokens": 28,
+          "ms": 1401
+        }
+      ],
+      "resultText": "700円"
+    },
+    {
+      "taskId": "m14",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1570,
+      "modelCalls": 1,
+      "modelMs": 1570,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "時速 50km で 2 時間走った。距離は何 km？",
+          "promptChars": 26,
+          "promptTokens": 102,
+          "completionTokens": 28,
+          "ms": 1570
+        }
+      ],
+      "resultText": "100 km"
+    },
+    {
+      "taskId": "m15",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 2050,
+      "modelCalls": 1,
+      "modelMs": 2049,
+      "tsOverheadMs": 1,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "連続する 3 つの偶数の和が 30 のとき、最小の偶数はいくつ？",
+          "promptChars": 32,
+          "promptTokens": 107,
+          "completionTokens": 154,
+          "ms": 2049
+        }
+      ],
+      "resultText": "最小の偶数を \\(x\\) とすると、連続する3つの偶数は\n\n\\[\nx,\\ x+2,\\ x+4\n\\]\n\n和が30なので、\n\n\\[\nx+(x+2)+(x+4)=30\n\\]\n\n\\[\n3x+6=30\n\\]\n\n\\[\n3x=24\n\\]\n\n\\[\nx=8\n"
+    },
+    {
+      "taskId": "m16",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1630,
+      "modelCalls": 1,
+      "modelMs": 1630,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "1 週間は何時間？",
+          "promptChars": 9,
+          "promptTokens": 91,
+          "completionTokens": 35,
+          "ms": 1630
+        }
+      ],
+      "resultText": "1週間は **168時間** です。"
+    },
+    {
+      "taskId": "m17",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 824,
+      "modelCalls": 1,
+      "modelMs": 824,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "五角形の内角の和は何度？",
+          "promptChars": 12,
+          "promptTokens": 95,
+          "completionTokens": 49,
+          "ms": 824
+        }
+      ],
+      "resultText": "五角形の内角の和は **540度** です。"
+    },
+    {
+      "taskId": "m18",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 820,
+      "modelCalls": 1,
+      "modelMs": 819,
+      "tsOverheadMs": 1,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "25% を小数で表すといくつ？",
+          "promptChars": 15,
+          "promptTokens": 95,
+          "completionTokens": 38,
+          "ms": 819
+        }
+      ],
+      "resultText": "25% を小数で表すと **0.25** です。"
+    },
+    {
+      "taskId": "m19",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 658,
+      "modelCalls": 1,
+      "modelMs": 658,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "4, 9, 11 の平均はいくつ？",
+          "promptChars": 17,
+          "promptTokens": 97,
+          "completionTokens": 37,
+          "ms": 658
+        }
+      ],
+      "resultText": "平均は **8** です。"
+    },
+    {
+      "taskId": "m20",
+      "category": "math",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1082,
+      "modelCalls": 1,
+      "modelMs": 1082,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "直角を挟む 2 辺が 3cm と 4cm の直角三角形の斜辺の長さは？",
+          "promptChars": 35,
+          "promptTokens": 111,
+          "completionTokens": 63,
+          "ms": 1082
+        }
+      ],
+      "resultText": "斜辺の長さは **5cm** です。  \n（三平方の定理： \\(3^2+4^2=5^2\\)）"
+    },
+    {
+      "taskId": "k7",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1650,
+      "modelCalls": 1,
+      "modelMs": 1650,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "日本の首都はどこ？",
+          "promptChars": 9,
+          "promptTokens": 88,
+          "completionTokens": 30,
+          "ms": 1650
+        }
+      ],
+      "resultText": "日本の首都は**東京都**です。"
+    },
+    {
+      "taskId": "k8",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 2029,
+      "modelCalls": 1,
+      "modelMs": 2029,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "世界一高い山エベレストがある山系は？",
+          "promptChars": 18,
+          "promptTokens": 96,
+          "completionTokens": 66,
+          "ms": 2029
+        }
+      ],
+      "resultText": "ヒマラヤ山脈です。"
+    },
+    {
+      "taskId": "k9",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1645,
+      "modelCalls": 1,
+      "modelMs": 1645,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "太陽系で最も大きい惑星は？",
+          "promptChars": 13,
+          "promptTokens": 93,
+          "completionTokens": 45,
+          "ms": 1645
+        }
+      ],
+      "resultText": "太陽系で最も大きい惑星は**木星**です。"
+    },
+    {
+      "taskId": "k10",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1745,
+      "modelCalls": 1,
+      "modelMs": 1745,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "アメリカ合衆国の通貨の単位は？",
+          "promptChars": 15,
+          "promptTokens": 93,
+          "completionTokens": 70,
+          "ms": 1745
+        }
+      ],
+      "resultText": "アメリカ合衆国の通貨の単位は**ドル（$）**です。補助単位として**セント（¢）**もあります。"
+    },
+    {
+      "taskId": "k11",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1737,
+      "modelCalls": 1,
+      "modelMs": 1737,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "面積が世界で最も大きい国は？",
+          "promptChars": 14,
+          "promptTokens": 93,
+          "completionTokens": 56,
+          "ms": 1737
+        }
+      ],
+      "resultText": "面積が世界で最も大きい国は**ロシア**です。"
+    },
+    {
+      "taskId": "k12",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1893,
+      "modelCalls": 1,
+      "modelMs": 1893,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "元素記号 Pb は何という元素？",
+          "promptChars": 16,
+          "promptTokens": 93,
+          "completionTokens": 80,
+          "ms": 1893
+        }
+      ],
+      "resultText": "元素記号 **Pb** は **鉛（なまり）** という元素です。  \n英語名は **Lead（レッド）**、ラテン語名の *plumbum* に由来します。"
+    },
+    {
+      "taskId": "k13",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 802,
+      "modelCalls": 1,
+      "modelMs": 802,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "画家ピカソが生まれた国は？",
+          "promptChars": 13,
+          "promptTokens": 94,
+          "completionTokens": 40,
+          "ms": 802
+        }
+      ],
+      "resultText": "スペインです。"
+    },
+    {
+      "taskId": "k14",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1196,
+      "modelCalls": 1,
+      "modelMs": 1196,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "作曲家ベートーヴェンが生まれた国は？",
+          "promptChars": 18,
+          "promptTokens": 97,
+          "completionTokens": 72,
+          "ms": 1196
+        }
+      ],
+      "resultText": "ドイツです。"
+    },
+    {
+      "taskId": "k15",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1239,
+      "modelCalls": 1,
+      "modelMs": 1239,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "ナイル川は何という海に流れ込む？",
+          "promptChars": 16,
+          "promptTokens": 96,
+          "completionTokens": 27,
+          "ms": 1239
+        }
+      ],
+      "resultText": "ナイル川は**地中海**に流れ込んでいます。"
+    },
+    {
+      "taskId": "k16",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 710,
+      "modelCalls": 1,
+      "modelMs": 710,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "科学者ガリレオ・ガリレイが生まれた国は？",
+          "promptChars": 20,
+          "promptTokens": 101,
+          "completionTokens": 27,
+          "ms": 710
+        }
+      ],
+      "resultText": "イタリアです。"
+    },
+    {
+      "taskId": "k17",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1289,
+      "modelCalls": 1,
+      "modelMs": 1289,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "世界で最も深い海溝は？",
+          "promptChars": 11,
+          "promptTokens": 92,
+          "completionTokens": 73,
+          "ms": 1289
+        }
+      ],
+      "resultText": "世界で最も深い海溝は**マリアナ海溝**です。その最深部は**チャレンジャー深淵**と呼ばれ、深さは約**10,920メートル**とされています。"
+    },
+    {
+      "taskId": "k18",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1984,
+      "modelCalls": 1,
+      "modelMs": 1984,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "ハチミツを作る昆虫は？",
+          "promptChars": 11,
+          "promptTokens": 92,
+          "completionTokens": 60,
+          "ms": 1984
+        }
+      ],
+      "resultText": "ミツバチ（ハチの一種）です。"
+    },
+    {
+      "taskId": "k19",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 921,
+      "modelCalls": 1,
+      "modelMs": 921,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "カナダの首都はどこ？",
+          "promptChars": 10,
+          "promptTokens": 91,
+          "completionTokens": 28,
+          "ms": 921
+        }
+      ],
+      "resultText": "カナダの首都は**オタワ（Ottawa）**です。"
+    },
+    {
+      "taskId": "k20",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1024,
+      "modelCalls": 1,
+      "modelMs": 1024,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "オーストラリアの首都はどこ？",
+          "promptChars": 14,
+          "promptTokens": 93,
+          "completionTokens": 36,
+          "ms": 1024
+        }
+      ],
+      "resultText": "オーストラリアの首都は**キャンベラ（Canberra）**です。"
+    },
+    {
+      "taskId": "k21",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1435,
+      "modelCalls": 1,
+      "modelMs": 1435,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "ブラジルの首都はどこ？",
+          "promptChars": 11,
+          "promptTokens": 90,
+          "completionTokens": 36,
+          "ms": 1435
+        }
+      ],
+      "resultText": "ブラジルの首都は**ブラジリア**です。"
+    },
+    {
+      "taskId": "k22",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1228,
+      "modelCalls": 1,
+      "modelMs": 1228,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "スイスの首都はどこ？",
+          "promptChars": 10,
+          "promptTokens": 90,
+          "completionTokens": 54,
+          "ms": 1228
+        }
+      ],
+      "resultText": "スイスの首都は**ベルン**（Bern）です。"
+    },
+    {
+      "taskId": "k23",
+      "category": "knowledge",
+      "correct": true,
+      "ok": true,
+      "totalMs": 1537,
+      "modelCalls": 1,
+      "modelMs": 1537,
+      "tsOverheadMs": 0,
+      "calls": [
+        {
+          "seq": 1,
+          "prompt": "人類が打ち上げた最初の人工衛星は？",
+          "promptChars": 17,
+          "promptTokens": 96,
+          "completionTokens": 79,
+          "ms": 1537
+        }
+      ],
+      "resultText": "人類が打ち上げた最初の人工衛星は、**スプートニク1号**（Sputnik 1）です。  \n1957年10月4日に、ソビエト連邦によって打ち上げられました。"
     },
     {
       "taskId": "k24",
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 1359,
+      "totalMs": 2021,
       "modelCalls": 1,
-      "modelMs": 1359,
+      "modelMs": 2021,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -922,28 +922,28 @@
           "promptChars": 19,
           "promptTokens": 97,
           "completionTokens": 85,
-          "ms": 1359
+          "ms": 2021
         }
       ],
-      "resultText": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。  \n（1969年7月20日、アポロ11号の月面着陸の際に「一人の小さな一歩」を踏み出しました。）"
+      "resultText": "人類で初めて月面に立った宇宙飛行士は、**ニール・アームストロング**です。\n\n1969年7月20日、アポロ11号の月面着陸の際に、「これは一人の人間にとっては小さな一歩だが、人類にとっては偉大な一歩である」という名言を残しました。"
     },
     {
       "taskId": "k25",
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 1479,
+      "totalMs": 1461,
       "modelCalls": 1,
-      "modelMs": 1479,
-      "tsOverheadMs": 0,
+      "modelMs": 1460,
+      "tsOverheadMs": 1,
       "calls": [
         {
           "seq": 1,
           "prompt": "マラリアを媒介する蚊の一種は？",
           "promptChars": 15,
           "promptTokens": 94,
-          "completionTokens": 78,
-          "ms": 1479
+          "completionTokens": 63,
+          "ms": 1460
         }
       ],
       "resultText": "ハマダラカ（Anopheles属）です。"
@@ -953,9 +953,9 @@
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 2076,
+      "totalMs": 1535,
       "modelCalls": 1,
-      "modelMs": 2076,
+      "modelMs": 1535,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -963,41 +963,41 @@
           "prompt": "地球が太陽の周りを一周するのに要する日数は？",
           "promptChars": 22,
           "promptTokens": 99,
-          "completionTokens": 99,
-          "ms": 2076
+          "completionTokens": 93,
+          "ms": 1535
         }
       ],
-      "resultText": "約365.25日です（1年）。実際には約365日6時間9分で、4年に一度の閏年で調整しています。"
+      "resultText": "約365.25日（1年）です。"
     },
     {
       "taskId": "k27",
       "category": "knowledge",
-      "correct": true,
+      "correct": false,
       "ok": true,
-      "totalMs": 905,
+      "totalMs": 923,
       "modelCalls": 1,
-      "modelMs": 905,
-      "tsOverheadMs": 0,
+      "modelMs": 922,
+      "tsOverheadMs": 1,
       "calls": [
         {
           "seq": 1,
           "prompt": "1 年が 366 日になる年を何と呼ぶ？",
           "promptChars": 20,
           "promptTokens": 98,
-          "completionTokens": 63,
-          "ms": 905
+          "completionTokens": 73,
+          "ms": 922
         }
       ],
-      "resultText": "閏年（うるう年）"
+      "resultText": "閏年（うるうどし）と呼びます。"
     },
     {
       "taskId": "k28",
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 1876,
+      "totalMs": 1952,
       "modelCalls": 1,
-      "modelMs": 1876,
+      "modelMs": 1952,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -1005,20 +1005,20 @@
           "prompt": "世界で最初に鉄道が開通した国は？",
           "promptChars": 16,
           "promptTokens": 96,
-          "completionTokens": 116,
-          "ms": 1876
+          "completionTokens": 119,
+          "ms": 1952
         }
       ],
-      "resultText": "世界で最初に鉄道が開通した国は**イギリス**です。\n\n1825年に、イギリスのストックトン・アンド・ダーリントン鉄道が開通しました。"
+      "resultText": "イギリス（英国）です。\n\n1825年に、イギリスで「ストックトン・アンド・ダーリントン鉄道」が世界で初めて蒸気機関車による旅客・貨物輸送を行う鉄道として開通しました。"
     },
     {
       "taskId": "k29",
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 1264,
+      "totalMs": 1291,
       "modelCalls": 1,
-      "modelMs": 1264,
+      "modelMs": 1291,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -1026,8 +1026,8 @@
           "prompt": "ギザのピラミッドがある国は？",
           "promptChars": 14,
           "promptTokens": 94,
-          "completionTokens": 51,
-          "ms": 1264
+          "completionTokens": 54,
+          "ms": 1291
         }
       ],
       "resultText": "エジプトです。"
@@ -1037,9 +1037,9 @@
       "category": "knowledge",
       "correct": true,
       "ok": true,
-      "totalMs": 1275,
+      "totalMs": 1182,
       "modelCalls": 1,
-      "modelMs": 1275,
+      "modelMs": 1182,
       "tsOverheadMs": 0,
       "calls": [
         {
@@ -1047,20 +1047,20 @@
           "prompt": "世界遺産マチュ・ピチュがある国は？",
           "promptChars": 17,
           "promptTokens": 97,
-          "completionTokens": 51,
-          "ms": 1275
+          "completionTokens": 46,
+          "ms": 1182
         }
       ],
       "resultText": "ペルーです。"
     }
   ],
   "summary": {
-    "avgTotalMs": 1294,
+    "avgTotalMs": 1494,
     "avgModelCalls": 1,
-    "avgModelMs": 1294,
-    "avgTsOverheadMs": 0,
-    "tsOverheadRatio": 0.00007729050408866767,
-    "accuracy": 0.98,
+    "avgModelMs": 1494,
+    "avgTsOverheadMs": 0.2,
+    "tsOverheadRatio": 0.00016064472081286227,
+    "accuracy": 0.96,
     "successRate": 1
   },
   "note": "kind=real-api（実 API・数値は偽装しない）。同一タスク（50 問）を同一モデル（deepseek-v4-flash）で aiosExecute（forceDelegate・maxTokens=256）に解かせ、実モデル呼び出し（generateNoCache）をラップして「呼び出し回数 / 各呼び出しレイテンシ / TS オーバーヘッド」を分離して計測。発見: forceDelegate 時に execute() がルーティング先エキスパート経由で実モデルを先に 1 回呼び、fallbackExecute が再び呼ぶ二重呼び出しバグ（修正前は 12% のタスクで空/同一プロンプトの 2 回目・+数百 ms）。aiosExecute を修正し（forceDelegate 時は execute() をスキップして直接委譲）、修正後は全 50 問が 1 回呼び出し。TS 側オーバーヘッド（compile / ルーティング / learner）は 0ms。結論: Executive のオーバーヘッドの実体はオーケストレーションではなくモデル呼び出し回数とモデルレイテンシ。"

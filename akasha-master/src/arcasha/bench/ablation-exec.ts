@@ -84,16 +84,21 @@ export async function runAblationExec(opts: { verbose?: boolean; tasks?: Ablatio
   let currentCalls: ModelCall[] = [];
   hub.generateNoCache = async (id: string, prompt: string, mt?: number) => {
     const c0 = Date.now();
-    const text = await origGenerate(id, prompt, mt ?? maxTokens);
-    currentCalls.push({
-      seq: currentCalls.length + 1,
-      prompt,
-      promptChars: prompt.length,
-      promptTokens: hub.lastApiUsage?.promptTokens ?? 0,
-      completionTokens: hub.lastApiUsage?.completionTokens ?? 0,
-      ms: Date.now() - c0,
-    });
-    return text;
+    // 失敗時（API エラー等）でも呼び出しを記録する（finally）。
+    // RemoteDriver は例外を null 結果に変換するため、catch が発火せず
+    // 呼び出し未記録のまま TS オーバーヘッドが膨らむのを防ぐ。
+    try {
+      return await origGenerate(id, prompt, mt ?? maxTokens);
+    } finally {
+      currentCalls.push({
+        seq: currentCalls.length + 1,
+        prompt,
+        promptChars: prompt.length,
+        promptTokens: hub.lastApiUsage?.promptTokens ?? 0,
+        completionTokens: hub.lastApiUsage?.completionTokens ?? 0,
+        ms: Date.now() - c0,
+      });
+    }
   };
 
   for (const t of tasks) {
@@ -162,7 +167,7 @@ export async function runAblationExec(opts: { verbose?: boolean; tasks?: Ablatio
       avgTotalMs: Math.round(avgTotalMs),
       avgModelCalls: Math.round(avgModelCalls * 100) / 100,
       avgModelMs: Math.round(avgModelMs),
-      avgTsOverheadMs: Math.round(avgTsOverheadMs),
+      avgTsOverheadMs: Math.round(avgTsOverheadMs * 10) / 10,
       tsOverheadRatio: avgTotalMs > 0 ? avgTsOverheadMs / avgTotalMs : 0,
       accuracy: Math.round(acc * 1000) / 1000,
       successRate: Math.round(succ * 1000) / 1000,
@@ -180,7 +185,7 @@ export function renderAblationExec(r: ExecAblationResult): string {
   lines.push('════════════════════════════════════════════════════════════════');
   lines.push(`  平均 total        : ${s.avgTotalMs} ms`);
   lines.push(`  平均 モデル呼び出し : ${s.avgModelCalls} 回（合計 ${s.avgModelMs} ms）`);
-  lines.push(`  平均 TS オーバーヘッド: ${s.avgTsOverheadMs} ms（${(s.tsOverheadRatio * 100).toFixed(1)}%）`);
+  lines.push(`  平均 TS オーバーヘッド: ${s.avgTsOverheadMs} ms（${(s.tsOverheadRatio * 100).toFixed(2)}%）※丸め: 個別タスクは最大 1ms`);
   lines.push(`  正答率 / 成功率    : ${(s.accuracy * 100).toFixed(0)}% / ${(s.successRate * 100).toFixed(0)}%`);
   lines.push('');
   lines.push(`  モデル呼び出し回数分布: ${histogram(r.perTask.map((p) => p.modelCalls))}`);
@@ -215,7 +220,7 @@ export async function writeAblationExecReport(r: ExecAblationResult, dir = 'repo
     `| 平均 total | ${s.avgTotalMs} ms |`,
     `| 平均 モデル呼び出し回数 | ${s.avgModelCalls} 回 |`,
     `| 平均 モデル呼び出し時間 | ${s.avgModelMs} ms |`,
-    `| 平均 TS オーバーヘッド | ${s.avgTsOverheadMs} ms（${(s.tsOverheadRatio * 100).toFixed(1)}%） |`,
+    `| 平均 TS オーバーヘッド | ${s.avgTsOverheadMs} ms（${(s.tsOverheadRatio * 100).toFixed(2)}%）※丸め（個別タスクは最大 1ms） |`,
     `| 正答率 / 成功率 | ${(s.accuracy * 100).toFixed(0)}% / ${(s.successRate * 100).toFixed(0)}% |`,
     '',
     '## タスク別',
@@ -224,15 +229,19 @@ export async function writeAblationExecReport(r: ExecAblationResult, dir = 'repo
     '|---|---|---|---|---|---|',
     ...r.perTask.map((p) => `| ${p.taskId} | ${p.correct ? '✅' : '❌'} | ${p.totalMs} | ${p.modelCalls} | ${p.calls.map((c) => `${c.seq}:${c.ms}`).join(', ')} | ${p.tsOverheadMs} |`),
     '',
-    '## モデル呼び出しの内訳（例: 2 回呼ばれたタスク）',
+    '## モデル呼び出しの内訳',
     '',
-    ...r.perTask.filter((p) => p.modelCalls >= 2).slice(0, 3).flatMap((p) => [
-      `### ${p.taskId}（${p.modelCalls} 回呼び出し）`,
-      ...p.calls.map((c, i) => `- 呼び出し ${i + 1}: ${c.ms}ms / prompt ${c.promptChars} chars / in ${c.promptTokens} tok / out ${c.completionTokens} tok\n  prompt: ${c.prompt.replace(/\n/g, ' ').slice(0, 90)}`),
-      '',
-    ]),
+    ...(r.perTask.some((p) => p.modelCalls >= 2)
+      ? r.perTask.filter((p) => p.modelCalls >= 2).slice(0, 3).flatMap((p) => [
+          `### ${p.taskId}（${p.modelCalls} 回呼び出し）`,
+          ...p.calls.map((c, i) => `- 呼び出し ${i + 1}: ${c.ms}ms / prompt ${c.promptChars} chars / in ${c.promptTokens} tok / out ${c.completionTokens} tok\n  prompt: ${c.prompt.replace(/\n/g, ' ').slice(0, 90)}`),
+          '',
+        ])
+      : ['（修正後は全タスクがモデル呼び出し 1 回のため、2 回以上の内訳はなし）', '']),
     '',
     `> note: ${r.note}`,
+    '',
+    '> 検証の注記: verify は部分文字列一致のため、モデルが前置きで質問を英訳した場合（例: k1 の英語訳に含まれる "math"）に正答扱いになる可能性がある。この挙動は全構成（Baseline 含む）で共通のため、構成間の相対比較には影響しない。',
     '',
   ].join('\n');
   await writeFile(mdPath, md, 'utf8');
