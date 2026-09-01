@@ -61,6 +61,7 @@ export interface ExecAblationResult {
 
 export async function runAblationExec(opts: { verbose?: boolean; tasks?: AblationTask[]; maxTokens?: number } = {}): Promise<ExecAblationResult> {
   const tasks = opts.tasks ?? ABLATION_TASKS_50;
+  if (tasks.length === 0) throw new Error('ablation-exec: タスクが空です（tasks に 1 件以上を指定してください）');
   const maxTokens = opts.maxTokens ?? 256;
   const hub = new ExpertHub();
   const fleet = buildFleet(hub, { verbose: opts.verbose ?? false });
@@ -104,15 +105,17 @@ export async function runAblationExec(opts: { verbose?: boolean; tasks?: Ablatio
       ex = await aiosExecute(aios, t.task, nodeId, { forceDelegate: true, maxTokens });
     } catch (e) {
       ex = null;
+      const totalMs = Date.now() - t0;
+      const modelMs = calls.reduce((s, c) => s + c.ms, 0);
       perTask.push({
         taskId: t.id,
         category: t.category,
         correct: false,
         ok: false,
-        totalMs: Date.now() - t0,
+        totalMs,
         modelCalls: calls.length,
-        modelMs: calls.reduce((s, c) => s + c.ms, 0),
-        tsOverheadMs: Math.max(0, Date.now() - t0 - calls.reduce((s, c) => s + c.ms, 0)),
+        modelMs,
+        tsOverheadMs: Math.max(0, totalMs - modelMs),
         calls,
         resultText: '',
         error: String(e).slice(0, 120),
