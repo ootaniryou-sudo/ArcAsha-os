@@ -263,8 +263,24 @@ export class AvmWorkspace {
     for (const [title, contextId] of this.contexts) {
       if (title === '会話') continue;
       const all = pagesOf(this.graph, contextId);
+      // 小文字化はページごとに 1 回だけ（トークン × ページで繰り返さない）
+      const lowered = all.map((p) => p.text.toLowerCase());
+      // IDF 重み付け: クエリトークンごとの出現ページ数（df）を数え、
+      // 全ページに現れる頻出トークン（助詞・助動詞など）の重みを下げ、
+      // 希少で識別的なトークンを支配的にする（検索 precision の向上）。
+      const total = all.length;
+      const df = new Map<string, number>();
+      for (const t of tokens) {
+        let c = 0;
+        for (const s of lowered) if (s.includes(t)) c++;
+        df.set(t, c);
+      }
+      const idfOf = (t: string): number => {
+        const d = df.get(t) ?? 0;
+        return d <= 0 ? 0 : Math.log(total / d) + 1; // +1 で平滑化（単一ページ出現も 0 にしない）
+      };
       const scored = all
-        .map((p) => ({ p, score: tokens.filter((t) => p.text.toLowerCase().includes(t)).length }))
+        .map((p, i) => ({ p, score: tokens.reduce((s, t) => s + (lowered[i].includes(t) ? idfOf(t) : 0), 0) }))
         .filter((x) => x.score > 0)
         .sort((a, b) => b.score - a.score)
         .slice(0, limitPerContext);
