@@ -326,7 +326,7 @@ export function renderAblationLong(r: LongAblationResult): string {
   lines.push(`Ablation Long — ${r.model}（合成長文マニュアル・実 API）`);
   lines.push(`文書: ${d.chars} chars / 約 ${d.approxTokens} tokens / ${d.pageCount} pages（pageSize=${d.pageSize}・overlap=${d.overlap}）`);
   lines.push('════════════════════════════════════════════════════════════════');
-  lines.push(`${'構成'.padEnd(22)} ${'正答率'.padEnd(7)} ${'成功率'.padEnd(7)} ${'lat(ms)'.padEnd(8)} ${'in-tok'.padEnd(7)} ${'out-tok'.padEnd(8)} ${'cost$'.padEnd(9)}`);
+  lines.push(`${'構成'.padEnd(22)} ${'正答率'.padEnd(7)} ${'成功率'.padEnd(7)} ${'lat(ms)'.padEnd(8)} ${'in-tok'.padEnd(7)} ${'out-tok'.padEnd(8)} ${'cost計$'.padEnd(9)}`);
   for (const row of r.rows) {
     lines.push(
       `${row.name.padEnd(22)} ${(row.accuracy * 100).toFixed(0).padStart(3) + '%'.padEnd(4)} ${(row.successRate * 100).toFixed(0).padStart(3) + '%'.padEnd(4)} ${String(row.avgLatencyMs).padEnd(8)} ${String(row.avgInTokens).padEnd(7)} ${String(row.avgOutTokens).padEnd(8)} ${row.estCostUsd.toFixed(6).padEnd(9)}`,
@@ -390,7 +390,7 @@ export async function writeAblationLongReport(r: LongAblationResult, dir = 'repo
     '',
     '## 構成別サマリ',
     '',
-    '| 構成 | 正答率 | 成功率 | 平均レイテンシ | 平均入力トークン | 平均出力トークン | コスト($) |',
+    '| 構成 | 正答率 | 成功率 | 平均レイテンシ | 平均入力トークン | 平均出力トークン | コスト合計($) |',
     '|---|---|---|---|---|---|---|',
     ...r.rows.map((row) => `| ${row.name} | ${(row.accuracy * 100).toFixed(0)}% | ${(row.successRate * 100).toFixed(0)}% | ${row.avgLatencyMs}ms | ${row.avgInTokens} | ${row.avgOutTokens} | ${row.estCostUsd.toFixed(6)} |`),
     '',
