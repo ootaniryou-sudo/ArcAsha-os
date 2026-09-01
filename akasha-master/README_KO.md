@@ -40,12 +40,12 @@ Layer 1  Fast Runtime(Kernel / AVM / Expert Runtime / ODAR / Device Tree) — �
 
 ## ✨ 주요 기능
 
-- **AVM**: 가상 메모리로서의 컨텍스트 관리(전체 읽기 대비 4.10x, 토큰 −77%)
+- **AVM**: 가상 메모리로서의 컨텍스트 관리(실 API 검증: 토큰 96.5% 감소·정확도 100% — 기존 4.10x / −77%는**분리 전** 측정)
 - **Executive / Meta Executive**: 탐색을 지휘하고 결과에서 정책을 학습
 - **Expert Evolution**: 전문가가 객관적 기준(건강도·중복·활용률)으로 분열·통합·은퇴
 - **Thinking Modes**: Fast / Auto / Deep / Custom — 같은 OS, 다른 파이프라인
 - **설명 가능**: **Decision Explanation**(왜 이 구성인지) / **Decision Replay**(단계 재생) / **OS Policy Learning**(결정을 학습 데이터로)
-- **검증**: Simulation과 Real Device 분리; 외부 벤치: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench
+- **검증**: Simulation과 Real Device 분리; 외부 벤치: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench(Qwen1.5B 행은**분리 전** simulation 측정; 실 API 검증은 아래 Phase 4)
 
 ---
 
@@ -89,6 +89,7 @@ AI_*.md               스펙 문서
 
 - **v1.0 출시** — AI OS 1세대(ISA/IR/Kernel/AVM → 실기 → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, 실기 벤치 계획(Mac / iPhone 15 Pro / iPad M4)
+- **Phase 4 실 API 검증(2026-09)** — 컴포넌트 절제(Baseline/AVM/Executive/Full·50문항 × 3) + 장문 AVM(96.5% 토큰 감소·정확도 100%) + Executive 병목(이중 호출 수정: +348ms → +37ms)
 - selftest [1]-[72] 전부 통과 / golden 30 / AILSA selftest / build + dist 검증 완료
 
 ## 🔬 연구적 위치

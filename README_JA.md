@@ -40,12 +40,12 @@ Layer 1  Fast Runtime（Kernel / AVM / Expert Runtime / ODAR / Device Tree）—
 
 ## ✨ 主な機能
 
-- **AVM**: 仮想メモリとしての文脈管理（全読込み比 4.10x・トークン −77%）
+- **AVM**: 仮想メモリとしての文脈管理（実 API 検証: **トークン 96.5% 削減・精度 100%** — 旧表記の 4.10x / −77% は**分離前**の計測）
 - **Executive / Meta Executive**: 探索を指揮し、観測結果から自身のポリシーを学習
 - **Expert Evolution**: Expert が客観的基準（健康度・機能重複・利用率）で分裂・統合・引退
 - **Thinking Modes**: Fast / Auto / Deep / Custom — 同じ OS でパイプラインを変更
 - **Explainable**: **Decision Explanation**（なぜこの構成か）/ **Decision Replay**（ステップ再生）/ **OS Policy Learning**（意思決定を学習データに）
-- **Validation**: Simulation と Real Device を分離。外部ベンチ: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench
+- **Validation**: Simulation と Real Device を分離。外部ベンチ: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench（Qwen1.5B の行は**分離前**の simulation 計測。実 API 検証は下記 Phase 4）
 
 ---
 
@@ -85,10 +85,43 @@ AI_*.md               仕様書
 
 `MASTER_SPEC.md`（全体像）/ `ARCASHA_V2_SPEC.md`（v2 設計 v0.36）/ `AI_REASONING.md`（推論基盤）/ `AI_ATTACHMENTS.md`（プラグイン層）/ `AI_VALIDATION.md`（検証・説明）/ `AI_VIRTUAL_MEMORY.md`（AVM）/ `PAPER_OUTLINE.md`（論文）/ `CHANGELOG.md`（履歴）
 
+## 📊 Phase 4 — 実 API による検証
+
+Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`・実測・数値は偽装しない）で検証し、同一タスク・同一モデルで構成のみを比較しました。全データ: `akasha-master/reports/ablation/`。
+
+### 構成別アブレーション（50 問 × 3 回）
+
+| 構成 | 正答率 | 平均レイテンシ | 平均トークン |
+|---|---|---|---|
+| ① Baseline LLM | 98% | 1297ms | 161 |
+| ② +AVM | 99% | 1256ms | 186 |
+| ③ +Executive | 98% | 1334ms | 163 |
+| ④ Full ArcAsha | 100% | 1442ms | 187 |
+
+- AVM ON/OFF の有意性は **McNemar 検定**で判定（不一致 b=2 / c=0、両側 p=0.50 — 有意差なし・悪化もなし）
+- タスク別詳細: `reports/ablation/ablation.md`（権威版）。`ablation-quick.md` は**分離前**の quick 計測（12 問）
+
+### 長文 AVM 効果（12,668 chars / 396 pages）
+
+| 構成 | 正答率 | 平均入力トークン |
+|---|---|---|
+| モデル単体（文書なし） | 0% | 98 |
+| AVM OFF（全文供給） | 100% | 8382 |
+| AVM ON（関連ページのみ供給） | 100% | **290** |
+
+- **トークン削減 96.5%・コスト削減 94.7%** で精度 100% を維持（ページ供給 39/396 = 9.8%）
+- ページ境界を跨ぐ検索漏れは **ページ・オーバーラップ（スライド窓）** で修正、検索 precision は **IDF 重み付け** で向上（`reports/ablation-long/`）
+
+### Executive ボトルネック（50 問）
+
+- 計測により **`forceDelegate` 時の二重モデル呼び出しバグ**（12% のタスクで 2 回目の空/同一プロンプト呼び出し）を発見 → 修正
+- 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**、TS 側オーバーヘッド ≈0.2ms（`reports/ablation-exec/`）
+
 ## 🧪 ステータス
 
 - **v1.0 リリース済み** — AI OS 第一世代（ISA/IR/Kernel/AVM → 実機 → Reasoning → Executive/Meta → Attachments → Validation）
 - **v1.1** — Decision Replay、実機ベンチプラン（Mac / iPhone 15 Pro / iPad M4）
+- **Phase 4 実 API 検証（2026-09）** — 構成別アブレーション（Baseline/AVM/Executive/Full・50 問 × 3）+ 長文 AVM（96.5% トークン削減・精度 100%）+ Executive ボトルネック（二重呼び出しバグ修正: +348ms → +37ms）
 - selftest [1]-[89] 全パス / golden 30 / AILSA selftest / build + dist 検証済み
 
 ## 🔬 研究上の位置付け
