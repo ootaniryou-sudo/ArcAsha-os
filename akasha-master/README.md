@@ -47,7 +47,7 @@ Layer 1  Fast Runtime
 
 | Feature | Description |
 |---------|-------------|
-| **AVM** | AI Virtual Memory — context as demand-paged virtual memory (real-API validated: **96.5% token reduction at 100% accuracy** — the legacy 4.10x / −77% figure is a **pre-separation** measurement) |
+| **AVM** | AI Virtual Memory — context as demand-paged virtual memory (real-API validated on long-context docs: **96.5% token reduction at 100% accuracy** — the legacy 4.10x / −77% figure is a **pre-separation** measurement) |
 | **Executive / Meta Executive** | Commands the search; learns its own policy from observed outcomes |
 | **Expert Evolution** | Experts split / merge / retire by objective criteria (health, overlap, utilization) |
 | **Thinking Modes** | Fast / Auto / Deep / Custom — same OS, different pipeline |
@@ -126,7 +126,7 @@ AI_*.md               Specifications (see below)
 
 ## 📊 Phase 4 — Real-API Validation
 
-Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, measured, no fabricated numbers), comparing configurations on the same tasks and model. Full data: `akasha-master/reports/ablation/`.
+Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, measured, no fabricated numbers), comparing configurations on the same tasks and model. Full data: `reports/ablation/`.
 
 ### Component ablation (50 tasks × 3 runs)
 
@@ -154,7 +154,7 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 ### Executive bottleneck (50 tasks)
 
 - Measurement exposed a **double model-call bug** under `forceDelegate` (12% of tasks made a second empty/duplicate call) → fixed
-- After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms**; TS-side overhead ≈ 0.2ms (`reports/ablation-exec/`)
+- After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms** (+348ms = pre-fix delta measured in PR #37; +37ms matches the ablation table: ③+Executive 1334ms − ①Baseline 1297ms); TS-side overhead ≈ 0.2ms (`reports/ablation-exec/`)
 
 ---
 

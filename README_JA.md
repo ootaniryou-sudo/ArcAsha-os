@@ -40,7 +40,7 @@ Layer 1  Fast Runtime（Kernel / AVM / Expert Runtime / ODAR / Device Tree）—
 
 ## ✨ 主な機能
 
-- **AVM**: 仮想メモリとしての文脈管理（実 API 検証: **トークン 96.5% 削減・精度 100%** — 旧表記の 4.10x / −77% は**分離前**の計測）
+- **AVM**: 仮想メモリとしての文脈管理（実 API 検証・長文コンテキスト: **トークン 96.5% 削減・精度 100%** — 旧表記の 4.10x / −77% は**分離前**の計測）
 - **Executive / Meta Executive**: 探索を指揮し、観測結果から自身のポリシーを学習
 - **Expert Evolution**: Expert が客観的基準（健康度・機能重複・利用率）で分裂・統合・引退
 - **Thinking Modes**: Fast / Auto / Deep / Custom — 同じ OS でパイプラインを変更
@@ -115,7 +115,7 @@ Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`
 ### Executive ボトルネック（50 問）
 
 - 計測により **`forceDelegate` 時の二重モデル呼び出しバグ**（12% のタスクで 2 回目の空/同一プロンプト呼び出し）を発見 → 修正
-- 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**、TS 側オーバーヘッド ≈0.2ms（`akasha-master/reports/ablation-exec/`）
+- 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**（+348ms は PR #37 で計測した修正前の差分、+37ms は上記アブレーション表の ③+Executive 1334ms − ①Baseline 1297ms と一致）、TS 側オーバーヘッド ≈0.2ms（`akasha-master/reports/ablation-exec/`）
 
 ## 🧪 ステータス
 

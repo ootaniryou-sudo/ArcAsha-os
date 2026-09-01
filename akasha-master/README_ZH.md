@@ -40,7 +40,7 @@ Layer 1  Fast Runtime（Kernel / AVM / Expert Runtime / ODAR / Device Tree）—
 
 ## ✨ 主要特性
 
-- **AVM**：上下文作为按需分页的虚拟内存（实 API 验证：Token 减少 96.5%、准确率 100% — 旧 4.10x / −77% 为**分离前**测量）
+- **AVM**：上下文作为按需分页的虚拟内存（实 API 验证・长文场景：Token 减少 96.5%、准确率 100% — 旧 4.10x / −77% 为**分离前**测量）
 - **Executive / Meta Executive**：指挥搜索，从结果中学习策略
 - **Expert Evolution**：专家按客观标准（健康度 / 重叠 / 利用率）分裂、合并、退休
 - **Thinking Modes**：Fast / Auto / Deep / Custom — 同一 OS，不同管线
@@ -89,7 +89,7 @@ AI_*.md               规范文档
 
 - **v1.0 已发布** — AI OS 第一代（ISA/IR/Kernel/AVM → 实机 → Reasoning → Executive/Meta → Attachments → Validation）
 - **v1.1** — Decision Replay、实机基准计划（Mac / iPhone 15 Pro / iPad M4）
-- **Phase 4 实 API 验证（2026-09）** — 组件消融（Baseline/AVM/Executive/Full・50 题 × 3）+ 长文 AVM（96.5% Token 减少・准确率 100%）+ Executive 瓶颈（双重调用修复: +348ms → +37ms）
+- **Phase 4 实 API 验证（2026-09）** — 组件消融（Baseline/AVM/Executive/Full・50 题 × 3）+ 长文 AVM（96.5% Token 减少・准确率 100%）+ Executive 瓶颈（双重调用修复: +348ms → +37ms・PR #37 实测）
 - selftest [1]-[72] 全通过 / golden 30 / AILSA selftest / build + dist 已验证
 
 ## 🔬 研究定位
