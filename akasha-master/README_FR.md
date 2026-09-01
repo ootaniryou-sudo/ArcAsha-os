@@ -40,12 +40,12 @@ Layer 1  Fast Runtime (Kernel / AVM / Expert Runtime / ODAR / Device Tree) — t
 
 ## ✨ Fonctionnalités clés
 
-- **AVM** : contexte comme mémoire virtuelle paginée à la demande (4.10x, −77% de tokens vs lecture complète)
+- **AVM** : contexte comme mémoire virtuelle paginée à la demande (validé par API réelle – contexte long : **réduction de tokens de 96,5 % avec précision 100 %** — l'ancienne valeur 4.10x / −77 % est une mesure **antérieure à la séparation**)
 - **Executive / Meta Executive** : commandent la recherche, apprennent leur politique des résultats
 - **Expert Evolution** : les experts se divisent / fusionnent / prennent leur retraite selon des critères objectifs (santé, chevauchement, utilisation)
 - **Thinking Modes** : Fast / Auto / Deep / Custom — même OS, pipeline différent
 - **Explicable** : **Decision Explanation** (pourquoi cette configuration), **Decision Replay** (relecture pas à pas), **OS Policy Learning** (les décisions deviennent des données d'apprentissage)
-- **Validation** : Simulation et Real Device séparés ; benchmarks externes : GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench
+- **Validation** : Simulation et Real Device séparés ; benchmarks externes : GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench (les lignes Qwen1.5B sont des mesures **antérieures à la séparation** ; validation par API réelle → voir Phase 4 ci-dessous)
 
 ---
 
@@ -89,6 +89,7 @@ AI_*.md               Spécifications
 
 - **v1.0 publiée** — première génération d'AI OS (ISA/IR/Kernel/AVM → appareils réels → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, plan de benchmark sur appareils réels (Mac / iPhone 15 Pro / iPad M4)
+- **Phase 4 : validation par API réelle (2026-09)** — ablation de composants (Baseline/AVM/Executive/Full, 50 tâches × 3) + AVM long contexte (96,5 % de réduction de tokens à 100 %) + goulot Executive (bug de double appel corrigé : +348ms → +37ms, mesuré dans PR #37)
 - selftest [1]-[72] tous réussis / golden 30 / AILSA selftest / build + dist vérifiés
 
 ## 🔬 Positionnement de recherche

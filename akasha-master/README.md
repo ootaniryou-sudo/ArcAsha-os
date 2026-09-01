@@ -47,12 +47,12 @@ Layer 1  Fast Runtime
 
 | Feature | Description |
 |---------|-------------|
-| **AVM** | AI Virtual Memory — context as demand-paged virtual memory (4.10x, −77% tokens vs full-context) |
+| **AVM** | AI Virtual Memory — context as demand-paged virtual memory (real-API validated on long-context docs: **96.5% token reduction at 100% accuracy** — the legacy 4.10x / −77% figure is a **pre-separation** measurement) |
 | **Executive / Meta Executive** | Commands the search; learns its own policy from observed outcomes |
 | **Expert Evolution** | Experts split / merge / retire by objective criteria (health, overlap, utilization) |
 | **Thinking Modes** | Fast / Auto / Deep / Custom — same OS, different pipeline |
 | **Explainable** | **Decision Explanation** (why this configuration), **Decision Replay** (step-by-step), **OS Policy Learning** (decisions become training data) |
-| **Validation** | Simulation vs Real Device separated; external benchmarks: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench |
+| **Validation** | Simulation vs Real Device separated; external benchmarks: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench (the Qwen1.5B rows are **pre-separation** simulation; real-API validation → see Phase 4 below) |
 
 ---
 
@@ -124,10 +124,45 @@ AI_*.md               Specifications (see below)
 
 ---
 
+## 📊 Phase 4 — Real-API Validation
+
+Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, measured, no fabricated numbers), comparing configurations on the same tasks and model. Full data: `reports/ablation/`.
+
+### Component ablation (50 tasks × 3 runs)
+
+| Config | Accuracy | Avg latency | Avg tokens |
+|---|---|---|---|
+| ① Baseline LLM | 98% | 1297ms | 161 |
+| ② +AVM | 99% | 1256ms | 186 |
+| ③ +Executive | 98% | 1334ms | 163 |
+| ④ Full ArcAsha | 100% | 1442ms | 187 |
+
+- AVM ON vs OFF significance via **McNemar** test (discordant b=2 / c=0, two-sided p=0.50 — no significant difference, and no regression)
+- Per-task detail: `reports/ablation/ablation.md` (authoritative). `reports/ablation/ablation-quick.md` is a **pre-separation** quick measurement (12 tasks)
+
+### Long-context AVM (12,668 chars / 396 pages)
+
+| Config | Accuracy | Avg input tokens |
+|---|---|---|
+| Model alone (no doc) | 0% | 98 |
+| AVM OFF (full context) | 100% | 8382 |
+| AVM ON (relevant pages only) | 100% | **290** |
+
+- **96.5% token reduction / 94.7% cost reduction** at 100% accuracy (page supply 39/396 = 9.8%)
+- Boundary-crossing search misses fixed by **page overlap (slide window)**; search precision improved by **IDF weighting** (`reports/ablation-long/`)
+
+### Executive bottleneck (50 tasks)
+
+- Measurement exposed a **double model-call bug** under `forceDelegate` (12% of tasks made a second empty/duplicate call) → fixed
+- After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms** (+348ms = pre-fix delta measured in PR #37; +37ms matches the ablation table: ③+Executive 1334ms − ①Baseline 1297ms); TS-side overhead ≈ 0.2ms (`reports/ablation-exec/`)
+
+---
+
 ## 🧪 Status
 
 - **v1.0 released** — AI OS first generation (Phases 0-4: ISA/IR/Kernel/AVM → Realtime devices → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, Real Device benchmark plan (Mac / iPhone 15 Pro / iPad M4)
+- **Phase 4 real-API validation (2026-09)** — component ablation (Baseline/AVM/Executive/Full, 50 tasks × 3) + long-context AVM (96.5% token reduction at 100%) + Executive bottleneck (double-call bug fixed: +348ms → +37ms)
 - selftest [1]-[89] all pass / golden 30 / AILSA selftest / build + dist verified
 
 ---

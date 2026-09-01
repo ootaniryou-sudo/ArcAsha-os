@@ -40,12 +40,12 @@ Layer 1  Fast Runtime (Kernel / AVM / Expert Runtime / ODAR / Device Tree) — i
 
 ## ✨ Hauptfunktionen
 
-- **AVM**: Kontext als bedarfsweise ausgelagerter virtueller Speicher (4,10x, −77% Tokens vs. Voll-Lesen)
+- **AVM**: Kontext als bedarfsweise ausgelagerter virtueller Speicher (per realer API validiert – Langtext-Kontext: **96,5 % Token-Reduktion bei 100 % Genauigkeit** — die alte 4,10x / −77 %-Angabe ist eine **Messung vor der Trennung**)
 - **Executive / Meta Executive**: befehligen die Suche, lernen ihre Politik aus Ergebnissen
 - **Expert Evolution**: Experten teilen/vereinigen/gehen in den Ruhestand nach objektiven Kriterien (Gesundheit, Überlappung, Auslastung)
 - **Thinking Modes**: Fast / Auto / Deep / Custom — gleiches OS, andere Pipeline
 - **Erklärbar**: **Decision Explanation** (warum diese Konfiguration), **Decision Replay** (Schritt-für-Schritt), **OS Policy Learning** (Entscheidungen werden Trainingsdaten)
-- **Validierung**: Simulation und Real Device getrennt; externe Benchmarks: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench
+- **Validierung**: Simulation und Real Device getrennt; externe Benchmarks: GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench (die Qwen1.5B-Zeilen sind **Messungen vor der Trennung**; Validierung per realer API → siehe Phase 4 unten)
 
 ---
 
@@ -89,6 +89,7 @@ AI_*.md               Spezifikationen
 
 - **v1.0 veröffentlicht** — erste KI-OS-Generation (ISA/IR/Kernel/AVM → echte Geräte → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, Real-Device-Benchmark-Plan (Mac / iPhone 15 Pro / iPad M4)
+- **Phase 4: Validierung per realer API (2026-09)** — Komponenten-Ablation (Baseline/AVM/Executive/Full, 50 Aufgaben × 3) + Langtext-AVM (96,5 % Token-Reduktion bei 100 %) + Executive-Engpass (Doppelaufruf-Bug behoben: +348ms → +37ms, in PR #37 gemessen)
 - selftest [1]-[72] alle bestanden / golden 30 / AILSA selftest / build + dist verifiziert
 
 ## 🔬 Forschungspositionierung

@@ -40,12 +40,12 @@ Layer 1  Fast Runtime (Kernel / AVM / Expert Runtime / ODAR / Device Tree) — s
 
 ## ✨ Características clave
 
-- **AVM** : contexto como memoria virtual paginada bajo demanda (4.10x, −77% de tokens vs. lectura completa)
+- **AVM** : contexto como memoria virtual paginada bajo demanda (validado con API real – contexto largo: **reducción de tokens del 96,5 % con precisión 100 %** — la cifra antigua 4.10x / −77 % es una medición **anterior a la separación**)
 - **Executive / Meta Executive** : dirigen la búsqueda y aprenden su política de los resultados
 - **Expert Evolution** : los expertos se dividen / fusionan / retiran según criterios objetivos (salud, solapamiento, utilización)
 - **Thinking Modes** : Fast / Auto / Deep / Custom — mismo SO, diferente pipeline
 - **Explicable** : **Decision Explanation** (por qué esta configuración), **Decision Replay** (reproducción paso a paso), **OS Policy Learning** (las decisiones se vuelven datos de entrenamiento)
-- **Validación** : Simulation y Real Device separados ; benchmarks externos : GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench
+- **Validación** : Simulation y Real Device separados ; benchmarks externos : GSM8K / MATH500 / HumanEval / MBPP / MMLU / LiveCodeBench (las filas Qwen1.5B son mediciones **anteriores a la separación**; validación con API real → ver Phase 4 abajo)
 
 ---
 
@@ -89,6 +89,7 @@ AI_*.md               Especificaciones
 
 - **v1.0 publicada** — primera generación de AI OS (ISA/IR/Kernel/AVM → dispositivos reales → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, plan de benchmark en dispositivos reales (Mac / iPhone 15 Pro / iPad M4)
+- **Phase 4: validación con API real (2026-09)** — ablación de componentes (Baseline/AVM/Executive/Full, 50 tareas × 3) + AVM de texto largo (96,5 % reducción de tokens con 100 %) + cuello de botella Executive (bug de doble llamada corregido: +348ms → +37ms, medido en PR #37)
 - selftest [1]-[72] todos pasan / golden 30 / AILSA selftest / build + dist verificados
 
 ## 🔬 Posicionamiento de investigación
