@@ -26,18 +26,8 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 /** 検索が辿る最大エントリ数（暴走防止）。 */
 const MAX_SEARCH_ENTRIES = 50_000;
 
-/** root 配下の絶対パスへ解決し、root 外ならエラーにする。 */
-function resolveInRoot(root: string, p: string): { ok: true; abs: string } | { ok: false; error: string } {
-  const abs = path.isAbsolute(p) ? p : path.resolve(root, p);
-  const rel = path.relative(root, abs);
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    return { ok: false, error: `パスはルート外です: ${p}` };
-  }
-  return { ok: true, abs };
-}
-
 /**
- * realpath ベースで root 配下であることを確認しつつ実パスを返す。
+ * realpath ベースで root 配下であることを確認しつつ実パスを返す（唯一のパス解決経路）。
  * symlink 経由で root 外の実体を指すパスは拒否する（安全策）。
  * 実体が存在しない場合は親ディレクトリまで遡って realpath で検証する（新規作成対応）。
  *
@@ -45,9 +35,12 @@ function resolveInRoot(root: string, p: string): { ok: true; abs: string } | { o
  * symlink で誤判定しないため）。
  */
 async function resolveRealInRoot(root: string, p: string): Promise<{ ok: true; real: string } | { ok: false; error: string }> {
-  const lexical = resolveInRoot(root, p);
-  if (!lexical.ok) return { ok: false, error: lexical.error };
-  const abs = lexical.abs;
+  // 語彙チェック（symlink 未解決のまま文字列で root 外を拒否）
+  const abs = path.isAbsolute(p) ? p : path.resolve(root, p);
+  const lexRel = path.relative(root, abs);
+  if (lexRel.startsWith('..') || path.isAbsolute(lexRel)) {
+    return { ok: false, error: `パスはルート外です: ${p}` };
+  }
 
   // root の実体（symlink 解決後）
   let realRoot: string;
