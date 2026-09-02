@@ -30,6 +30,8 @@
     "ablation:quick": "tsx src/arcasha/cli.ts ablation quick",
     "ablation:long": "tsx src/arcasha/cli.ts ablation-long",
     "ablation:exec": "tsx src/arcasha/cli.ts ablation-exec",
+    "swe": "tsx src/arcasha/cli.ts swe",
+    "swe:tools-test": "tsx src/arcasha/swe/tools-test.ts",
     "chat": "tsx src/arcasha/chat/chat-server.ts",
     "arcasha": "tsx src/arcasha/cli.ts"
   },

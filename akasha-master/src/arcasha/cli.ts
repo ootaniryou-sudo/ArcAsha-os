@@ -139,6 +139,11 @@ export async function runCli(argv: string[]): Promise<string> {
       console.log(await runCognitiveDemo());
       return 'arcasha cognitive: done';
     }
+    case 'swe': {
+      // SWE-bench エージェント（ツールループ）。--root でリポジトリ、--issue で問題文を指定
+      const { runSweCli } = await import('./swe/cli.js');
+      return runSweCli(argv.slice(1));
+    }
     case 'version':
       return `ArcAsha v${ARCASHA_VERSION}`;
     case 'help':
@@ -158,6 +163,7 @@ export async function runCli(argv: string[]): Promise<string> {
         '  policy      OS ポリシー学習デモ（Decision Explanation を学習データにして Meta Executive のポリシーを更新）',
         '  hierarchy   Hierarchy Runtime デモ（Master → Caravan → Device → Expert の階層が自律判断）',
         '  cognitive   Cognitive Graph Runtime デモ（タスクごとに知能の配線を動的生成 → 共有メモリ + IR 通信 → Team Learning → Knowledge Oasis）',
+        '  swe         SWE-bench エージェント（--root <repo> --issue "<問題文>" でツールループを実行）',
         '  version     version 表示',
         '  help        このヘルプ',
       ].join('\n');
