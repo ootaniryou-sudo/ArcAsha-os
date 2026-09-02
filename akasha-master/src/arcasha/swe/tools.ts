@@ -27,6 +27,47 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_SEARCH_ENTRIES = 50_000;
 
 /**
+ * テストファイルかどうか判定する（SWE-bench ではエージェントはソースのみ修正し、
+ * テストは評価時に gold の test_patch で上書きされるため、テストへの書き込みを禁止する）。
+ *
+ * 注: ディレクトリ判定は `tests`（複数形）のみに限定する。`test`（単数形）は
+ * django/test/ のように本番コードのサブパッケージ名として使われることがあるため、
+ * ディレクトリ単位ではブロックしない（テストはファイル名パターンと tests/ で捕捉する）。
+ */
+export function isTestFilePath(rel: string): boolean {
+  const norm = rel.replace(/\\/g, '/');
+  const segments = norm.split('/');
+  // tests ディレクトリ配下（複数形）
+  if (segments.includes('tests')) return true;
+  const base = segments[segments.length - 1] ?? '';
+  // テストファイル命名（test.py / tests.py / test_*.py / *_test.py / conftest.py）
+  return base === 'test.py' ||
+    base === 'tests.py' ||
+    /^test_.*\.py$/.test(base) ||
+    /^.*_test\.py$/.test(base) ||
+    base === 'conftest.py';
+}
+
+/** パスがルート相対でテストファイルなら書き込み禁止エラーを返す。 */
+async function assertNotTestFile(root: string, p: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const r = await resolveRealInRoot(root, p);
+  if (!r.ok) return r;
+  // root も realpath 解決してから相対パスを計算（root が symlink の場合は解決後の
+  // パスに test/tests 成分が含まれても誤検出しないように）
+  let realRoot = root;
+  try {
+    realRoot = await fs.realpath(root);
+  } catch {
+    // 解決できない場合は語彙ベースで判定
+  }
+  const rel = path.relative(realRoot, r.real).replace(/\\/g, '/');
+  if (isTestFilePath(rel)) {
+    return { ok: false, error: `テストファイルへの書き込みは禁止されています（SWE-bench ではテストは評価時に自動適用されます）: ${p}` };
+  }
+  return { ok: true };
+}
+
+/**
  * realpath ベースで root 配下であることを確認しつつ実パスを返す（唯一のパス解決経路）。
  * symlink 経由で root 外の実体を指すパスは拒否する（安全策）。
  * 実体が存在しない場合は親ディレクトリまで遡って realpath で検証する（新規作成対応）。
@@ -280,6 +321,8 @@ async function writeFile(args: Record<string, unknown>, ctx: SweContext): Promis
   const p = typeof args.path === 'string' ? args.path : '';
   const content = typeof args.content === 'string' ? args.content : '';
   if (p === '') return { ok: false, output: 'write_file: path が指定されていません', ms: Date.now() - t0 };
+  const guard = await assertNotTestFile(ctx.root, p);
+  if (!guard.ok) return { ok: false, output: guard.error, ms: Date.now() - t0 };
   const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
@@ -303,6 +346,8 @@ async function editFile(args: Record<string, unknown>, ctx: SweContext): Promise
   const newStr = typeof args.new_string === 'string' ? args.new_string : '';
   if (p === '') return { ok: false, output: 'edit_file: path が指定されていません', ms: Date.now() - t0 };
   if (oldStr === '') return { ok: false, output: 'edit_file: old_string が空です', ms: Date.now() - t0 };
+  const guard = await assertNotTestFile(ctx.root, p);
+  if (!guard.ok) return { ok: false, output: guard.error, ms: Date.now() - t0 };
   const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
