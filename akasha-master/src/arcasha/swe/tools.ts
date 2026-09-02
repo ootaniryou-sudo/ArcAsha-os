@@ -36,6 +36,52 @@ function resolveInRoot(root: string, p: string): { ok: true; abs: string } | { o
   return { ok: true, abs };
 }
 
+/**
+ * realpath ベースで root 配下であることを確認しつつ実パスを返す。
+ * symlink 経由で root 外の実体を指すパスは拒否する（安全策）。
+ * 実体が存在しない場合は親ディレクトリまで遡って realpath で検証する（新規作成対応）。
+ *
+ * 注: root 自体も realpath で解決してから比較する（macOS の /var → /private/var 等の
+ * symlink で誤判定しないため）。
+ */
+async function resolveRealInRoot(root: string, p: string): Promise<{ ok: true; real: string } | { ok: false; error: string }> {
+  const lexical = resolveInRoot(root, p);
+  if (!lexical.ok) return { ok: false, error: lexical.error };
+  const abs = lexical.abs;
+
+  // root の実体（symlink 解決後）
+  let realRoot: string;
+  try {
+    realRoot = await fs.realpath(root);
+  } catch {
+    return { ok: false, error: `ルート自体を解決できません: ${root}` };
+  }
+
+  // 実体（symlink 解決後）が root 配下にあるか確認する
+  let real: string;
+  try {
+    real = await fs.realpath(abs);
+  } catch {
+    // 実体が存在しない → 親ディレクトリの realpath を基準に検証（新規ファイル作成用）
+    try {
+      const realParent = await fs.realpath(path.dirname(abs));
+      const rel = path.relative(realRoot, realParent);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        return { ok: false, error: `パスはルート外です（親が symlink で root 外）: ${p}` };
+      }
+      real = path.join(realParent, path.basename(abs));
+    } catch {
+      // 親も存在しない → root 実体から相対で解決
+      return { ok: true, real: path.join(realRoot, path.relative(root, abs)) };
+    }
+  }
+  const relReal = path.relative(realRoot, real);
+  if (relReal.startsWith('..') || path.isAbsolute(relReal)) {
+    return { ok: false, error: `パスはルート外です（symlink 迂回）: ${p}` };
+  }
+  return { ok: true, real };
+}
+
 /** バイト列を最大長で切り詰める（マルチバイト対応で安全に）。 */
 function truncate(s: string, max = MAX_OUTPUT_BYTES): string {
   if (Buffer.byteLength(s, 'utf8') <= max) return s;
@@ -49,36 +95,33 @@ function truncate(s: string, max = MAX_OUTPUT_BYTES): string {
 /** 再帰探索で無視するディレクトリ名。 */
 const IGNORE_DIRS = new Set(['.git', 'node_modules', '.venv', 'venv', '__pycache__', 'dist', 'build', '.tox', '.mypy_cache', '.pytest_cache', '.ruff_cache', '.idea', '.vscode']);
 
-async function collectEntries(root: string, opts: {
-  /** ディレクトリを返すか */
-  includeDirs?: boolean;
-  /** マッチしたパスを返す（true なら callback のみで再帰は止める） */
-  maxEntries?: number;
-}, onMatch: (abs: string) => boolean): Promise<{ count: number; truncated: boolean }> {
+/**
+ * root 配下を再帰走査し、ファイルごとに onMatch を呼ぶ。
+ * onMatch が true を返すと即時打ち切り（glob 等の上限に使う）。
+ * symlink は辿らない（root 外への迂回防止）。
+ */
+async function walkFiles(root: string, onMatch: (abs: string) => Promise<boolean>): Promise<{ count: number; truncated: boolean }> {
   let count = 0;
   let truncated = false;
-  const max = opts.maxEntries ?? MAX_SEARCH_ENTRIES;
 
   async function walk(dir: string): Promise<void> {
-    if (truncated || count >= max) { truncated = true; return; }
-    let entries: Array<{ name: string; isDirectory(): boolean }>;
+    if (truncated) return;
+    let entries: Array<{ name: string; isDirectory(): boolean; isSymbolicLink(): boolean }>;
     try {
       entries = await fs.readdir(dir, { withFileTypes: true });
     } catch { return; }
     // 安定した順序
     entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     for (const e of entries) {
-      if (truncated || count >= max) { truncated = true; return; }
+      if (truncated) return;
+      if (e.isSymbolicLink()) continue; // symlink は辿らない
       if (e.isDirectory()) {
         if (IGNORE_DIRS.has(e.name)) continue;
-        if (opts.includeDirs !== false) {
-          count++;
-          if (onMatch(path.join(dir, e.name))) continue; // マッチしたらこの dir は深追いしない（includeDirs 用）
-        }
         await walk(path.join(dir, e.name));
       } else {
         count++;
-        onMatch(path.join(dir, e.name));
+        if (count >= MAX_SEARCH_ENTRIES) { truncated = true; return; }
+        if (await onMatch(path.join(dir, e.name))) { truncated = true; return; }
       }
     }
   }
@@ -94,12 +137,12 @@ async function collectEntries(root: string, opts: {
 async function listDir(args: Record<string, unknown>, ctx: SweContext): Promise<SweToolResult> {
   const t0 = Date.now();
   const target = typeof args.path === 'string' && args.path !== '' ? args.path : '.';
-  const r = resolveInRoot(ctx.root, target);
+  const r = await resolveRealInRoot(ctx.root, target);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
   let entries;
   try {
-    entries = await fs.readdir(r.abs, { withFileTypes: true });
+    entries = await fs.readdir(r.real, { withFileTypes: true });
   } catch (e) {
     return { ok: false, output: `list_dir 失敗: ${(e as Error).message}`, ms: Date.now() - t0 };
   }
@@ -117,12 +160,12 @@ async function readFile(args: Record<string, unknown>, ctx: SweContext): Promise
   const t0 = Date.now();
   const p = typeof args.path === 'string' ? args.path : '';
   if (p === '') return { ok: false, output: 'read_file: path が指定されていません', ms: Date.now() - t0 };
-  const r = resolveInRoot(ctx.root, p);
+  const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
   let content: string;
   try {
-    content = await fs.readFile(r.abs, 'utf8');
+    content = await fs.readFile(r.real, 'utf8');
   } catch (e) {
     return { ok: false, output: `read_file 失敗: ${(e as Error).message}`, ms: Date.now() - t0 };
   }
@@ -156,7 +199,7 @@ async function grepSearch(args: Record<string, unknown>, ctx: SweContext): Promi
 
   // 対象パス（省略時は root）
   const target = typeof args.path === 'string' && args.path !== '' ? args.path : '.';
-  const r = resolveInRoot(ctx.root, target);
+  const r = await resolveRealInRoot(ctx.root, target);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
   // 拡張子フィルタ（省略時は全ファイル）
@@ -172,38 +215,24 @@ async function grepSearch(args: Record<string, unknown>, ctx: SweContext): Promi
   const hits: Array<{ rel: string; line: number; text: string }> = [];
   const maxMatches = 200;
 
-  async function walk(dir: string): Promise<void> {
-    let entries;
+  await walkFiles(r.real, async (abs) => {
+    if (hits.length >= maxMatches) return true; // 打ち切り
+    if (ext !== '' && !abs.endsWith(ext)) return false;
     try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch { return; }
-    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-    for (const e of entries) {
-      if (hits.length >= maxMatches) return;
-      if (e.isDirectory()) {
-        if (IGNORE_DIRS.has(e.name)) continue;
-        await walk(path.join(dir, e.name));
-      } else {
-        const abs = path.join(dir, e.name);
-        if (ext !== '' && !abs.endsWith(ext)) continue;
-        try {
-          const st = await fs.stat(abs);
-          if (st.size > 1_000_000) continue; // 大きすぎるファイルは読み飛ばし
-        } catch { continue; }
-        let text: string;
-        try { text = await fs.readFile(abs, 'utf8'); } catch { continue; }
-        const ls = text.split('\n');
-        for (let i = 0; i < ls.length; i++) {
-          if (hits.length >= maxMatches) return;
-          if (regex.test(ls[i])) {
-            hits.push({ rel: path.relative(ctx.root, abs), line: i + 1, text: ls[i].trim().slice(0, 200) });
-          }
-        }
+      const st = await fs.stat(abs);
+      if (st.size > 1_000_000) return false; // 大きすぎるファイルは読み飛ばし
+    } catch { return false; }
+    let text: string;
+    try { text = await fs.readFile(abs, 'utf8'); } catch { return false; }
+    const ls = text.split('\n');
+    for (let i = 0; i < ls.length; i++) {
+      if (hits.length >= maxMatches) return true;
+      if (regex.test(ls[i])) {
+        hits.push({ rel: path.relative(ctx.root, abs), line: i + 1, text: ls[i].trim().slice(0, 200) });
       }
     }
-  }
-
-  await walk(r.abs);
+    return hits.length >= maxMatches;
+  });
 
   const lines = hits.map((h) => `${h.rel}:${h.line}: ${h.text}`);
   const note = hits.length >= maxMatches ? `\n（${maxMatches} 件で打ち切り）` : `\n（${hits.length} 件ヒット）`;
@@ -233,14 +262,15 @@ async function globSearch(args: Record<string, unknown>, ctx: SweContext): Promi
   };
 
   const matches: string[] = [];
-  await collectEntries(ctx.root, { includeDirs: false }, (abs) => {
-    if (matches.length >= 500) return true;
+  const MAX_GLOB_MATCHES = 500;
+  await walkFiles(ctx.root, async (abs) => {
+    if (matches.length >= MAX_GLOB_MATCHES) return true;
     const rel = path.relative(ctx.root, abs);
     if (matcher(rel)) matches.push(rel);
-    return false;
+    return matches.length >= MAX_GLOB_MATCHES;
   });
 
-  const note = matches.length >= 500 ? `\n（500 件で打ち切り）` : `\n（${matches.length} 件）`;
+  const note = matches.length >= MAX_GLOB_MATCHES ? `\n（${MAX_GLOB_MATCHES} 件で打ち切り）` : `\n（${matches.length} 件）`;
   return { ok: true, output: matches.length > 0 ? truncate(matches.join('\n') + note) : `（0 件）`, ms: Date.now() - t0 };
 }
 
@@ -253,12 +283,12 @@ async function writeFile(args: Record<string, unknown>, ctx: SweContext): Promis
   const p = typeof args.path === 'string' ? args.path : '';
   const content = typeof args.content === 'string' ? args.content : '';
   if (p === '') return { ok: false, output: 'write_file: path が指定されていません', ms: Date.now() - t0 };
-  const r = resolveInRoot(ctx.root, p);
+  const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
   try {
-    await fs.mkdir(path.dirname(r.abs), { recursive: true });
-    await fs.writeFile(r.abs, content, 'utf8');
+    await fs.mkdir(path.dirname(r.real), { recursive: true });
+    await fs.writeFile(r.real, content, 'utf8');
   } catch (e) {
     return { ok: false, output: `write_file 失敗: ${(e as Error).message}`, ms: Date.now() - t0 };
   }
@@ -276,12 +306,12 @@ async function editFile(args: Record<string, unknown>, ctx: SweContext): Promise
   const newStr = typeof args.new_string === 'string' ? args.new_string : '';
   if (p === '') return { ok: false, output: 'edit_file: path が指定されていません', ms: Date.now() - t0 };
   if (oldStr === '') return { ok: false, output: 'edit_file: old_string が空です', ms: Date.now() - t0 };
-  const r = resolveInRoot(ctx.root, p);
+  const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
 
   let content: string;
   try {
-    content = await fs.readFile(r.abs, 'utf8');
+    content = await fs.readFile(r.real, 'utf8');
   } catch (e) {
     return { ok: false, output: `edit_file 読み取り失敗: ${(e as Error).message}`, ms: Date.now() - t0 };
   }
@@ -291,7 +321,7 @@ async function editFile(args: Record<string, unknown>, ctx: SweContext): Promise
   }
   const updated = content.slice(0, idx) + newStr + content.slice(idx + oldStr.length);
   try {
-    await fs.writeFile(r.abs, updated, 'utf8');
+    await fs.writeFile(r.real, updated, 'utf8');
   } catch (e) {
     return { ok: false, output: `edit_file 書き込み失敗: ${(e as Error).message}`, ms: Date.now() - t0 };
   }
@@ -308,6 +338,15 @@ function runCommand(args: Record<string, unknown>, ctx: SweContext): Promise<Swe
     const command = typeof args.command === 'string' ? args.command : '';
     if (command === '') {
       resolvePromise({ ok: false, output: 'run_command: command が空です', ms: Date.now() - t0 });
+      return;
+    }
+    // 安全のための opt-in: allowRunCommand が true のときのみ任意コマンドを実行する
+    if (ctx.allowRunCommand !== true) {
+      resolvePromise({
+        ok: false,
+        output: 'run_command は無効です（安全のため opt-in）。実行するには allowRunCommand=true（CLI では --allow-run-command / env ARCASHA_SWE_ALLOW_RUN=1）を設定してください。',
+        ms: Date.now() - t0,
+      });
       return;
     }
     const timeoutMs = typeof args.timeout_ms === 'number' && args.timeout_ms > 0 ? Math.floor(args.timeout_ms) : DEFAULT_TIMEOUT_MS;
@@ -420,7 +459,7 @@ export const SWE_TOOLS: SweTool[] = [
   },
   {
     name: 'run_command',
-    description: 'シェルコマンドをリポジトリ root をカレントディレクトリとして実行する。テスト実行（pytest 等）やビルドに使う。',
+    description: 'シェルコマンドをリポジトリ root をカレントディレクトリとして実行する。テスト実行（pytest 等）やビルドに使う。※安全のため opt-in（allowRunCommand=true / env ARCASHA_SWE_ALLOW_RUN=1 / CLI --allow-run-command）でのみ有効。',
     parameters: TOOL_PARAMS.run_command,
     run: runCommand,
   },

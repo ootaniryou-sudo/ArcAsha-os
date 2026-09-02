@@ -65,13 +65,30 @@ async function main(): Promise<void> {
     const edited = await fs.readFile(path.join(root, 'src', 'math.py'), 'utf8');
     check('edit_file 置換', e.ok && edited.includes('return a * b + 1') && !edited.includes('return a * b\n'), e.output);
 
-    // run_command
-    const cmd = await getSweTool('run_command')!.run({ command: 'python3 -c "print(6*7)"' }, ctx);
-    check('run_command 実行（exit 0）', cmd.ok && cmd.output.includes('42'), cmd.output);
+    // run_command（opt-in なしでは拒否）
+    const cmdDenied = await getSweTool('run_command')!.run({ command: 'echo hi' }, ctx);
+    check('run_command は opt-in なしで拒否', !cmdDenied.ok && cmdDenied.output.includes('無効'), cmdDenied.output);
+
+    // run_command（allowRunCommand=true で実行）
+    const cmdAllowed = await getSweTool('run_command')!.run({ command: 'python3 -c "print(6*7)"' }, { root, allowRunCommand: true });
+    check('run_command 実行（opt-in + exit 0）', cmdAllowed.ok && cmdAllowed.output.includes('42'), cmdAllowed.output);
 
     // 安全策: root 外パスは拒否
     const outside = await getSweTool('read_file')!.run({ path: '/etc/hostname' }, ctx);
     check('root 外パスは拒否', !outside.ok, outside.output);
+
+    // 安全策: symlink 迂回は拒否
+    const secretDir = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-swe-secret-'));
+    try {
+      await fs.writeFile(path.join(secretDir, 'secret.txt'), 'TOPSECRET', 'utf8');
+      await fs.symlink(secretDir, path.join(root, 'evil-link'));
+      const viaLink = await getSweTool('read_file')!.run({ path: 'evil-link/secret.txt' }, ctx);
+      check('symlink 経由の root 外読み取りは拒否', !viaLink.ok, viaLink.output);
+      const listViaLink = await getSweTool('list_dir')!.run({ path: 'evil-link' }, ctx);
+      check('list_dir の symlink 経由は拒否', !listViaLink.ok, listViaLink.output);
+    } finally {
+      await fs.rm(secretDir, { recursive: true, force: true }).catch(() => undefined);
+    }
 
     // 未知ツールは undefined
     check('未知ツールは undefined', getSweTool('nope') === undefined);

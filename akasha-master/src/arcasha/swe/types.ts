@@ -24,6 +24,11 @@ export interface SweToolParameter {
 export interface SweContext {
   /** 作業リポジトリのルート（絶対パス）。ツールはこの配下のみ操作できる。 */
   root: string;
+  /**
+   * run_command の実行可否。既定 false（安全のため opt-in）。
+   * true のときのみ任意コマンドのシェル実行を許可する。
+   */
+  allowRunCommand?: boolean;
 }
 
 /** ツールの実行結果。 */

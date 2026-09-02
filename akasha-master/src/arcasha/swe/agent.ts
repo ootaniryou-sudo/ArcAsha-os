@@ -53,6 +53,11 @@ export interface SweAgentOptions {
   chat?: Partial<ChatOptions>;
   /** 最大ループ回数（既定 30）。 */
   maxIterations?: number;
+  /**
+   * run_command（任意コマンド実行）を許可するか。既定 false（安全のため opt-in）。
+   * env ARCASHA_SWE_ALLOW_RUN=1 でも有効化される。
+   */
+  allowRunCommand?: boolean;
   /** 追加のコンテキスト（既存テスト名・失敗出力など）。 */
   extraContext?: string;
 }
@@ -86,7 +91,8 @@ export async function runSweAgent(
     throw new Error(`root が存在しません: ${root}（${(e as Error).message}）`);
   }
 
-  const ctx: SweContext = { root };
+  const allowRunCommand = opts.allowRunCommand === true || process.env.ARCASHA_SWE_ALLOW_RUN === '1';
+  const ctx: SweContext = { root, allowRunCommand };
   const chatOpts: ChatOptions = { ...chatDefaults(), ...opts.chat };
 
   const messages: ChatMessage[] = [
@@ -99,6 +105,8 @@ export async function runSweAgent(
   let toolCalls = 0;
   let finalAnswer = '';
   let stopReason = '';
+  // モデルが tool_calls なしの実際の content を返したら true（成功判定の根拠）
+  let gotFinalAnswer = false;
 
   for (let i = 0; i < maxIterations; i++) {
     const completion = await deps.chat(messages, tools, chatOpts);
@@ -109,6 +117,8 @@ export async function runSweAgent(
     if (message.toolCalls.length === 0) {
       // モデルが最終回答を返した（content がある想定）
       finalAnswer = message.content ?? '(最終回答なし)';
+      // content が実際に得られた場合のみ成功扱い（null で終わった場合は失敗）
+      gotFinalAnswer = typeof message.content === 'string' && message.content.trim() !== '';
       stopReason = finishReason;
       steps.push({
         index: i,
@@ -171,7 +181,7 @@ export async function runSweAgent(
   }
 
   return {
-    ok: finalAnswer !== '' && !finalAnswer.startsWith('（最大'),
+    ok: gotFinalAnswer && finalAnswer !== '' && finalAnswer !== '(最終回答なし)',
     finalAnswer,
     steps,
     toolCalls,

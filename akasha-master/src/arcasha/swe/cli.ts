@@ -19,10 +19,11 @@ interface CliOpts {
   maxIterations: number;
   verbose: boolean;
   extraContext?: string;
+  allowRunCommand: boolean;
 }
 
 function parseArgs(argv: string[]): CliOpts {
-  const opts: CliOpts = { root: '.', issue: '', maxIterations: 30, verbose: false };
+  const opts: CliOpts = { root: '.', issue: '', maxIterations: 30, verbose: false, allowRunCommand: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = (): string => {
@@ -41,6 +42,7 @@ function parseArgs(argv: string[]): CliOpts {
         break;
       }
       case '--context': opts.extraContext = next(); break;
+      case '--allow-run-command': opts.allowRunCommand = true; break;
       case '--verbose': opts.verbose = true; break;
       case '-h':
       case '--help':
@@ -67,6 +69,7 @@ const HELP = `ArcAsha SWE Agent（SWE-bench 動作確認用）
   --issue "<text>"         解決すべき issue 文（必須）
   --context "<text>"       追加コンテキスト（テスト失敗出力など・任意）
   --max-iterations <n>     最大ツールループ回数（既定 30）
+  --allow-run-command      任意コマンド実行（run_command）を許可（既定: 拒否）
   --verbose                各ステップの詳細を表示
   --help                   このヘルプ
 `;
@@ -90,6 +93,7 @@ export async function runSweCli(argv: string[]): Promise<string> {
     issue: opts.issue,
     extraContext: opts.extraContext,
     maxIterations: opts.maxIterations,
+    allowRunCommand: opts.allowRunCommand,
   });
 
   // ステップ表示
