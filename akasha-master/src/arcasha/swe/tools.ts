@@ -30,14 +30,14 @@ const MAX_SEARCH_ENTRIES = 50_000;
  * テストファイルかどうか判定する（SWE-bench ではエージェントはソースのみ修正し、
  * テストは評価時に gold の test_patch で上書きされるため、テストへの書き込みを禁止する）。
  */
-function isTestFilePath(rel: string): boolean {
+export function isTestFilePath(rel: string): boolean {
   const norm = rel.replace(/\\/g, '/');
   const segments = norm.split('/');
   // tests / test ディレクトリ配下
   if (segments.some((s) => s === 'tests' || s === 'test')) return true;
   const base = segments[segments.length - 1] ?? '';
-  // テストファイル命名（test_*.py / *_test.py / conftest.py）
-  return /^test_.*\.py$/.test(base) || /^.*_test\.py$/.test(base) || base === 'conftest.py';
+  // テストファイル命名（test.py / test_*.py / *_test.py / conftest.py）
+  return base === 'test.py' || /^test_.*\.py$/.test(base) || /^.*_test\.py$/.test(base) || base === 'conftest.py';
 }
 
 /** パスがルート相対でテストファイルなら書き込み禁止エラーを返す。 */

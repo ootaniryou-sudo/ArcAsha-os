@@ -20,6 +20,7 @@ import { promises as fs } from 'node:fs';
 import type { SweBenchInstance } from './instance.js';
 import type { SweAgentOptions } from './agent.js';
 import { runSweAgent } from './agent.js';
+import { isTestFilePath } from './tools.js';
 import { checkoutRepo, gitDiff, applyPatch, resetHard, runCommand, runShell } from './repo.js';
 
 /** 評価オプション。 */
@@ -41,6 +42,13 @@ export interface SweEvalOptions {
   setupCmd?: string;
   /** pytest 実行のタイムアウト（ms・既定 5 分）。 */
   pytestTimeoutMs?: number;
+  /**
+   * PASS_TO_PASS（回帰確認）の実行上限。既定 5。
+   * SWE-bench の resolved 判定は FAIL_TO_PASS のみで行う（公式ハーネス準拠）ため、
+   * P2P は回帰確認として代表テストを上限件数だけ実行する（数千件ある instance が
+   * あるため全件実行は非現実的）。上限を変えたい場合はこの値を指定する。
+   */
+  passToPassLimit?: number;
   /**
    * python / pytest 実行に使うバイナリ（既定: env SWE_PYTHON か 'python3'）。
    * 例: '/usr/local/bin/python3'（pytest が入っている環境を明示する場合）。
@@ -152,6 +160,28 @@ function extractPatchFiles(patch: string): string[] {
   return files;
 }
 
+/**
+ * unified diff（エージェントの modelPatch）からテストファイルの変更を除去する。
+ *
+ * SWE-bench ではテストは評価時に gold の test_patch として適用されるため、
+ * エージェントによるテスト改変（run_command 経由を含む）を model_patch に含めない。
+ * これにより test_patch 適用後の model_patch 適用でコンフリクトするのを防ぐ。
+ */
+function stripTestFileChanges(diff: string): string {
+  if (!diff.trim()) return diff;
+  const sections = diff.split(/(?=^diff --git )/m);
+  const kept: string[] = [];
+  for (const sec of sections) {
+    if (!sec.trim()) continue;
+    const m = /^\+\+\+ b\/(.+?)(?:\s|$)/m.exec(sec);
+    if (m && isTestFilePath(m[1].replace(/^"|"$/g, ''))) {
+      continue; // テストファイル変更は除去
+    }
+    kept.push(sec);
+  }
+  return kept.join('');
+}
+
 /** 環境セットアップコマンドを実行（任意）。shell 経由（依存 install 等）。 */
 async function runSetup(repoDir: string, cmd: string): Promise<boolean> {
   if (!cmd.trim()) return true;
@@ -212,7 +242,8 @@ export async function evaluateInstance(
       if (!diff.ok) {
         return { instance_id: inst.instance_id, resolved: false, modelPatch: '', failToPass: [], passToPass: [], agentToolCalls: agentResult.toolCalls, agentModelCalls, agentPromptTokens, agentCompletionTokens, agentTotalTokens: agentPromptTokens + agentCompletionTokens, totalMs: Date.now() - t0, error: `git diff 失敗: ${diff.error}` };
       }
-      modelPatch = diff.diff;
+      // テストファイルの変更は model_patch から除去（評価は gold test_patch で行うため）
+      modelPatch = stripTestFileChanges(diff.diff);
       if (opts.verbose) {
         console.log(`[eval] agent done: ${agentResult.modelCalls} calls / ${agentResult.toolCalls} tools / diff ${modelPatch.length} bytes / ok=${agentResult.ok}`);
         console.log(`[eval] final answer head: ${agentResult.finalAnswer.slice(0, 200)}`);
@@ -265,8 +296,14 @@ export async function evaluateInstance(
       if (opts.verbose && r.code !== 0) console.log(`    -> FAIL (exit ${r.code})`);
     }
 
-    // 8. PASS_TO_PASS 実行（回帰確認・代表的なものだけ最大 N 件）
-    const passToPassLimit = inst.PASS_TO_PASS.length > 5 ? inst.PASS_TO_PASS.slice(0, 5) : inst.PASS_TO_PASS;
+    // 8. PASS_TO_PASS 実行（回帰確認・上限は opts.passToPassLimit、既定 5）
+    //    注: resolved は SWE-bench 公式ハーネスと同様に FAIL_TO_PASS のみで判定する。
+    //    P2P は回帰確認（モデル修正が既存テストを壊していないことの確認）であり、
+    //    数千件ある instance での全件実行を避けるため上限件数を実行する。
+    const p2pLimit = Number.isSafeInteger(opts.passToPassLimit) && (opts.passToPassLimit as number) >= 1
+      ? (opts.passToPassLimit as number)
+      : 5;
+    const passToPassLimit = inst.PASS_TO_PASS.length > p2pLimit ? inst.PASS_TO_PASS.slice(0, p2pLimit) : inst.PASS_TO_PASS;
     const passToPassNodeIds = await resolveTestNodeIds(repoDir, passToPassLimit, preferredTestFiles);
     const passToPass: TestResult[] = [];
     for (let i = 0; i < passToPassLimit.length; i++) {
@@ -277,6 +314,7 @@ export async function evaluateInstance(
       passToPass.push({ test, passed: r.code === 0, error: r.code !== 0 ? `exit ${r.code}` : undefined });
     }
 
+    // resolved = FAIL_TO_PASS が全て通った（SWE-bench 公式の判定基準。P2P は回帰確認）
     const resolved = failToPass.length > 0 && failToPass.every((t) => t.passed);
     return {
       instance_id: inst.instance_id,

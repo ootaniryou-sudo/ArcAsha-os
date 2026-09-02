@@ -114,8 +114,21 @@ export async function changedFiles(repoDir: string): Promise<string[]> {
     .filter((p) => p !== '');
 }
 
-/** 作業ツリーの変更全体を diff（text）として取得。 */
+/**
+ * 作業ツリーの変更全体を diff（text）として取得。
+ *
+ * エージェントが新規ファイルを作成した場合も model_patch に含めるため、
+ * untracked ファイルへ intent-to-add（git add -N）を適用してから差分を取る。
+ * intent-to-add が失敗した場合はエラーとして扱う（既存の modelPatch 生成を
+ * 壊さないよう、失敗時は diff を空にして呼び出し元へ伝える）。
+ */
 export async function gitDiff(repoDir: string): Promise<{ ok: boolean; diff: string; error?: string }> {
+  // 1) untracked ファイルを差分対象へ（新規ファイルの追加を model_patch に含める）
+  const ita = await runGit(repoDir, ['add', '-N', '.']);
+  if (!ita.ok) {
+    return { ok: false, diff: '', error: `git add -N 失敗: ${ita.stderr.slice(0, 300)}` };
+  }
+  // 2) 差分を取得
   const r = await runGit(repoDir, ['diff', 'HEAD']);
   if (!r.ok) return { ok: false, diff: '', error: r.stderr.slice(0, 300) };
   return { ok: true, diff: r.stdout };

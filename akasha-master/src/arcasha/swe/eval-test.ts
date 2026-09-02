@@ -102,9 +102,29 @@ async function buildGoldPatchFromRepo(repoDir: string): Promise<string> {
   return stdout;
 }
 
+/**
+ * pytest を実行できる python バイナリを解決する。
+ * 優先順: env SWE_PYTHON → システム python3（pytest が import できるか確認）→ 'python3'
+ * （ローカル実行では、pytest が入った環境を SWE_PYTHON で明示するのが確実）
+ */
+async function resolvePythonBin(): Promise<string> {
+  if (process.env.SWE_PYTHON) return process.env.SWE_PYTHON;
+  for (const cand of ['python3', 'python']) {
+    try {
+      await execFileAsync(cand, ['-c', 'import pytest'], { timeout: 10_000 });
+      return cand;
+    } catch {
+      // 次の候補を試す
+    }
+  }
+  return 'python3';
+}
+
 async function main(): Promise<void> {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-swe-eval-'));
   console.log(`temp dir: ${tmp}\n`);
+  const pythonBin = await resolvePythonBin();
+  console.log(`python: ${pythonBin}（env SWE_PYTHON で上書き可）\n`);
 
   // 各シナリオで独立したリポジトリを使う（評価が互いに汚染しないように）
   async function freshRepo(): Promise<{ dir: string; commit: string }> {
@@ -134,7 +154,7 @@ async function main(): Promise<void> {
     const inst1 = makeInstance(f1.commit);
     const goldPatch = await buildGoldPatchFromRepo(f1.dir);
     check('gold patch が生成される', goldPatch.includes('range(1, n + 1)'), goldPatch.slice(0, 200));
-    const r1 = await evaluateInstance(inst1, { repoDir: f1.dir, verbose: true, allowRunCommand: true, pythonBin: '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3' }, goldPatch);
+    const r1 = await evaluateInstance(inst1, { repoDir: f1.dir, verbose: true, allowRunCommand: true, pythonBin }, goldPatch);
     console.log(renderSweEval(r1));
     console.log('');
     check('正しい解決パッチで resolved=true', r1.resolved, JSON.stringify(r1.failToPass));
@@ -144,7 +164,7 @@ async function main(): Promise<void> {
     console.log('--- 2. 空パッチ（未解決）で評価 ---');
     const f2 = await freshRepo();
     const inst2 = makeInstance(f2.commit);
-    const r2 = await evaluateInstance(inst2, { repoDir: f2.dir, verbose: false, allowRunCommand: true, pythonBin: '/Library/Frameworks/Python.framework/Versions/3.13/bin/python3' }, '');
+    const r2 = await evaluateInstance(inst2, { repoDir: f2.dir, verbose: false, allowRunCommand: true, pythonBin }, '');
     console.log(renderSweEval(r2));
     console.log('');
     check('未解決（空パッチ）で resolved=false', !r2.resolved, JSON.stringify(r2.failToPass));

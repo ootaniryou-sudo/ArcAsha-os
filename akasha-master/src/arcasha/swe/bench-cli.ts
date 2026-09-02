@@ -137,6 +137,9 @@ export async function runSweBenchCli(argv: string[]): Promise<string> {
     passToPass: r.passToPass,
     agentModelCalls: r.agentModelCalls,
     agentToolCalls: r.agentToolCalls,
+    agentPromptTokens: r.agentPromptTokens,
+    agentCompletionTokens: r.agentCompletionTokens,
+    agentTotalTokens: r.agentTotalTokens,
     totalMs: r.totalMs,
     error: r.error,
   })), null, 2), 'utf8');
