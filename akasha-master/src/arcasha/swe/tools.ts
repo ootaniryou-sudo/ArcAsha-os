@@ -392,29 +392,29 @@ const TOOL_PARAMS: Record<string, SweToolParameter[]> = {
     param({ name: 'path', type: 'string', description: '一覧するディレクトリ（root 相対 or 絶対）。省略時は root' }),
   ],
   read_file: [
-    param({ name: 'path', type: 'string', description: '読み取るファイルパス（必須）' }),
+    param({ name: 'path', type: 'string', description: '読み取るファイルパス', required: true }),
     param({ name: 'start_line', type: 'integer', description: '開始行（1-indexed・省略時は先頭）' }),
     param({ name: 'end_line', type: 'integer', description: '終了行（1-indexed・省略時は末尾）' }),
   ],
   grep_search: [
-    param({ name: 'pattern', type: 'string', description: '検索する文字列 or 正規表現（必須）' }),
+    param({ name: 'pattern', type: 'string', description: '検索する文字列 or 正規表現', required: true }),
     param({ name: 'path', type: 'string', description: '検索対象パス（省略時は root）' }),
     param({ name: 'include', type: 'string', description: '拡張子フィルタ（例: .py）' }),
   ],
   glob_search: [
-    param({ name: 'pattern', type: 'string', description: 'パスパターン（例: **/*_test.py, */src/*.py）' }),
+    param({ name: 'pattern', type: 'string', description: 'パスパターン（例: **/*_test.py, */src/*.py）', required: true }),
   ],
   write_file: [
-    param({ name: 'path', type: 'string', description: '書き込むファイルパス（必須・新規 or 上書き）' }),
-    param({ name: 'content', type: 'string', description: '書き込む内容（必須）' }),
+    param({ name: 'path', type: 'string', description: '書き込むファイルパス（新規 or 上書き）', required: true }),
+    param({ name: 'content', type: 'string', description: '書き込む内容', required: true }),
   ],
   edit_file: [
-    param({ name: 'path', type: 'string', description: '編集するファイルパス（必須）' }),
-    param({ name: 'old_string', type: 'string', description: '置換対象の文字列（正確に一致必須）' }),
-    param({ name: 'new_string', type: 'string', description: '置換後の文字列' }),
+    param({ name: 'path', type: 'string', description: '編集するファイルパス', required: true }),
+    param({ name: 'old_string', type: 'string', description: '置換対象の文字列（正確に一致必須）', required: true }),
+    param({ name: 'new_string', type: 'string', description: '置換後の文字列', required: true }),
   ],
   run_command: [
-    param({ name: 'command', type: 'string', description: '実行するシェルコマンド（root を cwd に実行）' }),
+    param({ name: 'command', type: 'string', description: '実行するシェルコマンド（root を cwd に実行）', required: true }),
     param({ name: 'timeout_ms', type: 'integer', description: 'タイムアウト（ms）' }),
   ],
 };

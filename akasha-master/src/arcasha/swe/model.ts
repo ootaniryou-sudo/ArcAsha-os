@@ -73,6 +73,10 @@ export async function chatCompletion(
   if (!opts.apiKey) throw new Error('DEEPSEEK_API_KEY が設定されていません（.env を確認）');
   const t0 = Date.now();
 
+  // baseUrl の末尾 /v1 を正規化して二重パスを防ぐ（例: .../v1 → .../v1/chat/completions）
+  const base = opts.baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+  const endpoint = `${base}/v1/chat/completions`;
+
   const body: Record<string, unknown> = {
     model: opts.model,
     messages,
@@ -84,7 +88,7 @@ export async function chatCompletion(
     body.tool_choice = 'auto';
   }
 
-  const res = await fetch(`${opts.baseUrl}/v1/chat/completions`, {
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${opts.apiKey}` },
     signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
@@ -139,8 +143,13 @@ export async function chatCompletion(
 
 /**
  * SweTool 定義を OpenAI 互換 tools 配列へ変換する。
+ * parameters のうち required=true のものを schema の required 配列へ入れる。
  */
-export function toChatTools(tools: Array<{ name: string; description: string; parameters: Array<{ name: string; type: string; description: string; enum?: string[] }> }>): ChatToolDef[] {
+export function toChatTools(tools: Array<{
+  name: string;
+  description: string;
+  parameters: Array<{ name: string; type: string; description: string; enum?: Array<string | number | boolean>; required?: boolean }>;
+}>): ChatToolDef[] {
   return tools.map((t) => {
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
@@ -148,7 +157,7 @@ export function toChatTools(tools: Array<{ name: string; description: string; pa
       const prop: Record<string, unknown> = { type: p.type, description: p.description };
       if (p.enum) prop.enum = p.enum;
       properties[p.name] = prop;
-      // 必須指定がないパラメータは任意扱い（model が省略できる）。ここでは全部 required にしない
+      if (p.required === true) required.push(p.name);
     }
     return {
       type: 'function',

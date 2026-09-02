@@ -81,7 +81,9 @@ export async function runSweAgent(
   deps: SweAgentDeps = { chat: chatCompletion },
 ): Promise<SweAgentResult> {
   const t0 = Date.now();
-  const maxIterations = opts.maxIterations ?? 30;
+  // maxIterations は正の安全な整数のみ受理（不正値は既定 30 にフォールバック）
+  const rawMax = opts.maxIterations ?? 30;
+  const maxIterations = Number.isSafeInteger(rawMax) && rawMax >= 1 ? rawMax : 30;
   const root = path.resolve(opts.root);
   // root の存在確認
   try {

@@ -124,6 +124,11 @@ export async function runSweCli(argv: string[]): Promise<string> {
   console.log('======================================================');
   console.log(`モデル呼び出し: ${r.modelCalls} 回 / ツール呼び出し: ${r.toolCalls} 回 / ${r.totalMs}ms / stop: ${r.stopReason}`);
 
+  // 未完了（max_iterations 到達・最終回答なし）は失敗として終了コードを立てる
+  if (!r.ok) {
+    throw new Error(`swe: エージェントが完了しませんでした（stop: ${r.stopReason} / 最終回答: ${r.finalAnswer.slice(0, 100)}）`);
+  }
+
   return 'arcasha swe: done';
 }
 

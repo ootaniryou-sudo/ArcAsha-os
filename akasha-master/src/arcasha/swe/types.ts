@@ -16,8 +16,10 @@ export interface SweToolParameter {
   /** JSON Schema 型（function calling は string へ変換される）。 */
   type: 'string' | 'integer' | 'boolean';
   description: string;
-  /** enum があれば指定（任意）。 */
-  enum?: string[];
+  /** enum があれば指定（任意・type に応じた値型）。 */
+  enum?: Array<string | number | boolean>;
+  /** 必須かどうか（true のとき OpenAI 互換 schema の required 配列へ入る）。 */
+  required?: boolean;
 }
 
 /** ツール実行時のコンテキスト。root = 作業リポジトリの絶対パス。 */
