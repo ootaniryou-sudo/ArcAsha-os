@@ -146,6 +146,12 @@ export async function runSweAgent(
         steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
         break;
       }
+      // 不完全応答（assistant ターン）を履歴に記録してから続行を促す
+      messages.push({
+        role: 'assistant',
+        content: message.content ?? '',
+        reasoning_content: message.reasoning ?? null,
+      });
       // 続行を促す user メッセージを追加して再試行
       messages.push({
         role: 'user',

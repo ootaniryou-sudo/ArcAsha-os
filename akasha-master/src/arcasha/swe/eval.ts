@@ -222,7 +222,18 @@ export async function evaluateInstance(
       repoDir = co.repoDir;
     }
 
-    // 2. エージェントで解く（modelPatchOverride 未指定のときのみ実行）
+    // 2. 環境セットアップ（任意）。エージェントと評価の両方が同じ環境を使うため、
+    //    checkout 直後（エージェント実行前）に依存をインストールする。
+    //    （エージェントが run_command で pytest を実行する際に依存が必要なため）
+    if (opts.setupCmd) {
+      if (opts.verbose) console.log(`[eval] setup: ${opts.setupCmd}`);
+      const setupOk = await runSetup(repoDir, opts.setupCmd);
+      if (!setupOk) {
+        return { instance_id: inst.instance_id, resolved: false, modelPatch: '', failToPass: [], passToPass: [], agentToolCalls, agentModelCalls, agentPromptTokens, agentCompletionTokens, agentTotalTokens: agentPromptTokens + agentCompletionTokens, totalMs: Date.now() - t0, error: `環境セットアップ失敗: ${opts.setupCmd}` };
+      }
+    }
+
+    // 3. エージェントで解く（modelPatchOverride 未指定のときのみ実行）
     const shouldSolve = modelPatchOverride === undefined;
     if (shouldSolve) {
       if (opts.verbose) console.log(`[eval] agent solving ${inst.instance_id}`);
@@ -250,18 +261,9 @@ export async function evaluateInstance(
       }
     }
 
-    // 3. 巻き戻し（エージェントで解いたときのみ・modelPatchOverride は適用前提のため巻き戻さない）
+    // 4. 巻き戻し（エージェントで解いたときのみ・modelPatchOverride は適用前提のため巻き戻さない）
     if (shouldSolve) {
       await resetHard(repoDir);
-    }
-
-    // 4. 環境セットアップ（任意）
-    if (opts.setupCmd) {
-      if (opts.verbose) console.log(`[eval] setup: ${opts.setupCmd}`);
-      const setupOk = await runSetup(repoDir, opts.setupCmd);
-      if (!setupOk) {
-        return { instance_id: inst.instance_id, resolved: false, modelPatch, failToPass: [], passToPass: [], agentToolCalls, agentModelCalls, agentPromptTokens, agentCompletionTokens, agentTotalTokens: agentPromptTokens + agentCompletionTokens, totalMs: Date.now() - t0, error: `環境セットアップ失敗: ${opts.setupCmd}` };
-      }
     }
 
     // 5. test_patch を適用

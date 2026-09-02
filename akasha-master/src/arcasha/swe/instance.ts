@@ -63,6 +63,11 @@ export async function loadSweBenchInstances(filePath: string): Promise<InstanceL
   const instances: SweBenchInstance[] = [];
   let skipped = 0;
   for (const r of rows) {
+    // null / 非オブジェクト行はスキップ（壊れた行で throw しない）
+    if (r === null || typeof r !== 'object') {
+      skipped++;
+      continue;
+    }
     const row = r as Partial<SweBenchInstance>;
     const hasRequired =
       typeof row.instance_id === 'string' &&

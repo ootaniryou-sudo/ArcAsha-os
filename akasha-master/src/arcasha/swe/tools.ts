@@ -29,12 +29,16 @@ const MAX_SEARCH_ENTRIES = 50_000;
 /**
  * テストファイルかどうか判定する（SWE-bench ではエージェントはソースのみ修正し、
  * テストは評価時に gold の test_patch で上書きされるため、テストへの書き込みを禁止する）。
+ *
+ * 注: ディレクトリ判定は `tests`（複数形）のみに限定する。`test`（単数形）は
+ * django/test/ のように本番コードのサブパッケージ名として使われることがあるため、
+ * ディレクトリ単位ではブロックしない（テストはファイル名パターンと tests/ で捕捉する）。
  */
 export function isTestFilePath(rel: string): boolean {
   const norm = rel.replace(/\\/g, '/');
   const segments = norm.split('/');
-  // tests / test ディレクトリ配下
-  if (segments.some((s) => s === 'tests' || s === 'test')) return true;
+  // tests ディレクトリ配下（複数形）
+  if (segments.includes('tests')) return true;
   const base = segments[segments.length - 1] ?? '';
   // テストファイル命名（test.py / test_*.py / *_test.py / conftest.py）
   return base === 'test.py' || /^test_.*\.py$/.test(base) || /^.*_test\.py$/.test(base) || base === 'conftest.py';
