@@ -1,12 +1,14 @@
 /**
  * SWE-bench エージェント CLI — `arcasha swe` / `npm run swe`.
  *
- * 使い方（動作確認）:
- *   cd リポジトリ
- *   npm run swe -- --root /path/to/repo --issue "バグの説明…"
- *   npm run swe -- --root . --issue "Fix the off-by-one in compute()" --max-iterations 15
+ * サブコマンド:
+ *   エージェント単体（任意リポジトリ + issue 文）:
+ *     npm run swe -- --root <repo> --issue "<問題文>"
  *
- * 実行後、ツール呼び出し履歴と最終回答を出力する。
+ *   SWE-bench instance 評価（ローダ + FAIL_TO_PASS 評価）:
+ *     npm run swe -- bench --instances <file.jsonl|json> [--instance <id>] [--limit N] [--setup-cmd "pip install -e ."]
+ *
+ * 実行後、ツール呼び出し履歴と最終回答 / 評価結果を出力する。
  */
 import 'dotenv/config';
 import { fileURLToPath } from 'node:url';
@@ -62,7 +64,11 @@ function parseArgs(argv: string[]): CliOpts {
 const HELP = `ArcAsha SWE Agent（SWE-bench 動作確認用）
 
 使い方:
+  # エージェント単体（任意リポジトリ + issue 文）
   npm run swe -- --root <repo> --issue "<問題文>"
+
+  # SWE-bench instance 評価
+  npm run swe -- bench --instances <file> [--instance <id>] [--limit N] [--setup-cmd "..."] [--verbose]
 
 オプション:
   --root <path>            作業リポジトリ（既定: 現在ディレクトリ）
@@ -72,6 +78,13 @@ const HELP = `ArcAsha SWE Agent（SWE-bench 動作確認用）
   --allow-run-command      任意コマンド実行（run_command）を許可（既定: 拒否）
   --verbose                各ステップの詳細を表示
   --help                   このヘルプ
+
+bench サブコマンドのオプション:
+  --instances <file>       SWE-bench instance ファイル（.jsonl / .json）
+  --instance <id>          特定の instance_id のみ評価（省略時は全件 or --limit 件）
+  --limit <n>              評価する instance 数上限
+  --setup-cmd "<cmd>"      リポジトリ環境セットアップ（例: "pip install -e ."）
+  --verbose                エージェントとテストの詳細ログ
 `;
 
 /** issue 文の表示用ヘルパ。 */
@@ -81,6 +94,12 @@ function stepIcon(ok: boolean | null): string {
 }
 
 export async function runSweCli(argv: string[]): Promise<string> {
+  // サブコマンド分岐: `swe bench ...`
+  if (argv[0] === 'bench') {
+    const { runSweBenchCli } = await import('./bench-cli.js');
+    return runSweBenchCli(argv.slice(1));
+  }
+
   const opts = parseArgs(argv);
 
   console.log(`🔧 ArcAsha SWE Agent — ${opts.root}`);

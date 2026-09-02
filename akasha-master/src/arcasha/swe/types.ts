@@ -78,6 +78,8 @@ export interface SweStep {
   message: ChatResponseMessage;
   /** 実行したツール名 → 結果（tool_calls がある場合）。 */
   toolResults: Array<{ name: string; ok: boolean; output: string; ms: number }>;
+  /** このステップのモデル呼び出しで消費したトークン。 */
+  usage: ChatUsage;
   ms: number;
 }
 
@@ -92,6 +94,12 @@ export interface SweAgentResult {
   toolCalls: number;
   /** モデル呼び出し総数（= ループ回数）。 */
   modelCalls: number;
+  /** プロンプト（入力）トークン合計。 */
+  promptTokens: number;
+  /** 生成（出力）トークン合計。 */
+  completionTokens: number;
+  /** 合計トークン（prompt + completion）。 */
+  totalTokens: number;
   /** 合計レイテンシ（ms）。 */
   totalMs: number;
   /** モデル停止理由（stop / tool_calls / length など）。 */

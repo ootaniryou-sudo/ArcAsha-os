@@ -30,12 +30,15 @@ function buildSystemPrompt(): string {
     '作業手順:',
     '1. まずリポジトリの構造を把握する（list_dir / glob_search / read_file を使う）',
     '2. 問題に関連するコードを grep_search で探し、read_file で読む',
-    '3. 修正箇所を特定したら write_file / edit_file で編集する',
-    '4. テストがある場合は run_command で実行して確認する（例: python -m pytest）',
+    '3. 原因の見当がついたら、すぐに write_file / edit_file で修正する（調査ばかりせず、早めに修正に着手すること）',
+    '4. 修正後は run_command でテストを実行して確認する（例: python3 -m pytest で該当テストを実行）',
     '',
     '重要:',
     '- ツールは必ず正しい引数で 1 度に 1 つずつ呼び出してください',
     '- ファイルパスはリポジトリルートからの相対パスで指定してください',
+    '- Python の実行には「python」ではなく「python3」を使ってください',
+    '- 調査だけで終わらず、必ず write_file か edit_file で実際にコードを修正してください。修正せずに終了してはいけません',
+    '- テストファイル（tests/ ディレクトリ、test_*.py、*_test.py、conftest.py）は編集・作成しないでください。テストは評価時に自動で適用されます。ソースコード（実装）のみを修正してください',
     '- 修正が完了したら、ツール呼び出しなしで最終回答（変更したファイルと理由、テスト結果）を日本語で返してください',
     '- 既存コードのスタイルを維持してください',
     '',
@@ -105,32 +108,63 @@ export async function runSweAgent(
   const tools = toChatTools(SWE_TOOLS);
   const steps: SweStep[] = [];
   let toolCalls = 0;
+  let promptTokens = 0;
+  let completionTokens = 0;
   let finalAnswer = '';
   let stopReason = '';
   // モデルが tool_calls なしの実際の content を返したら true（成功判定の根拠）
   let gotFinalAnswer = false;
 
+  let emptyReplies = 0; // 不完全応答（空 content / 打ち切り）の連続回数
   for (let i = 0; i < maxIterations; i++) {
     const completion = await deps.chat(messages, tools, chatOpts);
-    const { message, finishReason } = completion;
+    const { message, finishReason, usage } = completion;
+
+    // トークン集計（usage が空の呼び出しも加算は 0 で安全）
+    promptTokens += usage?.promptTokens ?? 0;
+    completionTokens += usage?.completionTokens ?? 0;
 
     const toolResults: SweStep['toolResults'] = [];
 
     if (message.toolCalls.length === 0) {
-      // モデルが最終回答を返した（content がある想定）
-      finalAnswer = message.content ?? '(最終回答なし)';
-      // content が得られ、かつ finishReason が 'stop'（正常終了）の場合のみ成功扱い。
-      // 'length'（max_tokens で打ち切り）や空 content は未完了として扱う。
-      gotFinalAnswer = typeof message.content === 'string' && message.content.trim() !== '' && finishReason === 'stop';
-      stopReason = finishReason;
-      steps.push({
-        index: i,
-        message,
-        toolResults,
-        ms: completion.ms,
+      const contentOk = typeof message.content === 'string' && message.content.trim() !== '';
+      // 正常な最終回答: 非空 content + finishReason 'stop'
+      if (contentOk && finishReason === 'stop') {
+        finalAnswer = message.content as string;
+        gotFinalAnswer = true;
+        stopReason = finishReason;
+        steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+        break;
+      }
+      // 不完全応答（空 content・'length' 打ち切り等）: 即 break せず続行を促す
+      emptyReplies++;
+      if (emptyReplies >= 3) {
+        // 3 回連続で不完全なら諦めて終了
+        finalAnswer = `（モデルが ${emptyReplies} 回連続で不完全な応答を返しました）\n最終 content: ${message.content ?? '(なし)'}`;
+        gotFinalAnswer = false;
+        stopReason = finishReason || 'empty_reply';
+        steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+        break;
+      }
+      // 不完全応答（assistant ターン）を履歴に記録してから続行を促す
+      messages.push({
+        role: 'assistant',
+        content: message.content ?? '',
+        reasoning_content: message.reasoning ?? null,
       });
-      break;
+      // 続行を促す user メッセージを追加して再試行
+      messages.push({
+        role: 'user',
+        content: `（システム: 直前の応答が不完全です。まだ解決作業が終わっていません。）\n` +
+          `修正が完了していない場合は、ツール（write_file / edit_file / run_command）を使って修正とテストを続けてください。\n` +
+          `修正が完了したなら、変更したファイル・理由・テスト結果を日本語で詳しく書いた最終回答を返してください。`,
+      });
+      steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+      continue;
     }
+
+    // 不完全応答でなければカウンタをリセット
+    emptyReplies = 0;
 
     // tool_calls を実行する
     for (const tc of message.toolCalls) {
@@ -151,7 +185,7 @@ export async function runSweAgent(
       toolResults.push({ name: tc.name, ok: result.ok, output: result.output, ms: result.ms });
     }
 
-    steps.push({ index: i, message, toolResults, ms: completion.ms });
+    steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
 
     // assistant メッセージ（tool_calls 付き）と tool 結果を履歴へ追加
     messages.push({
@@ -189,6 +223,9 @@ export async function runSweAgent(
     steps,
     toolCalls,
     modelCalls: steps.length,
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
     totalMs: Date.now() - t0,
     stopReason,
   };
