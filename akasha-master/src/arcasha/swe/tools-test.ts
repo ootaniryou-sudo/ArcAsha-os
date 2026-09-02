@@ -77,15 +77,33 @@ async function main(): Promise<void> {
     const outside = await getSweTool('read_file')!.run({ path: '/etc/hostname' }, ctx);
     check('root 外パスは拒否', !outside.ok, outside.output);
 
-    // 安全策: symlink 迂回は拒否
+    // 安全策: symlink 迂回は拒否（全ファイル系ツールで検証）
     const secretDir = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-swe-secret-'));
     try {
       await fs.writeFile(path.join(secretDir, 'secret.txt'), 'TOPSECRET', 'utf8');
-      await fs.symlink(secretDir, path.join(root, 'evil-link'));
-      const viaLink = await getSweTool('read_file')!.run({ path: 'evil-link/secret.txt' }, ctx);
-      check('symlink 経由の root 外読み取りは拒否', !viaLink.ok, viaLink.output);
-      const listViaLink = await getSweTool('list_dir')!.run({ path: 'evil-link' }, ctx);
-      check('list_dir の symlink 経由は拒否', !listViaLink.ok, listViaLink.output);
+      await fs.symlink(secretDir, path.join(root, 'evil-dir-link'));
+      await fs.symlink(path.join(secretDir, 'secret.txt'), path.join(root, 'evil-file-link.txt'));
+      // read: ディレクトリ symlink 経由
+      const viaLink = await getSweTool('read_file')!.run({ path: 'evil-dir-link/secret.txt' }, ctx);
+      check('read_file: ディレクトリ symlink 経由は拒否', !viaLink.ok, viaLink.output);
+      // read: ファイル symlink 直接
+      const viaFileLink = await getSweTool('read_file')!.run({ path: 'evil-file-link.txt' }, ctx);
+      check('read_file: ファイル symlink 直接は拒否', !viaFileLink.ok, viaFileLink.output);
+      // list_dir: ディレクトリ symlink 経由
+      const listViaLink = await getSweTool('list_dir')!.run({ path: 'evil-dir-link' }, ctx);
+      check('list_dir: symlink 経由は拒否', !listViaLink.ok, listViaLink.output);
+      // edit_file: symlink 経由は拒否
+      const editViaLink = await getSweTool('edit_file')!.run({ path: 'evil-file-link.txt', old_string: 'x', new_string: 'y' }, ctx);
+      check('edit_file: symlink 経由は拒否', !editViaLink.ok, editViaLink.output);
+      // write_file: symlink ディレクトリ配下への新規書き込みは拒否
+      const writeViaLink = await getSweTool('write_file')!.run({ path: 'evil-dir-link/new.txt', content: 'x' }, ctx);
+      check('write_file: symlink 経由は拒否', !writeViaLink.ok, writeViaLink.output);
+      // grep_search: symlink ディレクトリ配下を検索対象にしても外へ出ない
+      const grepViaLink = await getSweTool('grep_search')!.run({ pattern: 'TOPSECRET', path: 'evil-dir-link' }, ctx);
+      check('grep_search: symlink 対象は拒否', !grepViaLink.ok, grepViaLink.output);
+      // glob_search: symlink 経由のファイルは列挙されない
+      const globViaLink = await getSweTool('glob_search')!.run({ pattern: '**/evil-*' }, ctx);
+      check('glob_search: symlink 経由は列挙されない', globViaLink.ok && !globViaLink.output.includes('evil-file-link'), globViaLink.output);
     } finally {
       await fs.rm(secretDir, { recursive: true, force: true }).catch(() => undefined);
     }
