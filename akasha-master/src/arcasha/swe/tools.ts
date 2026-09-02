@@ -119,9 +119,10 @@ async function walkFiles(root: string, onMatch: (abs: string) => Promise<boolean
         if (IGNORE_DIRS.has(e.name)) continue;
         await walk(path.join(dir, e.name));
       } else {
-        count++;
-        if (count >= MAX_SEARCH_ENTRIES) { truncated = true; return; }
+        // 上限ちょうどのファイルも onMatch へ渡してから打ち切る（漏れ防止）
         if (await onMatch(path.join(dir, e.name))) { truncated = true; return; }
+        count++;
+        if (count > MAX_SEARCH_ENTRIES) { truncated = true; return; }
       }
     }
   }
@@ -199,8 +200,11 @@ async function grepSearch(args: Record<string, unknown>, ctx: SweContext): Promi
 
   // 対象パス（省略時は root）
   const target = typeof args.path === 'string' && args.path !== '' ? args.path : '.';
-  const r = await resolveRealInRoot(ctx.root, target);
-  if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
+  // symlink 迂回の検証（実体が root 配下にあること）。walk 自体は lexical パスで行う
+  // （ctx.root が symlink でも readdir は動作し、相対パスが ctx.root 基準で一貫する）
+  const rr = await resolveRealInRoot(ctx.root, target);
+  if (!rr.ok) return { ok: false, output: rr.error, ms: Date.now() - t0 };
+  const targetAbs = path.isAbsolute(target) ? target : path.resolve(ctx.root, target);
 
   // 拡張子フィルタ（省略時は全ファイル）
   const ext = typeof args.include === 'string' && args.include !== '' ? args.include : '';
@@ -215,7 +219,7 @@ async function grepSearch(args: Record<string, unknown>, ctx: SweContext): Promi
   const hits: Array<{ rel: string; line: number; text: string }> = [];
   const maxMatches = 200;
 
-  await walkFiles(r.real, async (abs) => {
+  await walkFiles(targetAbs, async (abs) => {
     if (hits.length >= maxMatches) return true; // 打ち切り
     if (ext !== '' && !abs.endsWith(ext)) return false;
     try {

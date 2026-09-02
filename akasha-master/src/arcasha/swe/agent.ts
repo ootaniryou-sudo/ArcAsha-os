@@ -119,8 +119,9 @@ export async function runSweAgent(
     if (message.toolCalls.length === 0) {
       // モデルが最終回答を返した（content がある想定）
       finalAnswer = message.content ?? '(最終回答なし)';
-      // content が実際に得られた場合のみ成功扱い（null で終わった場合は失敗）
-      gotFinalAnswer = typeof message.content === 'string' && message.content.trim() !== '';
+      // content が得られ、かつ finishReason が 'stop'（正常終了）の場合のみ成功扱い。
+      // 'length'（max_tokens で打ち切り）や空 content は未完了として扱う。
+      gotFinalAnswer = typeof message.content === 'string' && message.content.trim() !== '' && finishReason === 'stop';
       stopReason = finishReason;
       steps.push({
         index: i,
