@@ -85,6 +85,14 @@ AI_*.md               스펙 문서
 
 `MASTER_SPEC.md`(전체 비전) / `ARCASHA_V2_SPEC.md`(v2 설계 v0.36) / `AI_REASONING.md`(추론 런타임) / `AI_ATTACHMENTS.md`(플러그인 레이어) / `AI_VALIDATION.md`(검증·설명) / `AI_VIRTUAL_MEMORY.md`(AVM) / `PAPER_OUTLINE.md`(논문) / `CHANGELOG.md`(이력)
 
+## 🤖 SWE-bench 실측 문제 검증(코딩 에이전트)
+
+ArcAsha의 소프트웨어 엔지니어링 에이전트(`akasha-master/src/arcasha/swe/`)가 실제 API(`deepseek-v4-flash`・`temperature=0`)로 SWE-bench Lite 인스턴스를 해결했습니다. 상세: `akasha-master/README.md`.
+
+- **SWE-bench Lite(test split)에서 선정한 sympy 3문제**: `24213`(차원 등가 판정)/ `23117`(`Array([])`)/ `24152`(`TensorProduct.expand`)
+- **결과: 3/3 해결(100%)** — 모델 호출 26/29/11회・도구 31/44/13회・소요 93s/206s/71s(문제당). 에이전트는 **소스만** 수정하고 pytest로 검증. 테스트 파일은 쓰기 금지(평가 시 gold `test_patch` 자동 적용)
+- 정직한 주의: LLM은 확률적(1문제는 재실행으로 해결). 선정 3문제라 통계적 해결률 추정이 아님. **이번 실행은 토큰 사용량을 기록하지 않음**(평가 프레임워크에 usage 집계 추가됨. 이후 실행은 `akasha-master/reports/swebench/swebench-results.json`에 기록)
+
 ## 🧪 상태
 
 - **v1.0 출시** — AI OS 1세대(ISA/IR/Kernel/AVM → 실기 → Reasoning → Executive/Meta → Attachments → Validation)

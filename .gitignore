@@ -58,3 +58,7 @@ __pycache__/
 
 # 個人用メモ（開発者マスター向け・公開しない）
 DEV_MASTER_SPEC.md
+
+# SWE-bench ローカル評価の作業データ（巨大な sympy clone・データ・driver 出力）
+# 再現用の評価ハーネスは src/arcasha/swe/ に、結果サマリは reports/swebench/ に置く
+akasha-master/swebench-data/

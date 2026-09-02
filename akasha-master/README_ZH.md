@@ -85,6 +85,17 @@ AI_*.md               规范文档
 
 `MASTER_SPEC.md`（整体愿景）/ `ARCASHA_V2_SPEC.md`（v2 设计 v0.36）/ `AI_REASONING.md`（推理运行时）/ `AI_ATTACHMENTS.md`（插件层）/ `AI_VALIDATION.md`（验证与解释）/ `AI_VIRTUAL_MEMORY.md`（AVM）/ `PAPER_OUTLINE.md`（论文）/ `CHANGELOG.md`（历史）
 
+## 🤖 SWE-bench 实测问题验证（编码智能体）
+
+Phase 4 之后，ArcAsha 的软件工程智能体（`src/arcasha/swe/`・工具循环实现）用真实 API 解决了 SWE-bench Lite 的实例。全部数字均为实测。
+
+- **对象**: 从 `princeton-nlp/SWE-bench_Lite`（test split 300 题）选出 **sympy/sympy 的 3 题**（纯 Python・零依赖・可在本地评测）— `24213`（量纲等价判定）/ `23117`（`Array([])`）/ `24152`（`TensorProduct.expand`）
+- **模型**: `deepseek-v4-flash`（真实 API・`temperature=0`）/ 环境: macOS / Python 3.13.2 / pytest 9.1.1 / sympy 在 base_commit 上 editable install
+- **评测**: checkout `base_commit` → 智能体只改**源码** → 还原工作区 → 应用 gold `test_patch` → 应用智能体补丁 → 用 pytest 跑 `FAIL_TO_PASS`/`PASS_TO_PASS` → F2P 全部通过即 resolved。仅函数名（无路径）的测试会自动解析为 `文件::函数`
+- **结果: 3/3 解决（100%）** — model calls 26/29/11・tools 31/44/13・93s/206s/71s（每题）
+- 如实说明: LLM 有随机性（`23117` 曾因“不完整回复”失败，重跑后解决；`22005` 因 2021 版 base_commit 与 Python 3.13 的 `distutils` 移除不兼容而无法评测）；仅 3 道自选题，并非统计意义的解决率；**本次运行未记录 token 消耗**（`agent.ts`/`eval.ts` 已加入 usage 统计，后续运行会写入 `reports/swebench/swebench-results.json`）
+- 评测框架（代码）: `src/arcasha/swe/`；已提交结果: `reports/swebench/swebench-results.json`
+
 ## 🧪 状态
 
 - **v1.0 已发布** — AI OS 第一代（ISA/IR/Kernel/AVM → 实机 → Reasoning → Executive/Meta → Attachments → Validation）

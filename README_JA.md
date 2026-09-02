@@ -117,11 +117,20 @@ Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`
 - 計測により **`forceDelegate` 時の二重モデル呼び出しバグ**（12% のタスクで 2 回目の空/同一プロンプト呼び出し）を発見 → 修正
 - 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**（+348ms は PR #37 で計測した修正前の差分、+37ms は上記アブレーション表の ③+Executive 1334ms − ①Baseline 1297ms と一致）、TS 側オーバーヘッド ≈0.2ms（`akasha-master/reports/ablation-exec/`）
 
+## 🤖 SWE-bench 実問題検証（コーディングエージェント）
+
+ArcAsha のソフトウェアエンジニアリングエージェント（`akasha-master/src/arcasha/swe/`）で、SWE-bench Lite の実インスタンスを**実 API**（`deepseek-v4-flash`・`temperature=0`）で解決しました。詳細: `akasha-master/README.md`。
+
+- **SWE-bench Lite（test split）から選定した sympy 3 問**: `24213`（次元の等価性判定）/ `23117`（`Array([])`）/ `24152`（`TensorProduct.expand`）
+- **結果: 3/3 解決（100%）** — モデル呼び出し 26/29/11 回・ツール 31/44/13 回・所要 93s/206s/71s（1 問あたり）。エージェントは**ソースのみ**を修正し pytest で検証。テストファイルは書込禁止（gold の `test_patch` を評価時に自動適用）
+- 正直な注記: LLM は確率的で 1 問は再実行で解決。選定 3 問のため統計的な解決率の推定ではない。**トークン消費量はこの実行では未計測**（ハーネスに usage 集計を追加済み。次回以降は `akasha-master/reports/swebench/swebench-results.json` に記録）
+
 ## 🧪 ステータス
 
 - **v1.0 リリース済み** — AI OS 第一世代（ISA/IR/Kernel/AVM → 実機 → Reasoning → Executive/Meta → Attachments → Validation）
 - **v1.1** — Decision Replay、実機ベンチプラン（Mac / iPhone 15 Pro / iPad M4）
 - **Phase 4 実 API 検証（2026-09）** — 構成別アブレーション（Baseline/AVM/Executive/Full・50 問 × 3）+ 長文 AVM（96.5% トークン削減・精度 100%）+ Executive ボトルネック（二重呼び出しバグ修正: +348ms → +37ms）
+- **SWE-bench 実問題検証（2026-09）** — SWE-bench コーディングエージェントで SWE-bench Lite から選定した sympy 3 問を解決: **3/3 解決（100%）**（deepseek-v4-flash・詳細は akasha-master/README.md）
 - selftest [1]-[89] 全パス / golden 30 / AILSA selftest / build + dist 検証済み
 
 ## 🔬 研究上の位置付け

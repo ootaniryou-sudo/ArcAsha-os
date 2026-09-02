@@ -85,6 +85,14 @@ AI_*.md               Especificaciones
 
 `MASTER_SPEC.md` (visión) / `ARCASHA_V2_SPEC.md` (espec v2 v0.36) / `AI_REASONING.md` (runtime de razonamiento) / `AI_ATTACHMENTS.md` (capa de plugins) / `AI_VALIDATION.md` (validación y explicación) / `AI_VIRTUAL_MEMORY.md` (AVM) / `PAPER_OUTLINE.md` (artículo) / `CHANGELOG.md` (historial)
 
+## 🤖 Validación con problemas reales de SWE-bench (agente de código)
+
+El agente de ingeniería de software de ArcAsha (`akasha-master/src/arcasha/swe/`) resolvió instancias reales de SWE-bench Lite con API real (`deepseek-v4-flash`, `temperature=0`). Detalles: `akasha-master/README.md`.
+
+- **3 instancias de sympy seleccionadas** de SWE-bench Lite (test split): `24213` (equivalencia de dimensiones), `23117` (`Array([])`), `24152` (`TensorProduct.expand`)
+- **Resultado: 3/3 resueltas (100 %)** — 26/29/11 llamadas de modelo, 31/44/13 herramientas, 93s/206s/71s por instancia; el agente edita solo el **código fuente** y verifica con pytest; los archivos de test están protegidos contra escritura (el `test_patch` de oro se aplica en la evaluación)
+- Notas honestas: la salida del LLM es estocástica (1 instancia requirió reintento); 3 tareas seleccionadas no son una estimación estadística; **el consumo de tokens no se registró en esta ejecución** (la agregación de usage ya está añadida al harness — las próximas ejecuciones lo guardan en `akasha-master/reports/swebench/swebench-results.json`)
+
 ## 🧪 Estado
 
 - **v1.0 publicada** — primera generación de AI OS (ISA/IR/Kernel/AVM → dispositivos reales → Reasoning → Executive/Meta → Attachments → Validation)
