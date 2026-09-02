@@ -68,14 +68,32 @@ export async function loadSweBenchInstances(filePath: string): Promise<InstanceL
       skipped++;
       continue;
     }
-    const row = r as Partial<SweBenchInstance>;
+    const row = r as Partial<SweBenchInstance> & { FAIL_TO_PASS?: unknown; PASS_TO_PASS?: unknown };
+
+    // FAIL_TO_PASS / PASS_TO_PASS は配列 or JSON 文字列（例: HuggingFace parquet 由来の
+    // 生データでは '["test/..."]' のような JSON 文字列で格納される）。文字列ならパースする。
+    const parseList = (v: unknown): string[] | null => {
+      if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string');
+      if (typeof v === 'string') {
+        try {
+          const p = JSON.parse(v);
+          return Array.isArray(p) ? p.filter((x): x is string => typeof x === 'string') : null;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+    const f2p = parseList(row.FAIL_TO_PASS);
+    const p2p = parseList(row.PASS_TO_PASS);
+
     const hasRequired =
       typeof row.instance_id === 'string' &&
       typeof row.repo === 'string' &&
       typeof row.base_commit === 'string' &&
       typeof row.problem_statement === 'string' &&
-      Array.isArray(row.FAIL_TO_PASS) &&
-      Array.isArray(row.PASS_TO_PASS);
+      f2p !== null &&
+      p2p !== null;
     if (!hasRequired) {
       skipped++;
       continue;
@@ -87,8 +105,8 @@ export async function loadSweBenchInstances(filePath: string): Promise<InstanceL
       patch: typeof row.patch === 'string' ? row.patch : undefined,
       test_patch: typeof row.test_patch === 'string' ? row.test_patch : undefined,
       problem_statement: row.problem_statement as string,
-      FAIL_TO_PASS: row.FAIL_TO_PASS as string[],
-      PASS_TO_PASS: row.PASS_TO_PASS as string[],
+      FAIL_TO_PASS: f2p as string[],
+      PASS_TO_PASS: p2p as string[],
     });
   }
 

@@ -75,14 +75,15 @@ export async function checkoutRepo(opts: {
   const { repo, baseCommit, workDir } = opts;
   const repoDir = path.join(workDir, 'repo');
 
-  // 既に有効なリポジトリなら再初期化しない
-  const existing = await runGit(workDir, ['rev-parse', '--is-inside-work-tree']);
+  // 既に有効なリポジトリ（repoDir = workDir/repo）なら再初期化しない。
+  // 注: workDir 自体ではなく repoDir で rev-parse を確認する（workDir は clone の親）。
+  const existing = await runGit(repoDir, ['rev-parse', '--is-inside-work-tree']);
   if (existing.ok) {
-    const reset = await runGit(workDir, ['reset', '--hard', baseCommit]);
+    const reset = await runGit(repoDir, ['reset', '--hard', baseCommit]);
     if (reset.ok) {
-      const clean = await runGit(workDir, ['clean', '-fd']);
+      const clean = await runGit(repoDir, ['clean', '-fd']);
       void clean;
-      return { ok: true, repoDir: workDir };
+      return { ok: true, repoDir };
     }
     // base_commit が無い場合は clone し直す
   }

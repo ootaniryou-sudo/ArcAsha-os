@@ -40,15 +40,27 @@ export function isTestFilePath(rel: string): boolean {
   // tests ディレクトリ配下（複数形）
   if (segments.includes('tests')) return true;
   const base = segments[segments.length - 1] ?? '';
-  // テストファイル命名（test.py / test_*.py / *_test.py / conftest.py）
-  return base === 'test.py' || /^test_.*\.py$/.test(base) || /^.*_test\.py$/.test(base) || base === 'conftest.py';
+  // テストファイル命名（test.py / tests.py / test_*.py / *_test.py / conftest.py）
+  return base === 'test.py' ||
+    base === 'tests.py' ||
+    /^test_.*\.py$/.test(base) ||
+    /^.*_test\.py$/.test(base) ||
+    base === 'conftest.py';
 }
 
 /** パスがルート相対でテストファイルなら書き込み禁止エラーを返す。 */
 async function assertNotTestFile(root: string, p: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const r = await resolveRealInRoot(root, p);
   if (!r.ok) return r;
-  const rel = path.relative(root, r.real).replace(/\\/g, '/');
+  // root も realpath 解決してから相対パスを計算（root が symlink の場合は解決後の
+  // パスに test/tests 成分が含まれても誤検出しないように）
+  let realRoot = root;
+  try {
+    realRoot = await fs.realpath(root);
+  } catch {
+    // 解決できない場合は語彙ベースで判定
+  }
+  const rel = path.relative(realRoot, r.real).replace(/\\/g, '/');
   if (isTestFilePath(rel)) {
     return { ok: false, error: `テストファイルへの書き込みは禁止されています（SWE-bench ではテストは評価時に自動適用されます）: ${p}` };
   }

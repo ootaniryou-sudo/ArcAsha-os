@@ -176,6 +176,46 @@ async function main(): Promise<void> {
     const loaded = await loadSweBenchInstances(instJsonPath);
     check('instance ローダが .json を読める', loaded.instances.length === 1 && loaded.instances[0].instance_id === inst1.instance_id);
 
+    // ---- 3b. instance ローダ: FAIL_TO_PASS / PASS_TO_PASS が JSON 文字列の行も読める ----
+    console.log('--- 3b. instance ローダ（JSON 文字列の F2P/P2P） ---');
+    const jsonStrRow = {
+      instance_id: 'local__factorial-2',
+      repo: 'local/factorial',
+      base_commit: inst1.base_commit,
+      problem_statement: 'dummy',
+      FAIL_TO_PASS: JSON.stringify(inst1.FAIL_TO_PASS),
+      PASS_TO_PASS: JSON.stringify(inst1.PASS_TO_PASS),
+    };
+    const jsonStrPath = path.join(tmp, 'instances-jsonstr.json');
+    await fs.writeFile(jsonStrPath, JSON.stringify([jsonStrRow]), 'utf8');
+    const loaded2 = await loadSweBenchInstances(jsonStrPath);
+    check(
+      'JSON 文字列の F2P/P2P をパースできる',
+      loaded2.instances.length === 1 &&
+        JSON.stringify(loaded2.instances[0].FAIL_TO_PASS) === JSON.stringify(inst1.FAIL_TO_PASS),
+      JSON.stringify(loaded2.instances),
+    );
+
+    // ---- 3c. instance ローダ: null / 壊れた行はスキップ ----
+    console.log('--- 3c. instance ローダ（null 行をスキップ） ---');
+    const nullRowPath = path.join(tmp, 'instances-null.json');
+    await fs.writeFile(nullRowPath, JSON.stringify([null, inst1, { instance_id: 'x' }]), 'utf8');
+    const loaded3 = await loadSweBenchInstances(nullRowPath);
+    check('null / 不完全行をスキップして有効行のみ読む', loaded3.instances.length === 1 && loaded3.skipped === 2, `instances=${loaded3.instances.length} skipped=${loaded3.skipped}`);
+
+    // ---- 3d. instance ローダ（.jsonl: 1 行 1 instance） ----
+    console.log('--- 3d. instance ローダ（.jsonl） ---');
+    const instJsonlPath = path.join(tmp, 'instances.jsonl');
+    await fs.writeFile(instJsonlPath, `${JSON.stringify(inst1)}\n${JSON.stringify({ ...inst1, instance_id: 'local__factorial-3' })}\n`, 'utf8');
+    const loaded4 = await loadSweBenchInstances(instJsonlPath);
+    check(
+      'instance ローダが .jsonl を読める',
+      loaded4.instances.length === 2 &&
+        loaded4.instances[0].instance_id === inst1.instance_id &&
+        loaded4.instances[1].instance_id === 'local__factorial-3',
+      JSON.stringify(loaded4.instances.map((i) => i.instance_id)),
+    );
+
     // ---- 4. applyPatch が unified diff を適用できる ----
     console.log('--- 4. applyPatch 単体 ---');
     const f4 = await freshRepo();

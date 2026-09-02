@@ -237,12 +237,14 @@ export async function evaluateInstance(
     const shouldSolve = modelPatchOverride === undefined;
     if (shouldSolve) {
       if (opts.verbose) console.log(`[eval] agent solving ${inst.instance_id}`);
+      // 注: opts.agent に root/issue が含まれていても、評価対象の repoDir / 問題文を
+      // 常に優先する（展開順を root/issue が後になるよう並べる）
       const agentResult = await runSweAgent({
+        ...(opts.agent ?? {}),
         root: repoDir,
         issue: inst.problem_statement,
         maxIterations: opts.maxIterations ?? 30,
         allowRunCommand: opts.allowRunCommand === true,
-        ...(opts.agent ?? {}),
       });
       agentModelCalls = agentResult.modelCalls;
       agentToolCalls = agentResult.toolCalls;
@@ -263,7 +265,12 @@ export async function evaluateInstance(
 
     // 4. 巻き戻し（エージェントで解いたときのみ・modelPatchOverride は適用前提のため巻き戻さない）
     if (shouldSolve) {
-      await resetHard(repoDir);
+      const resetOk = await resetHard(repoDir);
+      if (!resetOk) {
+        // 巻き戻しに失敗すると、エージェントの変更が残ったまま test_patch / model_patch を
+        // 適用して誤判定するため、エラーとして扱う
+        return { instance_id: inst.instance_id, resolved: false, modelPatch, failToPass: [], passToPass: [], agentToolCalls, agentModelCalls, agentPromptTokens, agentCompletionTokens, agentTotalTokens: agentPromptTokens + agentCompletionTokens, totalMs: Date.now() - t0, error: 'resetHard（作業ツリー巻き戻し）に失敗しました' };
+      }
     }
 
     // 5. test_patch を適用
