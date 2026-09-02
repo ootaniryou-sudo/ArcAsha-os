@@ -32,6 +32,7 @@
     "ablation:exec": "tsx src/arcasha/cli.ts ablation-exec",
     "swe": "tsx src/arcasha/cli.ts swe",
     "swe:tools-test": "tsx src/arcasha/swe/tools-test.ts",
+    "swe:eval-test": "tsx src/arcasha/swe/eval-test.ts",
     "chat": "tsx src/arcasha/chat/chat-server.ts",
     "arcasha": "tsx src/arcasha/cli.ts"
   },
