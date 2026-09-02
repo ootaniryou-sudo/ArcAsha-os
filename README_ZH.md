@@ -85,6 +85,14 @@ AI_*.md               规范文档
 
 `MASTER_SPEC.md`（整体愿景）/ `ARCASHA_V2_SPEC.md`（v2 设计 v0.36）/ `AI_REASONING.md`（推理运行时）/ `AI_ATTACHMENTS.md`（插件层）/ `AI_VALIDATION.md`（验证与解释）/ `AI_VIRTUAL_MEMORY.md`（AVM）/ `PAPER_OUTLINE.md`（论文）/ `CHANGELOG.md`（历史）
 
+## 🤖 SWE-bench 实测问题验证（编码智能体）
+
+ArcAsha 的软件工程智能体（`akasha-master/src/arcasha/swe/`）用真实 API（`deepseek-v4-flash`・`temperature=0`）解决了 SWE-bench Lite 的实例。详情见 `akasha-master/README.md`。
+
+- **从 SWE-bench Lite（test split）选出 3 道 sympy 题**: `24213`（量纲等价判定）/ `23117`（`Array([])`）/ `24152`（`TensorProduct.expand`）
+- **结果: 3/3 解决（100%）** — 模型调用 26/29/11 次・工具 31/44/13 次・耗时 93s/206s/71s（每题）。智能体只修改**源码**并用 pytest 验证；测试文件禁止写入（评测时自动应用 gold 的 `test_patch`）
+- 如实说明: LLM 有随机性（1 题经重跑后解决）；仅 3 道自选题，并非统计意义上的解决率；**本次运行未记录 token 消耗**（已在评测框架中加入 usage 统计，后续运行会记录到 `akasha-master/reports/swebench/swebench-results.json`）
+
 ## 🧪 状态
 
 - **v1.0 已发布** — AI OS 第一代（ISA/IR/Kernel/AVM → 实机 → Reasoning → Executive/Meta → Attachments → Validation）

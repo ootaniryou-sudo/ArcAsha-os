@@ -85,6 +85,17 @@ AI_*.md               스펙 문서
 
 `MASTER_SPEC.md`(전체 비전) / `ARCASHA_V2_SPEC.md`(v2 설계 v0.36) / `AI_REASONING.md`(추론 런타임) / `AI_ATTACHMENTS.md`(플러그인 레이어) / `AI_VALIDATION.md`(검증·설명) / `AI_VIRTUAL_MEMORY.md`(AVM) / `PAPER_OUTLINE.md`(논문) / `CHANGELOG.md`(이력)
 
+## 🤖 SWE-bench 실측 문제 검증(코딩 에이전트)
+
+Phase 4에 이어 ArcAsha의 소프트웨어 엔지니어링 에이전트(`src/arcasha/swe/`・툴 루프 구현)가 실제 API로 SWE-bench Lite 인스턴스를 해결했습니다. 모든 수치는 실측입니다.
+
+- **대상**: `princeton-nlp/SWE-bench_Lite`(test split 300문제)에서 선정한 **sympy/sympy 3문제**(순수 Python・의존성 제로・로컬 평가 가능) — `24213`(차원 등가 판정)/ `23117`(`Array([])`)/ `24152`(`TensorProduct.expand`)
+- **모델**: `deepseek-v4-flash`(실제 API・`temperature=0`)/ 환경: macOS / Python 3.13.2 / pytest 9.1.1 / sympy를 base_commit에서 editable install
+- **평가**: checkout `base_commit` → 에이전트가 **소스만** 수정 → 작업 트리 복원 → gold `test_patch` 적용 → 에이전트 패치 적용 → pytest로 `FAIL_TO_PASS`/`PASS_TO_PASS` 실행 → F2P가 모두 pass하면 resolved. 함수명만 있는 테스트는 `파일::함수`로 자동 해석
+- **결과: 3/3 해결(100%)** — model calls 26/29/11・tools 31/44/13・93s/206s/71s(문제당)
+- 정직한 주의: LLM은 확률적(`23117`은 “불완전 응답”으로 1회 실패 → 재실행으로 해결. `22005`는 2021년 base_commit이 Python 3.13의 `distutils` 제거와 비호환되어 평가 불가); 선정 3문제라 통계적 해결률 추정이 아님; **이번 실행은 토큰 사용량을 기록하지 않음**(`agent.ts`/`eval.ts`에 usage 집계 추가. 이후 실행은 `reports/swebench/swebench-results.json`에 기록)
+- 평가 하네스(코드): `src/arcasha/swe/`; 커밋된 결과: `reports/swebench/swebench-results.json`
+
 ## 🧪 상태
 
 - **v1.0 출시** — AI OS 1세대(ISA/IR/Kernel/AVM → 실기 → Reasoning → Executive/Meta → Attachments → Validation)

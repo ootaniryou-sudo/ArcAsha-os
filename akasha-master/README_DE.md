@@ -85,6 +85,17 @@ AI_*.md               Spezifikationen
 
 `MASTER_SPEC.md` (Vision) / `ARCASHA_V2_SPEC.md` (v2-Spez v0.36) / `AI_REASONING.md` (Denk-Runtime) / `AI_ATTACHMENTS.md` (Plugin-Ebene) / `AI_VALIDATION.md` (Validierung & Erklärung) / `AI_VIRTUAL_MEMORY.md` (AVM) / `PAPER_OUTLINE.md` (Paper) / `CHANGELOG.md` (Verlauf)
 
+## 🤖 SWE-bench — Validierung an realen Problemen (Coding-Agent)
+
+Im Anschluss an Phase 4 hat der Software-Engineering-Agent von ArcAsha (`src/arcasha/swe/`, Tool-Loop) reale SWE-bench-Lite-Instanzen über die echte API gelöst. Alle Zahlen sind gemessen.
+
+- **Objekte**: 3 ausgewählte **sympy/sympy**-Instanzen aus `princeton-nlp/SWE-bench_Lite` (Test-Split, 300 Aufgaben; reines Python, keine Abhängigkeiten, lokal auswertbar) — `24213` (Dimensions-Äquivalenz) / `23117` (`Array([])`) / `24152` (`TensorProduct.expand`)
+- **Modell**: `deepseek-v4-flash` (echte API, `temperature=0`) / Umgebung: macOS / Python 3.13.2 / pytest 9.1.1 / sympy per editable install auf base_commit
+- **Auswertung**: checkout `base_commit` → Agent ändert nur **Quellcode** → Worktree zurücksetzen → goldenes `test_patch` anwenden → Agent-Patch anwenden → `FAIL_TO_PASS`/`PASS_TO_PASS` per pytest → resolved, wenn alle F2P bestehen. Nur-Funktionsname-Tests werden automatisch zu `Datei::Funktion` aufgelöst
+- **Ergebnis: 3/3 gelöst (100 %)** — Modellaufrufe 26/29/11, Tools 31/44/13, 93s/206s/71s pro Instanz
+- Ehrliche Hinweise: LLM-Ausgabe ist stochastisch (`23117` scheiterte einmal mit „unvollständiger Antwort“, Retry löste es; `22005` wegen Inkompatibilität des 2021er base_commit mit Python 3.13 – `distutils` entfernt – nicht auswertbar); 3 ausgewählte Aufgaben sind keine statistische Schätzung; **Token-Verbrauch in diesem Lauf nicht erfasst** (`agent.ts`/`eval.ts` haben nun Usage-Aggregation; künftige Läufe schreiben `reports/swebench/swebench-results.json`)
+- Evaluierungs-Harness (Code): `src/arcasha/swe/`; committete Ergebnisse: `reports/swebench/swebench-results.json`
+
 ## 🧪 Status
 
 - **v1.0 veröffentlicht** — erste KI-OS-Generation (ISA/IR/Kernel/AVM → echte Geräte → Reasoning → Executive/Meta → Attachments → Validation)

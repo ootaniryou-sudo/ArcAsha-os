@@ -117,11 +117,43 @@ Phase 4 は各コンポーネントの効果を**実 API**（`deepseek-v4-flash`
 - 計測により **`forceDelegate` 時の二重モデル呼び出しバグ**（12% のタスクで 2 回目の空/同一プロンプト呼び出し）を発見 → 修正
 - 修正後: 全タスクがモデル呼び出し 1 回、Executive のレイテンシ差 **+348ms → +37ms**（+348ms は PR #37 で計測した修正前の差分、+37ms は上記アブレーション表の ③+Executive 1334ms − ①Baseline 1297ms と一致）、TS 側オーバーヘッド ≈0.2ms（`reports/ablation-exec/`）
 
+## 🤖 SWE-bench 実問題検証（コーディングエージェント）
+
+Phase 4 に続き、ArcAsha の **ソフトウェアエンジニアリングエージェント**（`src/arcasha/swe/`・ツールループ実装）で、SWE-bench Lite の実インスタンスを解決しました。数値はすべて実 API・実測です。
+
+### 実験条件
+
+- **対象**: `princeton-nlp/SWE-bench_Lite`（test split 300 問）から選定した **sympy/sympy の 3 問**（依存ゼロの純 Python・評価可能なものを選定）
+  - `sympy__sympy-24213` — `UnitSystem._collect_factor_and_dimension()` の次元等価性判定（2022-11）
+  - `sympy__sympy-23117` — `sympy.Array([])` 空配列で失敗するバグ（2022-02）
+  - `sympy__sympy-24152` — `TensorProduct.expand()` が不完全な展開（2022-10）
+- **モデル**: `deepseek-v4-flash`（実 API・`temperature=0`）
+- **環境**: macOS / Python 3.13.2 / pytest 9.1.1 / sympy を base_commit で editable install
+- **エージェント設定**: ツールループ maxIterations=50、ツール = list_dir / read_file / grep_search / glob_search / write_file / edit_file / run_command（テスト実行許可）。**テストファイル（`tests/`・`test_*.py` 等）への書込は禁止**（SWE-bench は gold の test_patch を評価時に自動適用するため）
+- **評価方法**: base_commit を checkout → エージェントが**ソースのみ**を修正 → 作業ツリーを巻き戻し → gold の `test_patch` を適用 → エージェントのパッチを適用 → `FAIL_TO_PASS` / `PASS_TO_PASS` を pytest で実行 → F2P が全て pass すれば resolved。テスト名が「関数名のみ」の形式（sympy/django 仕様）はリポジトリ内を検索して node id（`ファイル::関数`）に自動解決
+
+### 結果（3/3 = 100%）
+
+| instance_id | resolved | model calls | tool calls | 所要時間 | パッチ |
+|---|---|---|---|---|---|
+| `sympy__sympy-24213` | ✅ | 26 | 31 | 93s | 717 B |
+| `sympy__sympy-23117` | ✅ | 29 | 44 | 206s | 1,813 B |
+| `sympy__sympy-24152` | ✅ | 11 | 13 | 71s | 930 B |
+
+- **解決率 3/3（100%）**。F2P 全テストと P2P 回帰テストがすべて pass
+- エージェントは `edit_file`/`write_file` でソースを修正し、`run_command` で pytest を実行して確認しながら解決
+- **注意（正直な注記）**:
+  - LLM は確率的なため実行ごとに結果は変動します（例: `23117` は 1 回の実行で「不完全応答」により未解決 → 再実行で解決。`22005` は Python 3.13 の `distutils` 非互換により評価不能のため対象外）
+  - サンプル 3 問・選定バイアスがあるため、この 100% は統計的な解決率の推定ではありません
+  - **トークン消費量はこの実行時点では未計測**（usage 集計の導入前）。`agent.ts` / `eval.ts` にトークン集計（`promptTokens` / `completionTokens` / `totalTokens`）を追加済みで、次回以降の実行では `reports/swebench/swebench-results.json` に記録されます
+- 評価ハーネス（コード）: `src/arcasha/swe/`・コミット済み結果: `reports/swebench/swebench-results.json`
+
 ## 🧪 ステータス
 
 - **v1.0 リリース済み** — AI OS 第一世代（ISA/IR/Kernel/AVM → 実機 → Reasoning → Executive/Meta → Attachments → Validation）
 - **v1.1** — Decision Replay、実機ベンチプラン（Mac / iPhone 15 Pro / iPad M4）
 - **Phase 4 実 API 検証（2026-09）** — 構成別アブレーション（Baseline/AVM/Executive/Full・50 問 × 3）+ 長文 AVM（96.5% トークン削減・精度 100%）+ Executive ボトルネック（二重呼び出しバグ修正: +348ms → +37ms）
+- **SWE-bench 実問題検証（2026-09）** — SWE-bench コーディングエージェントで SWE-bench Lite から選定した sympy 3 問を解決: **3/3 解決（100%）**（deepseek-v4-flash・1 問あたり model calls 11〜29 / 71〜206s）
 - selftest [1]-[89] 全パス / golden 30 / AILSA selftest / build + dist 検証済み
 
 ## 🔬 研究上の位置付け

@@ -1,0 +1,102 @@
+[
+  {
+    "instance_id": "sympy__sympy-24213",
+    "resolved": true,
+    "modelPatch": "diff --git a/sympy/physics/units/unitsystem.py b/sympy/physics/units/unitsystem.py\nindex a436880c4b..f49a097f7b 100644\n--- a/sympy/physics/units/unitsystem.py\n+++ b/sympy/physics/units/unitsystem.py\n@@ -175,7 +175,8 @@ def _collect_factor_and_dimension(self, expr):\n             for addend in expr.args[1:]:\n                 addend_factor, addend_dim = \\\n                     self._collect_factor_and_dimension(addend)\n-                if dim != addend_dim:\n+                if not self.get_dimension_system().equivalent_dims(\n+                        dim, addend_dim):\n                     raise ValueError(\n                         'Dimension of \"{}\" is {}, '\n                         'but it should be {}'.format(\n",
+    "failToPass": [
+      {
+        "test": "test_issue_24211",
+        "passed": true
+      }
+    ],
+    "passToPass": [
+      {
+        "test": "test_str_repr",
+        "passed": true
+      },
+      {
+        "test": "test_eq",
+        "passed": true
+      },
+      {
+        "test": "test_convert_to",
+        "passed": true
+      },
+      {
+        "test": "test_Quantity_definition",
+        "passed": true
+      },
+      {
+        "test": "test_abbrev",
+        "passed": true
+      }
+    ],
+    "agentToolCalls": 31,
+    "agentModelCalls": 26,
+    "totalMs": 92605
+  },
+  {
+    "instance_id": "sympy__sympy-23117",
+    "resolved": true,
+    "modelPatch": "diff --git a/sympy/tensor/array/ndim_array.py b/sympy/tensor/array/ndim_array.py\nindex 6490a655a4..8e6cd143c4 100644\n--- a/sympy/tensor/array/ndim_array.py\n+++ b/sympy/tensor/array/ndim_array.py\n@@ -145,10 +145,12 @@ def __new__(cls, iterable, shape=None, **kwargs):\n \n     def _parse_index(self, index):\n         if isinstance(index, (SYMPY_INTS, Integer)):\n-            raise ValueError(\"Only a tuple index is accepted\")\n+            if index >= self._loop_size:\n+                raise ValueError(\"Only a tuple index is accepted\")\n+            return index\n \n         if self._loop_size == 0:\n-            raise ValueError(\"Index not valide with an empty array\")\n+            raise ValueError(\"Index not valid with an empty array\")\n \n         if len(index) != self._rank:\n             raise ValueError('Wrong number of array axes')\n@@ -194,6 +196,9 @@ def f(pointer):\n             if not isinstance(pointer, Iterable):\n                 return [pointer], ()\n \n+            if len(pointer) == 0:\n+                return [], (0,)\n+\n             result = []\n             elems, shapes = zip(*[f(i) for i in pointer])\n             if len(set(shapes)) != 1:\n@@ -567,11 +572,11 @@ def _check_special_bounds(cls, flat_list, shape):\n \n     def _check_index_for_getitem(self, index):\n         if isinstance(index, (SYMPY_INTS, Integer, slice)):\n-            index = (index, )\n+            index = (index,)\n \n         if len(index) < self.rank():\n-            index = tuple([i for i in index] + \\\n-                          [slice(None) for i in range(len(index), self.rank())])\n+            index = tuple(index) + \\\n+                          tuple(slice(None) for i in range(len(index), self.rank()))\n \n         if len(index) > self.rank():\n             raise ValueError('Dimension of index greater than rank of array')\n",
+    "failToPass": [
+      {
+        "test": "test_issue_17851",
+        "passed": true
+      }
+    ],
+    "passToPass": [
+      {
+        "test": "test_array_negative_indices",
+        "passed": true
+      },
+      {
+        "test": "test_issue_18361",
+        "passed": true
+      },
+      {
+        "test": "test_issue_20222",
+        "passed": true
+      }
+    ],
+    "agentToolCalls": 44,
+    "agentModelCalls": 29,
+    "totalMs": 206404
+  },
+  {
+    "instance_id": "sympy__sympy-24152",
+    "resolved": true,
+    "modelPatch": "diff --git a/sympy/physics/quantum/tensorproduct.py b/sympy/physics/quantum/tensorproduct.py\nindex 78accaf295..cc89cbd4ad 100644\n--- a/sympy/physics/quantum/tensorproduct.py\n+++ b/sympy/physics/quantum/tensorproduct.py\n@@ -246,9 +246,10 @@ def _eval_expand_tensorproduct(self, **hints):\n             if isinstance(args[i], Add):\n                 for aa in args[i].args:\n                     tp = TensorProduct(*args[:i] + (aa,) + args[i + 1:])\n-                    if isinstance(tp, TensorProduct):\n-                        tp = tp._eval_expand_tensorproduct()\n-                    add_args.append(tp)\n+                    c_part, nc_part = tp.args_cnc()\n+                    if len(nc_part) == 1 and isinstance(nc_part[0], TensorProduct):\n+                        nc_part = (nc_part[0]._eval_expand_tensorproduct(),)\n+                    add_args.append(Mul(*c_part)*Mul(*nc_part))\n                 break\n \n         if add_args:\n",
+    "failToPass": [
+      {
+        "test": "test_tensor_product_expand",
+        "passed": true
+      }
+    ],
+    "passToPass": [
+      {
+        "test": "test_sparse_matrices",
+        "passed": true
+      },
+      {
+        "test": "test_tensor_product_dagger",
+        "passed": true
+      },
+      {
+        "test": "test_tensor_product_abstract",
+        "passed": true
+      },
+      {
+        "test": "test_tensor_product_commutator",
+        "passed": true
+      },
+      {
+        "test": "test_tensor_product_simp",
+        "passed": true
+      }
+    ],
+    "agentToolCalls": 13,
+    "agentModelCalls": 11,
+    "totalMs": 70602
+  }
+]

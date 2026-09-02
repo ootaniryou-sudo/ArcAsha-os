@@ -85,11 +85,24 @@ AI_*.md               Spécifications
 
 `MASTER_SPEC.md` (vision) / `ARCASHA_V2_SPEC.md` (spec v2 v0.36) / `AI_REASONING.md` (runtime de raisonnement) / `AI_ATTACHMENTS.md` (couche plugins) / `AI_VALIDATION.md` (validation & explication) / `AI_VIRTUAL_MEMORY.md` (AVM) / `PAPER_OUTLINE.md` (papier) / `CHANGELOG.md` (historique)
 
+## 🤖 Validation sur problèmes réels SWE-bench (agent de code)
+
+Après la Phase 4, l'agent d'ingénierie logicielle d'ArcAsha (`src/arcasha/swe/`, boucle d'outils) a résolu des instances réelles de SWE-bench Lite via l'API réelle. Tous les chiffres sont mesurés.
+
+- **Objets** : 3 instances **sympy/sympy** sélectionnées dans `princeton-nlp/SWE-bench_Lite` (test split, 300 tâches ; Python pur, zéro dépendance, évaluables localement) — `24213` (équivalence de dimensions) / `23117` (`Array([])`) / `24152` (`TensorProduct.expand`)
+- **Modèle** : `deepseek-v4-flash` (API réelle, `temperature=0`) / Environnement : macOS / Python 3.13.2 / pytest 9.1.1 / sympy installé en editable sur base_commit
+- **Paramètres de l'agent** : boucle d'outils `maxIterations=50` ; outils = list_dir / read_file / grep_search / glob_search / write_file / edit_file / run_command (exécution de tests autorisée). **L'écriture dans les fichiers de test (`tests/`, `test_*.py`, etc.) est interdite** (SWE-bench applique automatiquement le `test_patch` de référence à l'évaluation)
+- **Évaluation** : checkout `base_commit` → l'agent ne modifie que le **code source** → réinitialiser le worktree → appliquer le `test_patch` de référence → appliquer le correctif de l'agent → exécuter `FAIL_TO_PASS`/`PASS_TO_PASS` via pytest → resolved si tous les F2P passent. Les tests en nom-de-fonction seul sont résolus automatiquement en `fichier::fonction`
+- **Résultat : 3/3 résolues (100 %)** — appels modèle 26/29/11, outils 31/44/13, 93s/206s/71s par instance
+- Remarques honnêtes : la sortie LLM est stochastique (`23117` a échoué une fois avec « réponse incomplète » ; le nouvel essai l'a résolu ; `22005` non évaluable — son base_commit de 2021 est incompatible avec Python 3.13, `distutils` supprimé) ; 3 tâches sélectionnées ne constituent pas une estimation statistique ; **la consommation de tokens n'a pas été enregistrée lors de cet essai** (`agent.ts`/`eval.ts` ont désormais l'agrégation usage ; les prochains essais l'enregistrent dans `reports/swebench/swebench-results.json`)
+- Harnais d'évaluation (code) : `src/arcasha/swe/` ; résultats commités : `reports/swebench/swebench-results.json`
+
 ## 🧪 Statut
 
 - **v1.0 publiée** — première génération d'AI OS (ISA/IR/Kernel/AVM → appareils réels → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, plan de benchmark sur appareils réels (Mac / iPhone 15 Pro / iPad M4)
 - **Phase 4 : validation par API réelle (2026-09)** — ablation de composants (Baseline/AVM/Executive/Full, 50 tâches × 3) + AVM long contexte (96,5 % de réduction de tokens à 100 %) + goulot Executive (bug de double appel corrigé : +348ms → +37ms, mesuré dans PR #37)
+- **Validation SWE-bench sur problèmes réels (2026-09)** — l'agent de code SWE-bench a résolu 3 instances sympy sélectionnées de SWE-bench Lite : **3/3 résolues (100 %)** (deepseek-v4-flash ; 11-29 appels modèle / 71-206s par instance)
 - selftest [1]-[72] tous réussis / golden 30 / AILSA selftest / build + dist vérifiés
 
 ## 🔬 Positionnement de recherche

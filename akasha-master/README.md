@@ -156,6 +156,37 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 - Measurement exposed a **double model-call bug** under `forceDelegate` (12% of tasks made a second empty/duplicate call) → fixed
 - After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms** (+348ms = pre-fix delta measured in PR #37; +37ms matches the ablation table: ③+Executive 1334ms − ①Baseline 1297ms); TS-side overhead ≈ 0.2ms (`reports/ablation-exec/`)
 
+## 🤖 SWE-bench Real-Problem Validation (coding agent)
+
+Following Phase 4, ArcAsha's **software-engineering agent** (`src/arcasha/swe/`, tool-loop implementation) solved real instances from SWE-bench Lite. All numbers are measured via the real API — nothing fabricated.
+
+### Experimental conditions
+
+- **Instances**: 3 tasks selected from `princeton-nlp/SWE-bench_Lite` (test split, 300 tasks), all from **sympy/sympy** (pure-Python, zero-dependency, thus evaluable in our harness)
+  - `sympy__sympy-24213` — dimension-equivalence check in `UnitSystem._collect_factor_and_dimension()` (2022-11)
+  - `sympy__sympy-23117` — `sympy.Array([])` empty-array failure (2022-02)
+  - `sympy__sympy-24152` — incomplete `TensorProduct.expand()` (2022-10)
+- **Model**: `deepseek-v4-flash` (real API, `temperature=0`)
+- **Environment**: macOS / Python 3.13.2 / pytest 9.1.1 / sympy editable-installed at its base_commit
+- **Agent settings**: tool loop `maxIterations=50`; tools = list_dir / read_file / grep_search / glob_search / write_file / edit_file / run_command (test execution allowed). **Writing to test files (`tests/`, `test_*.py`, etc.) is forbidden** (SWE-bench applies the gold `test_patch` automatically at evaluation time)
+- **Evaluation**: checkout `base_commit` → agent edits **source only** → reset the worktree → apply gold `test_patch` → apply agent patch → run `FAIL_TO_PASS` / `PASS_TO_PASS` via pytest → resolved iff all F2P pass. Function-name-only tests (sympy/django convention) are auto-resolved to node ids (`file::func`) by searching the repo
+
+### Results (3/3 = 100%)
+
+| instance_id | resolved | model calls | tool calls | time | patch |
+|---|---|---|---|---|---|
+| `sympy__sympy-24213` | ✅ | 26 | 31 | 93s | 717 B |
+| `sympy__sympy-23117` | ✅ | 29 | 44 | 206s | 1,813 B |
+| `sympy__sympy-24152` | ✅ | 11 | 13 | 71s | 930 B |
+
+- **Resolve rate 3/3 (100%)**. All F2P tests and P2P regression tests pass
+- The agent edits source via `edit_file`/`write_file` and verifies by running pytest via `run_command`
+- **Honest caveats**:
+  - LLM output is stochastic, so results vary run to run (e.g. `23117` failed once with "incomplete reply" and resolved on retry; `22005` was excluded as not evaluable — its 2021 base_commit is incompatible with Python 3.13, which removed `distutils`)
+  - With only 3 selected tasks (selection bias), this 100% is **not** a statistical estimate of resolve rate
+  - **Token usage was not measured in this run** (before usage aggregation existed). Token accounting (`promptTokens` / `completionTokens` / `totalTokens`) is now added in `agent.ts` / `eval.ts`, so future runs will record it in `reports/swebench/swebench-results.json`
+- Evaluation harness (code): `src/arcasha/swe/`; committed results: `reports/swebench/swebench-results.json`
+
 ---
 
 ## 🧪 Status
@@ -163,6 +194,7 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 - **v1.0 released** — AI OS first generation (Phases 0-4: ISA/IR/Kernel/AVM → Realtime devices → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, Real Device benchmark plan (Mac / iPhone 15 Pro / iPad M4)
 - **Phase 4 real-API validation (2026-09)** — component ablation (Baseline/AVM/Executive/Full, 50 tasks × 3) + long-context AVM (96.5% token reduction at 100%) + Executive bottleneck (double-call bug fixed: +348ms → +37ms)
+- **SWE-bench real-problem validation (2026-09)** — SWE-bench coding agent solved 3 selected sympy instances from SWE-bench Lite: **3/3 resolved (100%)** (deepseek-v4-flash; 11-29 model calls / 71-206s per instance)
 - selftest [1]-[89] all pass / golden 30 / AILSA selftest / build + dist verified
 
 ---

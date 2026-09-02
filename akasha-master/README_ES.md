@@ -85,6 +85,17 @@ AI_*.md               Especificaciones
 
 `MASTER_SPEC.md` (visión) / `ARCASHA_V2_SPEC.md` (espec v2 v0.36) / `AI_REASONING.md` (runtime de razonamiento) / `AI_ATTACHMENTS.md` (capa de plugins) / `AI_VALIDATION.md` (validación y explicación) / `AI_VIRTUAL_MEMORY.md` (AVM) / `PAPER_OUTLINE.md` (artículo) / `CHANGELOG.md` (historial)
 
+## 🤖 Validación con problemas reales de SWE-bench (agente de código)
+
+Tras la Fase 4, el agente de ingeniería de software de ArcAsha (`src/arcasha/swe/`, bucle de herramientas) resolvió instancias reales de SWE-bench Lite con API real. Todas las cifras son medidas.
+
+- **Objetos**: 3 instancias de **sympy/sympy** seleccionadas de `princeton-nlp/SWE-bench_Lite` (test split, 300 tareas; Python puro, sin dependencias, evaluables localmente) — `24213` (equivalencia de dimensiones) / `23117` (`Array([])`) / `24152` (`TensorProduct.expand`)
+- **Modelo**: `deepseek-v4-flash` (API real, `temperature=0`) / Entorno: macOS / Python 3.13.2 / pytest 9.1.1 / sympy instalado editable en base_commit
+- **Evaluación**: checkout `base_commit` → el agente edita solo el **código fuente** → restablecer worktree → aplicar `test_patch` de oro → aplicar parche del agente → ejecutar `FAIL_TO_PASS`/`PASS_TO_PASS` con pytest → resolved si todos los F2P pasan. Los tests solo con nombre de función se resuelven automáticamente a `archivo::función`
+- **Resultado: 3/3 resueltas (100 %)** — llamadas de modelo 26/29/11, herramientas 31/44/13, 93s/206s/71s por instancia
+- Notas honestas: la salida del LLM es estocástica (`23117` falló una vez con “respuesta incompleta”; el reintento lo resolvió; `22005` no fue evaluable por incompatibilidad de su base_commit de 2021 con Python 3.13 – `distutils` eliminado); 3 tareas seleccionadas no son una estimación estadística; **el consumo de tokens no se registró en esta ejecución** (`agent.ts`/`eval.ts` ya tienen agregación de usage; las próximas ejecuciones lo guardan en `reports/swebench/swebench-results.json`)
+- Harness de evaluación (código): `src/arcasha/swe/`; resultados commiteados: `reports/swebench/swebench-results.json`
+
 ## 🧪 Estado
 
 - **v1.0 publicada** — primera generación de AI OS (ISA/IR/Kernel/AVM → dispositivos reales → Reasoning → Executive/Meta → Attachments → Validation)

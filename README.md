@@ -172,6 +172,14 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 - Measurement exposed a **double model-call bug** under `forceDelegate` (12% of tasks made a second empty/duplicate call) → fixed
 - After fix: every task calls the model exactly once; Executive latency delta **+348ms → +37ms** (+348ms = pre-fix delta measured in PR #37; +37ms matches the ablation table: ③+Executive 1334ms − ①Baseline 1297ms); TS-side overhead ≈ 0.2ms (`akasha-master/reports/ablation-exec/`)
 
+## 🤖 SWE-bench Real-Problem Validation (coding agent)
+
+ArcAsha's software-engineering agent (`akasha-master/src/arcasha/swe/`) solved real SWE-bench Lite instances with real API calls (`deepseek-v4-flash`, `temperature=0`). Details: `akasha-master/README.md`.
+
+- **3 sympy instances selected** from SWE-bench Lite (test split): `24213` (dimension equivalence), `23117` (`Array([])`), `24152` (`TensorProduct.expand`)
+- **Result: 3/3 resolved (100%)** — 26/29/11 model calls, 31/44/13 tools, 93s/206s/71s per instance; agent edits source only and verifies with pytest; test files are write-protected (gold `test_patch` is applied at eval time)
+- Honest caveats: stochastic LLM output (one instance needed a retry); 3 selected tasks is not a statistical estimate; **token usage was not captured in this run** (usage aggregation now added to the harness — future runs record it in `akasha-master/reports/swebench/swebench-results.json`)
+
 ---
 
 ## 🧪 Status
@@ -179,6 +187,7 @@ Phase 4 validates each component with **real API calls** (`deepseek-v4-flash`, m
 - **v1.0 released** — AI OS first generation (Phases 0-4: ISA/IR/Kernel/AVM → Realtime devices → Reasoning → Executive/Meta → Attachments → Validation)
 - **v1.1** — Decision Replay, Real Device benchmark plan (Mac / iPhone 15 Pro / iPad M4)
 - **Phase 4 real-API validation (2026-09)** — component ablation (Baseline/AVM/Executive/Full, 50 tasks × 3) + long-context AVM (96.5% token reduction at 100%) + Executive bottleneck (double-call bug fixed: +348ms → +37ms)
+- **SWE-bench real-problem validation (2026-09)** — SWE-bench coding agent solved 3 selected sympy instances from SWE-bench Lite: **3/3 resolved (100%)** (deepseek-v4-flash; see akasha-master/README.md)
 - selftest [1]-[89] all pass / golden 30 / AILSA selftest / build + dist verified
 
 ---
