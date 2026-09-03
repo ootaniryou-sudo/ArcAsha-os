@@ -1,0 +1,18 @@
+{
+  "mode": "thinking=enabled, reasoning_effort=high",
+  "ms": 18679,
+  "finishReason": "stop",
+  "promptTokens": 1242,
+  "completionTokens": 2345,
+  "contentChars": 612,
+  "reasoningChars": 9321,
+  "patchBytes": 600,
+  "patch": "--- a/sympy/physics/units/unitsystem.py\n+++ b/sympy/physics/units/unitsystem.py\n@@ -176,7 +176,7 @@\n             factor, dim = self._collect_factor_and_dimension(expr.args[0])\n             for addend in expr.args[1:]:\n                 addend_factor, addend_dim = \\\n                     self._collect_factor_and_dimension(addend)\n-                if dim != addend_dim:\n+                if not self.get_dimension_system().equivalent_dims(dim, addend_dim):\n                     raise ValueError(\n                         'Dimension of \"{}\" is {}, '\n                         'but it should be {}'.format(",
+  "resolved": true,
+  "failToPass": [
+    {
+      "test": "test_issue_24211",
+      "passed": true
+    }
+  ]
+}

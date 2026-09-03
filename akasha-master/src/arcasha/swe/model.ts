@@ -87,6 +87,15 @@ export async function chatCompletion(
     body.tools = tools;
     body.tool_choice = 'auto';
   }
+  // thinking モード制御（deepseek-v4 系は既定で有効のため、素のモデル比較では
+  // 'disabled' を指定して reasoning が出力トークンを消費し尽くすのを防ぐ）
+  if (opts.thinking) {
+    body.thinking = { type: opts.thinking };
+  }
+  // thinking effort 制御（reasoning の長さを調整）
+  if (opts.reasoningEffort) {
+    body.reasoning_effort = opts.reasoningEffort;
+  }
 
   const res = await fetch(endpoint, {
     method: 'POST',

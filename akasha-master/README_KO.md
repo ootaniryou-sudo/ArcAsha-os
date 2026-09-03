@@ -96,6 +96,38 @@ Phase 4에 이어 ArcAsha의 소프트웨어 엔지니어링 에이전트(`src/a
 - 정직한 주의: LLM은 확률적(`23117`은 “불완전 응답”으로 1회 실패 → 재실행으로 해결. `22005`는 2021년 base_commit이 Python 3.13의 `distutils` 제거와 비호환되어 평가 불가); 선정 3문제라 통계적 해결률 추정이 아님; **이번 실행은 토큰 사용량을 기록하지 않음**(`agent.ts`/`eval.ts`에 usage 집계 추가. 이후 실행은 `reports/swebench/swebench-results.json`에 기록)
 - 평가 하네스(코드): `src/arcasha/swe/`; 커밋된 결과: `reports/swebench/swebench-results.json`
 
+### 일반 DeepSeek vs arcasha(1문제 대조 비교, 2026-09)
+
+에이전트/도구 계층이 **순수 모델 호출**에 비해 무엇을 더하는지 정량화하기 위해,
+**동일한 1문제**(`sympy__sympy-24213`)에서 아래를 비교했습니다.
+
+- **일반 DeepSeek** — 순수 `deepseek-v4-flash`(thinking ON・`reasoning_effort=high`)에
+  이슈 텍스트 **+ 대상 파일 발췌**를 주고 unified diff를 한 번에 손으로 쓰게 함. 3회 시도.
+- **arcasha** — 위에서 설명한 SWE 에이전트(도구 루프) 그대로.
+
+숫자는 모두 실측 API 기준. 비용은 DeepSeek 공식 `deepseek-v4-flash` 단가
+(off-peak: 입력 $0.22 / 출력 $0.66 per 1M)로 산정. 상세·원시 데이터:
+`reports/swebench/compare-deepseek-vs-arcasha.{md,json}`.
+
+| 지표 | 일반 DeepSeek(3회) | arcasha |
+|---|---:|---:|
+| 해결 | ❌ 0/3 | ✅ 1/1 |
+| 입력 토큰 | 3,756 | 726,877 |
+| 출력 토큰 | 39,428 | 14,532 |
+| 총 토큰 | 43,184 | 741,409 |
+| 시간 | 267 s(3회 합계) | 127 s |
+| 비용(off-peak, $) | $0.027 | $0.170 |
+
+**핵심 발견**: 일반 DeepSeek는 매회 올바른 수정 내용(gold 패치와 동일한
+`equivalent_dims` 검사)을 찾아냈습니다. 그러나 unified diff를 **손으로 작성**해야 하므로
+3회 모두 hunk 헤더 줄 수 오산·끝 컨텍스트 누락이 발생해 `git apply`가 패치를 거부(0/3).
+에이전트는 `edit_file`/`write_file`로 소스를 **직접 편집**하므로 diff는 git이 생성
+(손으로 hunk 계산 불필요) → 항상 적용 가능 → 해결. 즉 SWE-bench를 풀려면 “수정 내용을
+아는 것”뿐 아니라 **실제 파일에 적용할 도구**가 필요하다는 것이 이 1문제 비교의 결론입니다.
+
+- 정직한 주의: 확률적(별도 1회 실행에서 1/1 해결도 확인. 원샷 diff 생성은 가능하나 불안정)・
+  1문제만으로 통계적 추정이 아님.
+
 ## 🧪 상태
 
 - **v1.0 출시** — AI OS 1세대(ISA/IR/Kernel/AVM → 실기 → Reasoning → Executive/Meta → Attachments → Validation)

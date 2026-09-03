@@ -96,6 +96,40 @@ Tras la Fase 4, el agente de ingeniería de software de ArcAsha (`src/arcasha/sw
 - Notas honestas: la salida del LLM es estocástica (`23117` falló una vez con “respuesta incompleta”; el reintento lo resolvió; `22005` no fue evaluable por incompatibilidad de su base_commit de 2021 con Python 3.13 – `distutils` eliminado); 3 tareas seleccionadas no son una estimación estadística; **el consumo de tokens no se registró en esta ejecución** (`agent.ts`/`eval.ts` ya tienen agregación de usage; las próximas ejecuciones lo guardan en `reports/swebench/swebench-results.json`)
 - Harness de evaluación (código): `src/arcasha/swe/`; resultados commiteados: `reports/swebench/swebench-results.json`
 
+### DeepSeek normal vs arcasha (comparación controlada de 1 instancia, 2026-09)
+
+Para cuantificar qué aporta la capa de agente/herramientas frente a una **llamada de modelo
+desnuda**, comparamos en la **misma instancia** (`sympy__sympy-24213`):
+
+- **DeepSeek normal** — `deepseek-v4-flash` desnudo (thinking ON, `reasoning_effort=high`)
+  con el texto del issue **+ el extracto del archivo objetivo**, pidiéndole escribir un
+  unified diff a mano de una sola vez. 3 intentos.
+- **arcasha** — el agente SWE descrito arriba (bucle de herramientas).
+
+Todas las cifras son mediciones reales de la API; el coste usa la tarifa oficial de
+`deepseek-v4-flash` (off-peak: entrada $0,22 / salida $0,66 por 1M). Detalles y datos
+brutos: `reports/swebench/compare-deepseek-vs-arcasha.{md,json}`.
+
+| Métrica | DeepSeek normal (3 intentos) | arcasha |
+|---|---:|---:|
+| resuelto | ❌ 0/3 | ✅ 1/1 |
+| tokens de entrada | 3.756 | 726.877 |
+| tokens de salida | 39.428 | 14.532 |
+| tokens totales | 43.184 | 741.409 |
+| tiempo | 267 s (3 intentos) | 127 s |
+| coste (off-peak, $) | $0,027 | $0,170 |
+
+**Hallazgo clave**: el modelo desnudo identificó en cada intento la corrección correcta
+(idéntica al parche de oro, comprobación `equivalent_dims`). Pero debe **escribir a mano**
+el unified diff; en los 3 intentos el recuento de líneas de hunk era erróneo o el contexto
+estaba truncado, así que `git apply` rechazó el parche (0/3). El agente edita los archivos
+**directamente** con `edit_file`/`write_file`, de modo que el diff lo genera git (sin
+cálculo manual de hunks) → siempre aplicable → resuelto. Conclusión: resolver SWE-bench no
+requiere solo “saber la corrección”, sino una **herramienta para aplicarla a archivos reales**.
+
+- Nota honesta: estocástico (otra ejecución única también resolvió 1/1; el diff de un solo
+  disparo es posible pero poco fiable)・solo 1 instancia, no es una estimación estadística.
+
 ## 🧪 Estado
 
 - **v1.0 publicada** — primera generación de AI OS (ISA/IR/Kernel/AVM → dispositivos reales → Reasoning → Executive/Meta → Attachments → Validation)

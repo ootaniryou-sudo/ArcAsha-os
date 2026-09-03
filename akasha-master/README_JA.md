@@ -148,6 +148,39 @@ Phase 4 に続き、ArcAsha の **ソフトウェアエンジニアリングエ�
   - **トークン消費量はこの実行時点では未計測**（usage 集計の導入前）。`agent.ts` / `eval.ts` にトークン集計（`promptTokens` / `completionTokens` / `totalTokens`）を追加済みで、次回以降の実行では `reports/swebench/swebench-results.json` に記録されます
 - 評価ハーネス（コード）: `src/arcasha/swe/`・コミット済み結果: `reports/swebench/swebench-results.json`
 
+### ノーマル DeepSeek vs arcasha（1 問・対照比較, 2026-09）
+
+エージェント/ツール層が「素のモデル呼び出し」に対して何を加えるかを定量化するため、
+**同一の 1 問**（`sympy__sympy-24213`）で以下を比較しました。
+
+- **ノーマル DeepSeek** — 素の `deepseek-v4-flash`（thinking ON・`reasoning_effort=high`）に
+  問題文 **+ 対象ファイル抜粋**を与え、unified diff を 1 発で手書きさせる。3 回試行。
+- **arcasha** — 上記の SWE エージェント（ツールループ）そのまま。
+
+数値はすべて実 API 計測。費用は DeepSeek 公式 `deepseek-v4-flash` 単価
+（off-peak: 入力 $0.22 / 出力 $0.66 per 1M）で概算。詳細・生データ:
+`reports/swebench/compare-deepseek-vs-arcasha.{md,json}`。
+
+| 指標 | ノーマル DeepSeek（3 試行） | arcasha |
+|---|---:|---:|
+| 解決 | ❌ 0/3 | ✅ 1/1 |
+| 入力トークン | 3,756 | 726,877 |
+| 出力トークン | 39,428 | 14,532 |
+| 合計トークン | 43,184 | 741,409 |
+| 時間 | 267 s（3 試行計） | 127 s |
+| 費用（off-peak, $） | $0.027 | $0.170 |
+
+**主な発見**: ノーマル DeepSeek は毎回**正しい修正内容**（gold パッチと同一の
+`equivalent_dims` チェック）を特定できました。しかし unified diff を**手書き**するため、
+3 回すべてで hunk ヘッダの行数カウント誤り・末尾コンテキスト欠落が起き、`git apply` が
+パッチを拒否（0/3）。エージェントは `edit_file`/`write_file` でソースを**直接編集**するため、
+diff は git 自身が生成（手書きの hunk 計算が不要）→ 常に適用可能 → 解決。
+つまり SWE-bench を解くには「修正内容が分かる」だけでなく、**実際のファイルに適用する
+ツール**が必要、というのがこの 1 問比較の結論です。
+
+- 正直な注記: 確率的（別の 1 回実行では 1/1 解決も確認。1 発 diff 生成は可能だが不安定）・
+  1 問のみのため統計的な推定ではありません。
+
 ## 🧪 ステータス
 
 - **v1.0 リリース済み** — AI OS 第一世代（ISA/IR/Kernel/AVM → 実機 → Reasoning → Executive/Meta → Attachments → Validation）

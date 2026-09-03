@@ -96,6 +96,40 @@ Im Anschluss an Phase 4 hat der Software-Engineering-Agent von ArcAsha (`src/arc
 - Ehrliche Hinweise: LLM-Ausgabe ist stochastisch (`23117` scheiterte einmal mit „unvollständiger Antwort“, Retry löste es; `22005` wegen Inkompatibilität des 2021er base_commit mit Python 3.13 – `distutils` entfernt – nicht auswertbar); 3 ausgewählte Aufgaben sind keine statistische Schätzung; **Token-Verbrauch in diesem Lauf nicht erfasst** (`agent.ts`/`eval.ts` haben nun Usage-Aggregation; künftige Läufe schreiben `reports/swebench/swebench-results.json`)
 - Evaluierungs-Harness (Code): `src/arcasha/swe/`; committete Ergebnisse: `reports/swebench/swebench-results.json`
 
+### Normales DeepSeek vs. arcasha (kontrollierter 1-Instanz-Vergleich, 2026-09)
+
+Um zu quantifizieren, was die Agent-/Tool-Ebene gegenüber einem **nackten Modellaufruf**
+hinzufügt, verglichen wir auf **derselben Instanz** (`sympy__sympy-24213`):
+
+- **Normales DeepSeek** — nackter `deepseek-v4-flash` (Thinking ON, `reasoning_effort=high`),
+  erhielt Problemtext **+ Auszug der Zieldatei** und sollte in einem Zug ein unified diff
+  von Hand schreiben. 3 Versuche.
+- **arcasha** — der oben beschriebene SWE-Agent (Tool-Loop).
+
+Alle Zahlen sind echte API-Messungen; Kosten nach offizieller `deepseek-v4-flash`-Preisliste
+(off-peak: Eingabe $0,22 / Ausgabe $0,66 pro 1M). Details & Rohdaten:
+`reports/swebench/compare-deepseek-vs-arcasha.{md,json}`.
+
+| Kennzahl | Normales DeepSeek (3 Versuche) | arcasha |
+|---|---:|---:|
+| gelöst | ❌ 0/3 | ✅ 1/1 |
+| Eingabe-Tokens | 3.756 | 726.877 |
+| Ausgabe-Tokens | 39.428 | 14.532 |
+| Gesamt-Tokens | 43.184 | 741.409 |
+| Zeit | 267 s (3 Versuche) | 127 s |
+| Kosten (off-peak, $) | $0,027 | $0,170 |
+
+**Kernerkenntnis**: Das nackte Modell fand bei jedem Versuch die richtige Korrektur
+(identisch zum Gold-Patch, `equivalent_dims`-Prüfung). Aber es muss das unified diff
+**von Hand schreiben**; in allen 3 Versuchen waren die hunk-Zeilenanzahl falsch bzw. der
+Kontext abgeschnitten, sodass `git apply` den Patch ablehnte (0/3). Der Agent bearbeitet
+Dateien **direkt** über `edit_file`/`write_file`, das diff erzeugt git selbst (keine
+Hand-Hunk-Rechnung) → immer anwendbar → gelöst. Fazit: Für SWE-bench braucht es nicht nur
+„die Korrektur zu kennen“, sondern ein **Werkzeug, um sie auf echte Dateien anzuwenden**.
+
+- Ehrlicher Hinweis: stochastisch (ein separater Einzel-Lauf löste ebenfalls 1/1; Ein-Schuss-
+  diff ist möglich, aber unzuverlässig)・nur 1 Instanz, keine statistische Schätzung.
+
 ## 🧪 Status
 
 - **v1.0 veröffentlicht** — erste KI-OS-Generation (ISA/IR/Kernel/AVM → echte Geräte → Reasoning → Executive/Meta → Attachments → Validation)

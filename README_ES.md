@@ -93,6 +93,21 @@ El agente de ingeniería de software de ArcAsha (`akasha-master/src/arcasha/swe/
 - **Resultado: 3/3 resueltas (100 %)** — 26/29/11 llamadas de modelo, 31/44/13 herramientas, 93s/206s/71s por instancia; el agente edita solo el **código fuente** y verifica con pytest; los archivos de test están protegidos contra escritura (el `test_patch` de oro se aplica en la evaluación)
 - Notas honestas: la salida del LLM es estocástica (1 instancia requirió reintento); 3 tareas seleccionadas no son una estimación estadística; **el consumo de tokens no se registró en esta ejecución** (la agregación de usage ya está añadida al harness — las próximas ejecuciones lo guardan en `akasha-master/reports/swebench/swebench-results.json`)
 
+### DeepSeek normal vs arcasha (comparación controlada de 1 instancia, 2026-09)
+
+Para cuantificar el valor de la capa de agente/herramientas, comparamos en la **misma
+instancia** `sympy__sympy-24213` “`deepseek-v4-flash` desnudo (problema + extracto del
+archivo, unified diff en un disparo)” con “agente arcasha”. Mediciones reales de la API.
+Detalles: `akasha-master/reports/swebench/compare-deepseek-vs-arcasha.md`.
+
+- **DeepSeek normal: 0/3 resuelto** — encontraba cada vez la corrección correcta idéntica a
+  la de oro, pero el unified diff escrito a mano tenía recuento de líneas de hunk erróneo /
+  contexto truncado, `git apply` lo rechazaba siempre (43.184 tokens / $0,027 off-peak / 267 s)
+- **arcasha: 1/1 resuelto** — edita archivos directamente con `edit_file`; el diff lo genera
+  git (sin cálculo manual) → siempre aplicable (741.409 tokens / $0,170 off-peak / 127 s)
+- Conclusión: resolver SWE-bench no requiere solo “saber la corrección”, sino una
+  **herramienta para aplicarla a archivos reales**; el diff de un solo disparo es posible pero poco fiable
+
 ## 🧪 Estado
 
 - **v1.0 publicada** — primera generación de AI OS (ISA/IR/Kernel/AVM → dispositivos reales → Reasoning → Executive/Meta → Attachments → Validation)

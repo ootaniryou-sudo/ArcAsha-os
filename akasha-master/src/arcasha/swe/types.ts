@@ -115,4 +115,15 @@ export interface ChatOptions {
   temperature: number;
   /** リクエストのタイムアウト（ms）。既定 120_000。 */
   timeoutMs?: number;
+  /**
+   * thinking モード制御（deepseek-v4 系）。'disabled' で non-thinking に切替。
+   * 未指定 = モデル既定（有効）。
+   */
+  thinking?: 'enabled' | 'disabled';
+  /**
+   * thinking モードの effort 制御（deepseek-v4 系）。'low' | 'high' | 'max'。
+   * thinking 有効時に reasoning の長さを調整する（low は短く・high は長く）。
+   * 未指定 = モデル既定。
+   */
+  reasoningEffort?: 'low' | 'high' | 'max';
 }
