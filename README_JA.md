@@ -125,6 +125,21 @@ ArcAsha のソフトウェアエンジニアリングエージェント（`akash
 - **結果: 3/3 解決（100%）** — モデル呼び出し 26/29/11 回・ツール 31/44/13 回・所要 93s/206s/71s（1 問あたり）。エージェントは**ソースのみ**を修正し pytest で検証。テストファイルは書込禁止（gold の `test_patch` を評価時に自動適用）
 - 正直な注記: LLM は確率的で 1 問は再実行で解決。選定 3 問のため統計的な解決率の推定ではない。**トークン消費量はこの実行では未計測**（ハーネスに usage 集計を追加済み。次回以降は `akasha-master/reports/swebench/swebench-results.json` に記録）
 
+### ノーマル DeepSeek vs arcasha（1 問・対照比較, 2026-09）
+
+エージェント/ツール層の価値を定量化するため、**同一の 1 問** `sympy__sympy-24213` で
+「素の `deepseek-v4-flash`（問題文+ファイル抜粋・1 発で unified diff を手書き）」と
+「arcasha エージェント」を比較。実 API 計測。詳細:
+`akasha-master/reports/swebench/compare-deepseek-vs-arcasha.md`。
+
+- **ノーマル DeepSeek: 0/3 解決** — 毎回 gold と同一の正しい修正を特定するが、手書きの
+  unified diff は hunk 行数誤り・末尾欠落で `git apply` が全試行で拒否
+  （43,184 トークン / $0.027 off-peak / 267 s）
+- **arcasha: 1/1 解決** — `edit_file` でファイルを直接編集するため diff は git が生成
+  （手書きの hunk 計算が不要）→ 常に適用可能（741,409 トークン / $0.170 off-peak / 127 s）
+- 結論: SWE-bench を解くには「修正内容が分かる」だけでなく、**実際のファイルに適用する
+  ツール**が必要。素の 1 発 diff 生成は可能だが不安定
+
 ## 🧪 ステータス
 
 - **v1.0 リリース済み** — AI OS 第一世代（ISA/IR/Kernel/AVM → 実機 → Reasoning → Executive/Meta → Attachments → Validation）

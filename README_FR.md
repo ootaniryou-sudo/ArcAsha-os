@@ -93,6 +93,23 @@ L'agent d'ingénierie logicielle d'ArcAsha (`akasha-master/src/arcasha/swe/`) a 
 - **Résultat : 3/3 résolues (100 %)** — 26/29/11 appels modèle, 31/44/13 outils, 93s/206s/71s par instance ; l'agent ne modifie que le **code source** et vérifie avec pytest ; les fichiers de test sont protégés en écriture (le `test_patch` de référence est appliqué à l'évaluation)
 - Remarques honnêtes : la sortie LLM est stochastique (1 instance a nécessité un nouvel essai) ; 3 tâches sélectionnées ne constituent pas une estimation statistique ; **la consommation de tokens n'a pas été enregistrée lors de cet essai** (l'agrégation usage est ajoutée au harnais — les prochains essais l'enregistreront dans `akasha-master/reports/swebench/swebench-results.json`)
 
+### DeepSeek normal vs arcasha (comparaison contrôlée sur 1 instance, 2026-09)
+
+Pour quantifier la valeur de la couche agent/outils, nous avons comparé sur la **même
+instance** `sympy__sympy-24213` « `deepseek-v4-flash` brut (problème + extrait du fichier,
+unified diff en un seul jet) » avec « l'agent arcasha ». Mesures réelles de l'API. Détails :
+`akasha-master/reports/swebench/compare-deepseek-vs-arcasha.md`.
+
+- **DeepSeek normal : 0/3 résolu** — trouvait à chaque fois la correction correcte identique
+  à celle de référence, mais l'unified diff écrit à la main avait un compte de lignes de hunk
+  erroné / un contexte tronqué ; `git apply` le rejetait systématiquement (43 184 tokens /
+  0,027 $ off-peak / 267 s)
+- **arcasha : 1/1 résolu** — modifie les fichiers directement via `edit_file` ; le diff est
+  généré par git (pas de calcul manuel) → toujours applicable (741 409 tokens / 0,170 $
+  off-peak / 127 s)
+- Conclusion : résoudre SWE-bench ne demande pas seulement de « connaître la correction »,
+  mais un **outil pour l'appliquer à de vrais fichiers** ; le diff en un seul jet est possible mais peu fiable
+
 ## 🧪 Statut
 
 - **v1.0 publiée** — première génération d'AI OS (ISA/IR/Kernel/AVM → appareils réels → Reasoning → Executive/Meta → Attachments → Validation)

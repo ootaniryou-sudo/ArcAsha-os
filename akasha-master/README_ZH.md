@@ -96,6 +96,37 @@ Phase 4 之后，ArcAsha 的软件工程智能体（`src/arcasha/swe/`・工具�
 - 如实说明: LLM 有随机性（`23117` 曾因“不完整回复”失败，重跑后解决；`22005` 因 2021 版 base_commit 与 Python 3.13 的 `distutils` 移除不兼容而无法评测）；仅 3 道自选题，并非统计意义的解决率；**本次运行未记录 token 消耗**（`agent.ts`/`eval.ts` 已加入 usage 统计，后续运行会写入 `reports/swebench/swebench-results.json`）
 - 评测框架（代码）: `src/arcasha/swe/`；已提交结果: `reports/swebench/swebench-results.json`
 
+### 普通 DeepSeek vs arcasha（1 题・对照实验, 2026-09）
+
+为量化智能体/工具层相对“裸模型调用”的价值，我们在**同一道题**（`sympy__sympy-24213`）
+上对比了：
+
+- **普通 DeepSeek** — 裸 `deepseek-v4-flash`（thinking ON・`reasoning_effort=high`），
+  只给问题文本 **+ 目标文件摘录**，要求一次手写 unified diff。跑 3 次。
+- **arcasha** — 上述 SWE 智能体（工具循环）原样。
+
+数字均为真实 API 实测；费用按 DeepSeek 官方 `deepseek-v4-flash` 单价
+（off-peak: 输入 $0.22 / 输出 $0.66 per 1M）估算。详情与原始数据:
+`reports/swebench/compare-deepseek-vs-arcasha.{md,json}`。
+
+| 指标 | 普通 DeepSeek（3 次） | arcasha |
+|---|---:|---:|
+| 解决 | ❌ 0/3 | ✅ 1/1 |
+| 输入 token | 3,756 | 726,877 |
+| 输出 token | 39,428 | 14,532 |
+| 总 token | 43,184 | 741,409 |
+| 时间 | 267 s（3 次合计） | 127 s |
+| 费用（off-peak, $） | $0.027 | $0.170 |
+
+**关键发现**: 普通 DeepSeek 每次都找对了修复内容（与 gold 补丁一致，`equivalent_dims`
+检查）。但它要**手写** unified diff，3 次都出现 hunk 头行数算错/末尾上下文缺失，
+`git apply` 全部拒绝（0/3）。智能体用 `edit_file`/`write_file` **直接改源码**，
+diff 由 git 自己生成（无需手算 hunk）→ 永远可应用 → 解决。即：解 SWE-bench 不仅要
+“知道怎么改”，还要有**把修改落到真实文件的工具**，这是本题对比的结论。
+
+- 如实说明: 有随机性（另一次单次运行也确认过 1/1 解决；一次性 diff 生成可行但不稳定）・
+  仅 1 题，非统计意义。
+
 ## 🧪 状态
 
 - **v1.0 已发布** — AI OS 第一代（ISA/IR/Kernel/AVM → 实机 → Reasoning → Executive/Meta → Attachments → Validation）

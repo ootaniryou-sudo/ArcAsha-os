@@ -93,6 +93,20 @@ ArcAsha의 소프트웨어 엔지니어링 에이전트(`akasha-master/src/arcas
 - **결과: 3/3 해결(100%)** — 모델 호출 26/29/11회・도구 31/44/13회・소요 93s/206s/71s(문제당). 에이전트는 **소스만** 수정하고 pytest로 검증. 테스트 파일은 쓰기 금지(평가 시 gold `test_patch` 자동 적용)
 - 정직한 주의: LLM은 확률적(1문제는 재실행으로 해결). 선정 3문제라 통계적 해결률 추정이 아님. **이번 실행은 토큰 사용량을 기록하지 않음**(평가 프레임워크에 usage 집계 추가됨. 이후 실행은 `akasha-master/reports/swebench/swebench-results.json`에 기록)
 
+### 일반 DeepSeek vs arcasha(1문제 대조 비교, 2026-09)
+
+에이전트/도구 계층의 가치를 정량화하기 위해 **동일한 1문제** `sympy__sympy-24213`에서
+“순수 `deepseek-v4-flash`(문제+파일 발췌・원샷 unified diff)”와 “arcasha 에이전트”를 비교.
+실측 API 기준. 상세: `akasha-master/reports/swebench/compare-deepseek-vs-arcasha.md`。
+
+- **일반 DeepSeek: 0/3 해결** — 매회 gold와 동일한 올바른 수정을 찾지만, 손으로 쓴 unified
+  diff의 hunk 줄 수 오류/끝 컨텍스트 누락으로 `git apply`가 매번 거부(43,184 tokens / $0.027
+  off-peak / 267 s)
+- **arcasha: 1/1 해결** — `edit_file`로 파일을 직접 수정해 diff는 git이 생성(손 계산 불필요) →
+  항상 적용 가능(741,409 tokens / $0.170 off-peak / 127 s)
+- 결론: SWE-bench를 풀려면 “수정 내용을 아는 것”뿐 아니라 **실제 파일에 적용할 도구**가 필요.
+  원샷 diff 생성은 가능하나 불안정
+
 ## 🧪 상태
 
 - **v1.0 출시** — AI OS 1세대(ISA/IR/Kernel/AVM → 실기 → Reasoning → Executive/Meta → Attachments → Validation)

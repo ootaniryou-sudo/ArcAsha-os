@@ -1,0 +1,88 @@
+{
+  "instance_id": "sympy__sympy-24213",
+  "repo": "sympy/sympy",
+  "base_commit": "e8c22f6eac7314be8d92590bfff92ced79ee03e2",
+  "normalDeepSeek": {
+    "resolved": false,
+    "resolvedTrials": 0,
+    "trials": 3,
+    "modelCalls": 3,
+    "toolCalls": 0,
+    "promptTokens": 3756,
+    "completionTokens": 39428,
+    "totalTokens": 43184,
+    "ms": 267013,
+    "perTrial": [
+      {
+        "trial": 1,
+        "resolved": false,
+        "promptTokens": 1260,
+        "completionTokens": 16000,
+        "ms": 104077,
+        "patchBytes": 0,
+        "patch": ""
+      },
+      {
+        "trial": 2,
+        "resolved": false,
+        "promptTokens": 1248,
+        "completionTokens": 14497,
+        "ms": 104663,
+        "patchBytes": 374,
+        "patch": "--- a/sympy/physics/units/unitsystem.py\n+++ b/sympy/physics/units/unitsystem.py\n@@ -176,4 +176,4 @@\n                 addend_factor, addend_dim = \\\n                     self._collect_factor_and_dimension(addend)\n-                if dim != addend_dim:\n+                if not self.get_dimension_system().equivalent_dims(dim, addend_dim):\n                     raise ValueError("
+      },
+      {
+        "trial": 3,
+        "resolved": false,
+        "promptTokens": 1248,
+        "completionTokens": 8931,
+        "ms": 58273,
+        "patchBytes": 620,
+        "patch": "diff --git a/sympy/physics/units/unitsystem.py b/sympy/physics/units/unitsystem.py\n--- a/sympy/physics/units/unitsystem.py\n+++ b/sympy/physics/units/unitsystem.py\n@@ -176,7 +176,7 @@\n                 addend_factor, addend_dim = \\\n                     self._collect_factor_and_dimension(addend)\n-                if dim != addend_dim:\n+                if not self.get_dimension_system().equivalent_dims(dim, addend_dim):\n                     raise ValueError(\n                         'Dimension of \"{}\" is {}, '\n                         'but it should be {}'.format(\n                             addend, addend_dim, dim))"
+      }
+    ],
+    "costPeak": 0.0536976,
+    "costOffPeak": 0.0268488
+  },
+  "arcasha": {
+    "resolved": true,
+    "modelCalls": 30,
+    "toolCalls": 33,
+    "promptTokens": 726877,
+    "completionTokens": 14532,
+    "totalTokens": 741409,
+    "ms": 126557,
+    "patchBytes": 691,
+    "modelPatch": "diff --git a/sympy/physics/units/unitsystem.py b/sympy/physics/units/unitsystem.py\nindex a436880c4b..5705c821c2 100644\n--- a/sympy/physics/units/unitsystem.py\n+++ b/sympy/physics/units/unitsystem.py\n@@ -175,7 +175,7 @@ def _collect_factor_and_dimension(self, expr):\n             for addend in expr.args[1:]:\n                 addend_factor, addend_dim = \\\n                     self._collect_factor_and_dimension(addend)\n-                if dim != addend_dim:\n+                if not self.get_dimension_system().equivalent_dims(dim, addend_dim):\n                     raise ValueError(\n                         'Dimension of \"{}\" is {}, '\n                         'but it should be {}'.format(\n",
+    "failToPass": [
+      {
+        "test": "test_issue_24211",
+        "passed": true
+      }
+    ],
+    "passToPass": [
+      {
+        "test": "test_str_repr",
+        "passed": true
+      },
+      {
+        "test": "test_eq",
+        "passed": true
+      },
+      {
+        "test": "test_convert_to",
+        "passed": true
+      },
+      {
+        "test": "test_Quantity_definition",
+        "passed": true
+      },
+      {
+        "test": "test_abbrev",
+        "passed": true
+      }
+    ],
+    "costPeak": 0.33900811999999997,
+    "costOffPeak": 0.16950405999999998
+  }
+}

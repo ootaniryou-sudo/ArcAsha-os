@@ -93,6 +93,18 @@ ArcAsha 的软件工程智能体（`akasha-master/src/arcasha/swe/`）用真实 
 - **结果: 3/3 解决（100%）** — 模型调用 26/29/11 次・工具 31/44/13 次・耗时 93s/206s/71s（每题）。智能体只修改**源码**并用 pytest 验证；测试文件禁止写入（评测时自动应用 gold 的 `test_patch`）
 - 如实说明: LLM 有随机性（1 题经重跑后解决）；仅 3 道自选题，并非统计意义上的解决率；**本次运行未记录 token 消耗**（已在评测框架中加入 usage 统计，后续运行会记录到 `akasha-master/reports/swebench/swebench-results.json`）
 
+### 普通 DeepSeek vs arcasha（1 题・对照实验, 2026-09）
+
+为量化智能体/工具层的价值，在**同一道题** `sympy__sympy-24213` 上对比“素 `deepseek-v4-flash`
+（问题+文件摘录・一次手写 unified diff）”与“arcasha 智能体”。真实 API 实测。详情:
+`akasha-master/reports/swebench/compare-deepseek-vs-arcasha.md`。
+
+- **普通 DeepSeek: 0/3 解决** — 每次都能给出与 gold 相同的正确修复，但手写 unified diff
+  的 hunk 行数有误/末尾上下文缺失，`git apply` 每次都拒绝（43,184 tokens / $0.027 off-peak / 267 s）
+- **arcasha: 1/1 解决** — 用 `edit_file` 直接改文件，diff 由 git 生成（无需手算 hunk）→ 永远可应用
+  （741,409 tokens / $0.170 off-peak / 127 s）
+- 结论: 解 SWE-bench 不仅要“知道怎么改”，还要有**把修改落到真实文件的工具**；一次性 diff 生成可行但不稳定
+
 ## 🧪 状态
 
 - **v1.0 已发布** — AI OS 第一代（ISA/IR/Kernel/AVM → 实机 → Reasoning → Executive/Meta → Attachments → Validation）
