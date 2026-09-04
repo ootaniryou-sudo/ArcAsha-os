@@ -51,7 +51,6 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 const DEFAULT_MAX_TOKENS = 1500;
-const HYPER_MAX_TOKENS = 8000; // ハイパー Thinking 時は推論枠を広げる
 const serverStart = Date.now(); // 監視センターの稼働時間表示用
 const apiToken = process.env.ARCASHA_API_TOKEN ?? '';
 // Coding Agent（実ファイル編集）の作業ディレクトリ。env で上書き可能。
@@ -148,6 +147,9 @@ async function answerThread(
   trace: string[];
   remembered?: { text: string; category: string };
   ailsm?: unknown;
+  /** このターンで消費したトークン（実測） */
+  promptTokens: number;
+  completionTokens: number;
 }> {
   const t0 = Date.now();
   const trace: string[] = [];
@@ -197,20 +199,24 @@ async function answerThread(
   // ハイパー Thinking モードでは逆に thinking + reasoning_effort=max を使う。
   const realModel = settings.get().apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || fleet.some((e) => e.model !== 'mock');
   const hyper = s.hyperThinking;
+  // 思考（reasoning）に割り当てるトークン上限（ハイパー Thinking 時は設定値を使う）
+  const thinkingTokens = s.thinkingTokens;
   const genT0 = Date.now();
   let reply = '';
   let usedExpert = expert;
   let reasoningUsed = '';
+  let totalPrompt = 0; // フォールバックで複数回呼んだ場合も合算する
+  let totalCompletion = 0;
   // 明示モデル指定（WebUI のモデル選択）があれば chatOpts の model を上書き
   const requestedModel = opts.model ?? '';
-  const callModel = async (node: { model: string; nodeId: string }): Promise<{ text: string; reasoning: string }> => {
+  const callModel = async (node: { model: string; nodeId: string }): Promise<{ text: string; reasoning: string; promptTokens: number; completionTokens: number }> => {
     if (realModel) {
       const chatOpts = { ...chatDefaults(), timeoutMs: 240_000 };
       // 設定: API キー / ベース URL（設定が空なら .env 既定のまま）
       if (s.apiKey) chatOpts.apiKey = s.apiKey;
       if (s.apiBase) chatOpts.baseUrl = s.apiBase;
       chatOpts.model = requestedModel || node.model;
-      chatOpts.maxTokens = hyper ? HYPER_MAX_TOKENS : maxTokens;
+      chatOpts.maxTokens = hyper ? thinkingTokens : maxTokens;
       chatOpts.temperature = 0.3;
       if (hyper) {
         chatOpts.thinking = 'enabled';
@@ -226,9 +232,14 @@ async function answerThread(
         [],
         chatOpts,
       );
-      return { text: (r.message.content ?? '').trim(), reasoning: (r.message.reasoning ?? '').trim() };
+      return {
+        text: (r.message.content ?? '').trim(),
+        reasoning: (r.message.reasoning ?? '').trim(),
+        promptTokens: r.usage?.promptTokens ?? 0,
+        completionTokens: r.usage?.completionTokens ?? 0,
+      };
     }
-    return { text: String((await hub.generate(node.nodeId, [system, '', userBody].join('\n'), maxTokens)) ?? '').trim(), reasoning: '' };
+    return { text: String((await hub.generate(node.nodeId, [system, '', userBody].join('\n'), maxTokens)) ?? '').trim(), reasoning: '', promptTokens: 0, completionTokens: 0 };
   };
 
   // フォールバックチェーン: 担当 → 艦隊の残りノードを順に試す（参加モデル数の制御）。
@@ -243,6 +254,8 @@ async function answerThread(
     const node = chain[i];
     try {
       const out = await callModel(node);
+      totalPrompt += out.promptTokens;
+      totalCompletion += out.completionTokens;
       reply = out.text;
       reasoningUsed = out.reasoning;
       if (reply !== '') {
@@ -263,7 +276,7 @@ async function answerThread(
   }
   if (reply === '') reply = '（応答が空でした。もう一度お試しください）';
   const genMs = Date.now() - genT0;
-  ws.recordModelCall(usedExpert.model, genMs, `${usedExpert.nodeId} へ ${hyper ? HYPER_MAX_TOKENS : maxTokens} tokens 上限で生成${hyper ? '（hyper thinking）' : ''}`);
+  ws.recordModelCall(usedExpert.model, genMs, `${usedExpert.nodeId} へ ${hyper ? thinkingTokens : maxTokens} tokens 上限で生成${hyper ? '（hyper thinking）' : ''}`);
   trace.push(`model.call ${usedExpert.model} (${genMs}ms)${hyper ? ' [hyper]' : ''}`);
   logCall({
     kind: 'chat',
@@ -271,8 +284,8 @@ async function answerThread(
     expert: usedExpert.label,
     ms: genMs,
     status: reply.startsWith('⚠️') ? 'error' : 'ok',
-    promptTokens: hub.lastApiUsage?.promptTokens ?? undefined,
-    completionTokens: hub.lastApiUsage?.completionTokens ?? undefined,
+    promptTokens: totalPrompt > 0 ? totalPrompt : (hub.lastApiUsage?.promptTokens ?? undefined),
+    completionTokens: totalCompletion > 0 ? totalCompletion : (hub.lastApiUsage?.completionTokens ?? undefined),
   });
 
   // 3) 自己紹介・好みをルール抽出 → 長期記憶へ保存
@@ -289,9 +302,13 @@ async function answerThread(
 
   // 5) 回答を AVM キャッシュ + 長期記憶スレッドへ
   ws.writeCache(`thread:${threadId}`, 'summary', `answer:${Date.now()}`, reply, usedExpert.model);
-  memory.appendMessage(threadId, { role: 'assistant', content: reply, meta: { model: usedExpert.model, mode, ms: Date.now() - t0, ailsm } });
+  memory.appendMessage(threadId, {
+    role: 'assistant',
+    content: reply,
+    meta: { model: usedExpert.model, mode, ms: Date.now() - t0, ailsm, promptTokens: totalPrompt, completionTokens: totalCompletion },
+  });
 
-  return { reply, ms: Date.now() - t0, model: usedExpert.model, kind, expert: usedExpert.label, trace, remembered, ailsm };
+  return { reply, ms: Date.now() - t0, model: usedExpert.model, kind, expert: usedExpert.label, trace, remembered, ailsm, promptTokens: totalPrompt, completionTokens: totalCompletion };
 }
 
 /**
@@ -561,7 +578,10 @@ const server = http.createServer(async (req, res) => {
         remembered: r.remembered,
         trace: r.trace,
         ailsm: r.ailsm,
-        settings: { hyperThinking: settings.get().hyperThinking, orchestrationCount: settings.get().orchestrationCount },
+        promptTokens: r.promptTokens,
+        completionTokens: r.completionTokens,
+        totalTokens: r.promptTokens + r.completionTokens,
+        settings: { hyperThinking: settings.get().hyperThinking, orchestrationCount: settings.get().orchestrationCount, thinkingTokens: settings.get().thinkingTokens },
       });
     } catch (e) {
       sendJson(500, { error: String(e) });
@@ -826,6 +846,7 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.model === 'string' && body.model !== '__custom__') patch.model = body.model;
       if (typeof body.customModel === 'string') patch.customModel = body.customModel;
       if (body.orchestrationCount !== undefined) patch.orchestrationCount = Number(body.orchestrationCount);
+      if (body.thinkingTokens !== undefined) patch.thinkingTokens = Number(body.thinkingTokens);
       if (typeof body.hyperThinking === 'boolean') patch.hyperThinking = body.hyperThinking;
       if (typeof body.language === 'string') patch.language = body.language;
       const s = settings.update(patch);
@@ -884,6 +905,7 @@ const server = http.createServer(async (req, res) => {
       fleet: activeFleet().map((e) => ({ nodeId: e.nodeId, role: e.role, model: e.model, label: e.label })),
       settings: {
         orchestrationCount: s.orchestrationCount,
+        thinkingTokens: s.thinkingTokens,
         hyperThinking: s.hyperThinking,
         model: s.model,
         customModel: s.customModel,
@@ -926,6 +948,7 @@ const server = http.createServer(async (req, res) => {
       settings: {
         language: settings.get().language,
         orchestrationCount: settings.get().orchestrationCount,
+        thinkingTokens: settings.get().thinkingTokens,
         hyperThinking: settings.get().hyperThinking,
         model: settings.get().model,
         customModel: settings.get().customModel,

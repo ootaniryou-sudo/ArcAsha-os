@@ -270,6 +270,15 @@ textarea::placeholder{color:var(--dim)}
 .toggle input:checked + .track::after{left:20px;background:#fff}
 .count-val{font-size:13px;color:var(--brand2);font-weight:700;margin-left:10px}
 .set-note{font-size:11.5px;color:var(--dim);line-height:1.7;border:1px dashed var(--line2);border-radius:10px;padding:9px 12px}
+/* アドバンス設定（折りたたみ） */
+.adv-wrap{border:1px solid var(--line);border-radius:14px;background:rgba(139,123,255,.04);overflow:hidden}
+.adv-wrap[open]{padding-bottom:2px}
+.adv-summary{display:flex;align-items:center;gap:8px;padding:13px 16px;font-size:13px;color:var(--ink2);font-weight:700;cursor:pointer;user-select:none;list-style:none}
+.adv-summary::-webkit-details-marker{display:none}
+.adv-summary::after{content:'▼';margin-left:auto;font-size:10px;color:var(--dim);transition:.18s}
+.adv-wrap[open] .adv-summary::after{transform:rotate(180deg)}
+.adv-summary:hover{background:var(--panel2)}
+.adv-card{border:none;border-top:1px solid var(--line);border-radius:0;padding-top:14px}
 
 /* ---------- AILSM 辞典 ---------- */
 .dict-inner{max-width:760px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:14px}
@@ -446,6 +455,7 @@ textarea::placeholder{color:var(--dim)}
     <!-- 設定タブ -->
     <div id="setTab">
       <div class="set-inner">
+        <!-- ===== 基本設定 ===== -->
         <div class="set-card">
           <h3>🔑 API 接続</h3>
           <div class="set-row">
@@ -475,25 +485,6 @@ textarea::placeholder{color:var(--dim)}
           </div>
         </div>
         <div class="set-card">
-          <h3>🎛 オーケストレーション</h3>
-          <div class="set-row">
-            <label data-i18n="set.orchestration">参加モデル数</label>
-            <div style="display:flex;align-items:center;gap:12px">
-              <input type="range" id="setCount" min="1" max="50" step="1" value="2" />
-              <span class="count-val" id="setCountVal">2</span>
-            </div>
-            <div class="desc" data-i18n="set.orchestrationDesc">1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。</div>
-          </div>
-          <div class="set-row">
-            <label class="toggle">
-              <input type="checkbox" id="setHyper" />
-              <span class="track"></span>
-              <span data-i18n="set.hyper">⚡ ハイパー Thinking モード</span>
-            </label>
-            <div class="desc" data-i18n="set.hyperDesc">thinking 有効 + reasoning_effort=max + 出力上限 8000 トークン。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。</div>
-          </div>
-        </div>
-        <div class="set-card">
           <h3>🌐 言語</h3>
           <div class="set-row">
             <select id="setLanguage">
@@ -505,6 +496,38 @@ textarea::placeholder{color:var(--dim)}
             <div class="desc" data-i18n="set.languageDesc">Chat 画面はエンドポイントでも切替できます: /ja /en /zh /ko。ここで保存した言語は / を開いたときの既定になります。</div>
           </div>
         </div>
+
+        <!-- ===== アドバンス設定（オーケストレーション等） ===== -->
+        <details class="adv-wrap" id="advWrap">
+          <summary class="adv-summary" data-i18n="set.adv">⚙️ アドバンス設定（オーケストレーション・思考）</summary>
+          <div class="set-card adv-card">
+            <h3>🎛 オーケストレーション</h3>
+            <div class="set-row">
+              <label data-i18n="set.orchestration">参加モデル数</label>
+              <div style="display:flex;align-items:center;gap:12px">
+                <input type="range" id="setCount" min="1" max="50" step="1" value="2" />
+                <span class="count-val" id="setCountVal">2</span>
+              </div>
+              <div class="desc" data-i18n="set.orchestrationDesc">1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。</div>
+            </div>
+            <div class="set-row">
+              <label data-i18n="set.thinking">💭 思考（Thinking）に使用するトークン上限</label>
+              <div style="display:flex;align-items:center;gap:12px">
+                <input type="range" id="setThinking" min="512" max="32768" step="200" value="8000" />
+                <span class="count-val" id="setThinkingVal">8000</span>
+              </div>
+              <div class="desc" data-i18n="set.thinkingDesc">thinking / ハイパー Thinking モード時に思考（reasoning_content）へ割り当てる最大トークン数です。大きいほど深く考えますが、消費トークンと待ち時間が増えます（512〜32768・既定 8000）。</div>
+            </div>
+            <div class="set-row">
+              <label class="toggle">
+                <input type="checkbox" id="setHyper" />
+                <span class="track"></span>
+                <span data-i18n="set.hyper">⚡ ハイパー Thinking モード</span>
+              </label>
+              <div class="desc" data-i18n="set.hyperDesc">thinking 有効 + reasoning_effort=max。上で設定した思考トークン上限まで推論します。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。</div>
+            </div>
+          </div>
+        </details>
         <button class="set-save" id="setSave" data-i18n="set.save">💾 設定を保存</button>
         <div class="set-note" id="setPathBox"></div>
       </div>
@@ -591,9 +614,12 @@ const I18N={
     'set.orchestration':'参加モデル数',
     'set.orchestrationDesc':'1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。',
     'set.hyper':'⚡ ハイパー Thinking モード',
-    'set.hyperDesc':'thinking 有効 + reasoning_effort=max + 出力上限 8000 トークン。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。',
+    'set.hyperDesc':'thinking 有効 + reasoning_effort=max。上で設定した思考トークン上限まで推論します。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。',
     'set.languageDesc':'Chat 画面はエンドポイントでも切替できます: /ja /en /zh /ko。ここで保存した言語は / を開いたときの既定になります。',
     'set.save':'💾 設定を保存','set.saved':'✅ 設定を保存しました','set.fail':'⚠️ 保存に失敗: ',
+    'set.adv':'⚙️ アドバンス設定（オーケストレーション・思考トークン）','set.thinking':'💭 思考（Thinking）に使用するトークン上限',
+    'set.thinkingDesc':'thinking / ハイパー Thinking モード時に思考（reasoning_content）へ割り当てる最大トークン数です。大きいほど深く考えますが、消費トークンと待ち時間が増えます（512〜32768・既定 8000）。',
+    'tok':'tok',
     'dict.search':'🔍 指示語を検索（例: CALL / 積分 / syscall）…','dict.title':'📖 AILSM 指示語辞典','dict.loading':'読込中…','dict.empty':'該当する指示語がありません',
     'dict.name':'指示語','dict.op':'オペコード','dict.desc':'説明','dict.cat':'カテゴリ','dict.dialect':'方言',
     'ailsm.view':'⚙ AILSM 出力を見る','ailsm.instructions':'AILSA 命令列','ailsm.verify':'検証','ailsm.bytes':'バイト列（hex）',
@@ -615,9 +641,12 @@ const I18N={
     'set.orchestration':'Models in orchestration',
     'set.orchestrationDesc':'1 = Flash only / 2 = Flash + Pro (default) / 3–50 = extra reasoning nodes extend the fallback chain. Empty replies are delegated to the next model.',
     'set.hyper':'⚡ Hyper Thinking mode',
-    'set.hyperDesc':'thinking enabled + reasoning_effort=max + 8000-token output budget. For deep reasoning (slower). If content is empty, reasoning is returned as the answer.',
+    'set.hyperDesc':'thinking enabled + reasoning_effort=max, bounded by the thinking-token budget above. For deep reasoning (slower). If content is empty, reasoning is returned as the answer.',
     'set.languageDesc':'The Chat UI can also switch by endpoint: /ja /en /zh /ko. The language saved here becomes the default for /.',
     'set.save':'💾 Save settings','set.saved':'✅ Settings saved','set.fail':'⚠️ Save failed: ',
+    'set.adv':'⚙️ Advanced settings (orchestration · thinking tokens)','set.thinking':'💭 Token budget for thinking (reasoning)',
+    'set.thinkingDesc':'Max tokens allocated to reasoning_content in thinking / Hyper Thinking mode. Larger = deeper reasoning but more tokens and latency (512–32768, default 8000).',
+    'tok':'tok',
     'dict.search':'🔍 Search instructions (e.g. CALL / integral / syscall)…','dict.title':'📖 AILSM Instruction Dictionary','dict.loading':'Loading…','dict.empty':'No instructions match',
     'dict.name':'Name','dict.op':'Opcode','dict.desc':'Description','dict.cat':'Category','dict.dialect':'Dialect',
     'ailsm.view':'⚙ View AILSM output','ailsm.instructions':'AILSA instructions','ailsm.verify':'Verification','ailsm.bytes':'Bytes (hex)',
@@ -638,9 +667,12 @@ const I18N={
     'set.orchestration':'参与模型数',
     'set.orchestrationDesc':'1 = 仅 Flash / 2 = Flash + Pro（默认）/ 3〜50 = 增加推理节点扩展回退链。空响应时自动委托给下一个模型。',
     'set.hyper':'⚡ 超级 Thinking 模式',
-    'set.hyperDesc':'thinking 开启 + reasoning_effort=max + 8000 token 输出预算。适合深度推理（速度较慢）。content 为空时返回推理内容作为回答。',
+    'set.hyperDesc':'thinking 开启 + reasoning_effort=max，受上方思考令牌预算限制。适合深度推理（速度较慢）。content 为空时返回推理内容作为回答。',
     'set.languageDesc':'Chat 界面也可通过端点切换语言: /ja /en /zh /ko。此处保存的语言将成为 / 的默认值。',
     'set.save':'💾 保存设置','set.saved':'✅ 设置已保存','set.fail':'⚠️ 保存失败: ',
+    'set.adv':'⚙️ 高级设置（编排・思考令牌）','set.thinking':'💭 思考（Thinking）使用的令牌上限',
+    'set.thinkingDesc':'thinking / 超级 Thinking 模式分配给思考（reasoning_content）的最大令牌数。越大思考越深，但消耗与延迟增加（512〜32768・默认 8000）。',
+    'tok':'tok',
     'dict.search':'🔍 搜索指令（例: CALL / 积分 / syscall）…','dict.title':'📖 AILSM 指令词典','dict.loading':'加载中…','dict.empty':'没有匹配的指令',
     'dict.name':'指令','dict.op':'操作码','dict.desc':'说明','dict.cat':'类别','dict.dialect':'方言',
     'ailsm.view':'⚙ 查看 AILSM 输出','ailsm.instructions':'AILSA 指令序列','ailsm.verify':'验证','ailsm.bytes':'字节（hex）',
@@ -661,9 +693,12 @@ const I18N={
     'set.orchestration':'참여 모델 수',
     'set.orchestrationDesc':'1 = Flash만 / 2 = Flash + Pro (기본) / 3〜50 = 추론 노드를 늘려 폴백 체인 확장. 빈 응답 시 다음 모델로 위임합니다.',
     'set.hyper':'⚡ 하이퍼 Thinking 모드',
-    'set.hyperDesc':'thinking 활성화 + reasoning_effort=max + 8000 토큰 출력 예산. 깊은 추론용 (느림). content가 비어도 추론 내용을 답변으로 반환합니다.',
+    'set.hyperDesc':'thinking 활성화 + reasoning_effort=max, 위에서 설정한 사고 토큰 상한까지 추론합니다. 깊은 추론용 (느림). content가 비어도 추론 내용을 답변으로 반환합니다.',
     'set.languageDesc':'Chat 화면은 /ja /en /zh /ko 엔드포인트로도 전환할 수 있습니다. 여기서 저장한 언어가 /의 기본값이 됩니다.',
     'set.save':'💾 설정 저장','set.saved':'✅ 설정을 저장했습니다','set.fail':'⚠️ 저장 실패: ',
+    'set.adv':'⚙️ 고급 설정 (오케스트레이션 · 사고 토큰)','set.thinking':'💭 사고(Thinking)에 사용하는 토큰 상한',
+    'set.thinkingDesc':'thinking / 하이퍼 Thinking 모드에서 사고(reasoning_content)에 할당하는 최대 토큰 수입니다. 클수록 깊이 사고하지만 토큰 소비와 대기 시간이 늘어납니다 (512〜32768·기본 8000).',
+    'tok':'tok',
     'dict.search':'🔍 지시어 검색 (예: CALL / 적분 / syscall)…','dict.title':'📖 AILSM 지시어 사전','dict.loading':'로딩 중…','dict.empty':'일치하는 지시어가 없습니다',
     'dict.name':'지시어','dict.op':'오퍼코드','dict.desc':'설명','dict.cat':'카테고리','dict.dialect':'방언',
     'ailsm.view':'⚙ AILSM 출력 보기','ailsm.instructions':'AILSA 명령열','ailsm.verify':'검증','ailsm.bytes':'바이트 (hex)',
@@ -893,9 +928,11 @@ function handleAgentEvent(ev, p, state){
     const body=document.createElement('div');body.className='md-body';body.innerHTML=md(p.finalAnswer||'(no answer)');
     state.box.appendChild(body);
     makeAiActions(state.box, p.finalAnswer||'');
-    // 実行時間表示（Ran for ...）
+    // 実行時間 + 消費トークン表示（Ran for ... · ⚡ N tok）
     const mw=document.createElement('div');mw.className='msg-actions';
-    const tag=document.createElement('span');tag.className='tag';tag.textContent='⏱ Ran for '+fmtMs(p.totalMs||0);
+    const tag=document.createElement('span');tag.className='tag';
+    tag.textContent='⏱ Ran for '+fmtMs(p.totalMs||0)+
+      (p.promptTokens||p.completionTokens?' · ⚡ '+fmtTok((p.promptTokens||0)+(p.completionTokens||0))+' '+t('tok')+'（in '+fmtTok(p.promptTokens||0)+' / out '+fmtTok(p.completionTokens||0)+'）':'');
     mw.appendChild(tag);state.box.appendChild(mw);
     // 統計・Trajectory
     stats.steps=state.run.steps.length;
@@ -1066,7 +1103,11 @@ async function send(){
       const meta=[];
       if(d.model)meta.push({label:d.model,cls:'model'});
       if(d.expert)meta.push({label:d.expert,cls:'expert'});
-      if(typeof d.ms==='number')meta.push({label:fmtMs(d.ms),cls:''});
+      // 応答時間の横に消費トークンを表示（実測: 入力 / 出力 / 合計）
+      const timeParts=[];
+      if(typeof d.ms==='number')timeParts.push(fmtMs(d.ms));
+      if(typeof d.totalTokens==='number')timeParts.push('⚡ '+fmtTok(d.totalTokens)+' '+t('tok')+(typeof d.promptTokens==='number'?'（in '+fmtTok(d.promptTokens)+' / out '+fmtTok(d.completionTokens||0)+'）':''));
+      if(timeParts.length)meta.push({label:timeParts.join(' · '),cls:''});
       addAi(d.reply,meta,d.ailsm);
       if(d.remembered){addRemember(d.remembered.text);refreshSide();}
     }
@@ -1165,12 +1206,23 @@ async function deleteThread(id){
 async function openThread(id){
   threadId=id;rememberThread(id);
   const r=await fetch('/api/threads/'+id);const d=await r.json();
-  const t=d.thread;mode=t.mode||'casual';
+  const th=d.thread;mode=th.mode||'casual';
   chatInner.querySelectorAll('.turn').forEach(n=>n.remove());
-  if(!t.messages.length)addSystem('（この会話にはまだメッセージがありません）');
-  t.messages.forEach(m=>{
+  if(!th.messages.length)addSystem('（この会話にはまだメッセージがありません）');
+  th.messages.forEach(m=>{
     if(m.role==='user'){addUser(m.content)}
-    else{const meta=[];if(m.meta&&m.meta.model)meta.push({label:m.meta.model,cls:'model'});addAi(m.content,meta,m.meta&&m.meta.ailsm)}
+    else{
+      const meta=[];
+      if(m.meta&&m.meta.model)meta.push({label:m.meta.model,cls:'model'});
+      // 過去の応答に保存された時間・消費トークンを表示
+      const timeParts=[];
+      if(m.meta&&typeof m.meta.ms==='number')timeParts.push(fmtMs(m.meta.ms));
+      const pt=m.meta&&typeof m.meta.promptTokens==='number'?m.meta.promptTokens:0;
+      const ct=m.meta&&typeof m.meta.completionTokens==='number'?m.meta.completionTokens:0;
+      if(pt>0||ct>0)timeParts.push('⚡ '+fmtTok(pt+ct)+' '+t('tok')+'（in '+fmtTok(pt)+' / out '+fmtTok(ct)+'）');
+      if(timeParts.length)meta.push({label:timeParts.join(' · '),cls:''});
+      addAi(m.content,meta,m.meta&&m.meta.ailsm);
+    }
   });
   updateCtx();refreshSide();
 }
@@ -1323,8 +1375,9 @@ $('knowAdd').addEventListener('click',async()=>{
 });
 ['knowTitle','knowText'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){$('knowAdd').click()}}));
 
-/* ===== 設定タブ（API キー / モデル / オーケストレーション / Hyper Thinking / 言語） ===== */
+/* ===== 設定タブ（基本: API キー / モデル / 言語 ・ アドバンス: オーケストレーション / 思考トークン / Hyper Thinking） ===== */
 $('setCount').addEventListener('input',()=>{$('setCountVal').textContent=$('setCount').value});
+$('setThinking').addEventListener('input',()=>{$('setThinkingVal').textContent=Number($('setThinking').value).toLocaleString()});
 $('setModel').addEventListener('change',()=>{
   $('customModelRow').style.display = $('setModel').value==='__custom__'?'flex':'none';
 });
@@ -1342,6 +1395,8 @@ async function loadSettings(){
     $('customModelRow').style.display = $('setModel').value==='__custom__'?'flex':'none';
     $('setCount').value=d.orchestrationCount||2;
     $('setCountVal').textContent=d.orchestrationCount||2;
+    $('setThinking').value=d.thinkingTokens||8000;
+    $('setThinkingVal').textContent=Number($('setThinking').value).toLocaleString();
     $('setHyper').checked=!!d.hyperThinking;
     $('setLanguage').value=d.language||'ja';
     $('setPathBox').innerHTML='保存先: <code style="color:var(--brand2)">'+esc(d.path||'')+'</code>';
@@ -1356,6 +1411,7 @@ $('setSave').addEventListener('click',async()=>{
     apiBase:$('setApiBase').value.trim(),
     customModel:custom,
     orchestrationCount:Number($('setCount').value),
+    thinkingTokens:Number($('setThinking').value),
     hyperThinking:$('setHyper').checked,
     language:$('setLanguage').value,
   };

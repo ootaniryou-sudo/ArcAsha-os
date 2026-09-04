@@ -28,6 +28,8 @@ export interface AssistantSettings {
   customModel: string;
   /** オーケストレーションに参加できるモデル数（1〜50、既定 2） */
   orchestrationCount: number;
+  /** ハイパー Thinking / thinking モード時に思考（reasoning）へ割り当てるトークン上限（既定 8000） */
+  thinkingTokens: number;
   /** ハイパー Thinking モード（thinking enabled + reasoning_effort=max） */
   hyperThinking: boolean;
   /** UI 言語 */
@@ -36,6 +38,8 @@ export interface AssistantSettings {
 
 export const ORCHESTRATION_MIN = 1;
 export const ORCHESTRATION_MAX = 50;
+export const THINKING_TOKENS_MIN = 512;
+export const THINKING_TOKENS_MAX = 32768;
 
 export function defaultSettings(): AssistantSettings {
   return {
@@ -44,6 +48,7 @@ export function defaultSettings(): AssistantSettings {
     model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
     customModel: '',
     orchestrationCount: 2,
+    thinkingTokens: 8000,
     hyperThinking: false,
     language: 'ja',
   };
@@ -56,6 +61,11 @@ function settingsPath(): string {
 function clampCount(n: number): number {
   if (!Number.isFinite(n)) return 2;
   return Math.max(ORCHESTRATION_MIN, Math.min(ORCHESTRATION_MAX, Math.round(n)));
+}
+
+function clampThinkingTokens(n: number): number {
+  if (!Number.isFinite(n)) return 8000;
+  return Math.max(THINKING_TOKENS_MIN, Math.min(THINKING_TOKENS_MAX, Math.round(n)));
 }
 
 function sanitize(s: unknown): string {
@@ -99,6 +109,7 @@ export class SettingsStore {
         model: sanitize(data.model) || d.model,
         customModel: sanitize(data.customModel),
         orchestrationCount: clampCount(data.orchestrationCount ?? d.orchestrationCount),
+        thinkingTokens: clampThinkingTokens(data.thinkingTokens ?? d.thinkingTokens),
         hyperThinking: data.hyperThinking === true,
         language: sanitizeLanguage(data.language),
       };
@@ -126,6 +137,7 @@ export class SettingsStore {
     if (typeof patch.model === 'string' && sanitize(patch.model)) s.model = sanitize(patch.model);
     if (typeof patch.customModel === 'string') s.customModel = sanitize(patch.customModel);
     if (patch.orchestrationCount !== undefined) s.orchestrationCount = clampCount(patch.orchestrationCount);
+    if (patch.thinkingTokens !== undefined) s.thinkingTokens = clampThinkingTokens(patch.thinkingTokens);
     if (typeof patch.hyperThinking === 'boolean') s.hyperThinking = patch.hyperThinking;
     if (patch.language !== undefined) s.language = sanitizeLanguage(patch.language);
     this.scheduleWrite();

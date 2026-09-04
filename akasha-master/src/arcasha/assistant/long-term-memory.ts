@@ -24,6 +24,9 @@ export interface StoredMessage {
     ms?: number;
     /** AILSM コンパイル結果（Chat 内で AILSM 出力を表示するため） */
     ailsm?: unknown;
+    /** この応答で消費したトークン（実測。API が usage を返す場合） */
+    promptTokens?: number;
+    completionTokens?: number;
   };
   ts: string;
 }
