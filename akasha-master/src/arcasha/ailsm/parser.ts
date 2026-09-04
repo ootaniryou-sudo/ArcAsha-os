@@ -5,6 +5,7 @@
  */
 
 import { AilsmBuilder } from './ailsm.js';
+import { CODE_ACTION_SET } from './normalizer.js';
 import { objectType } from './types.js';
 import type { NormalizedInput } from './normalizer.js';
 
@@ -20,7 +21,17 @@ export function parse(norm: NormalizedInput): AilsmBuilder {
 
   const taskId = b.addNode('task', norm.intent === 'unknown' ? 'process' : norm.intent, 'unknown', taskAttrs);
 
-  if (norm.inputText && (norm.intent === 'summarize' || norm.intent === 'search' || norm.intent === 'create' || norm.intent === 'code')) {
+  // 入力テキストは「指示の対象」としてグラフに載せる。
+  // summarize/search/create/code の意図に加え、コードファイル操作
+  // （読む/検索/編集/実行）でも入力（パス・パターン等）が存在する。
+  if (
+    norm.inputText &&
+    (norm.intent === 'summarize' ||
+      norm.intent === 'search' ||
+      norm.intent === 'create' ||
+      norm.intent === 'code' ||
+      norm.actions.some((a) => CODE_ACTION_SET.has(a)))
+  ) {
     const n = b.addNode('value', 'input', 'string', { text: norm.inputText });
     b.connect(taskId, n, 'input');
   }

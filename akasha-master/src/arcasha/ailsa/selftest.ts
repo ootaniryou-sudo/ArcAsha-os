@@ -59,11 +59,25 @@ console.log('═'.repeat(60));
 // ── 1. Registry ──
 console.log('\n[1] Registry');
 const reg = registry();
-check('バージョン 1.2.0', version() === '1.2.0', `got ${version()}`);
-check('命令数 >= 50', reg.instructions.length >= 50, `got ${reg.instructions.length}`);
+check('バージョン 1.3.0', version() === '1.3.0', `got ${version()}`);
+check('命令数 >= 85', reg.instructions.length >= 85, `got ${reg.instructions.length}`);
 check('TASK_SOLVE=0x04', reg.instructions.some((e) => e.name === 'TASK_SOLVE' && e.opcode === 0x04));
 check('DOMAIN_MATH=0x12', reg.instructions.some((e) => e.name === 'DOMAIN_MATH' && e.opcode === 0x12));
 check('CALL=0x30', reg.instructions.some((e) => e.name === 'CALL' && e.opcode === 0x30));
+check('GREP=0x56', reg.instructions.some((e) => e.name === 'GREP' && e.opcode === 0x56));
+check('READ_FILE=0x57', reg.instructions.some((e) => e.name === 'READ_FILE' && e.opcode === 0x57));
+check('EDIT_FILE=0x58', reg.instructions.some((e) => e.name === 'EDIT_FILE' && e.opcode === 0x58));
+check('RUN_COMMAND=0x59', reg.instructions.some((e) => e.name === 'RUN_COMMAND' && e.opcode === 0x59));
+check('NODE_SEND=0x8B', reg.instructions.some((e) => e.name === 'NODE_SEND' && e.opcode === 0x8b));
+check('ASSERT=0x92', reg.instructions.some((e) => e.name === 'ASSERT' && e.opcode === 0x92));
+check('SWE 4命令は code 方言', ['GREP', 'READ_FILE', 'EDIT_FILE', 'RUN_COMMAND'].every((n) => {
+  const e = reg.instructions.find((x) => x.name === n);
+  return e !== undefined && e.dialect === 'code' && e.category === 'code';
+}));
+check('拡張制御は base 方言', ['NODE_SEND', 'NODE_RECV', 'BARRIER', 'REDUCE', 'LESSON_STORE', 'LESSON_RETRIEVE', 'TRACE_POINT', 'ASSERT'].every((n) => {
+  const e = reg.instructions.find((x) => x.name === n);
+  return e !== undefined && e.dialect === 'base' && e.category === 'control';
+}));
 
 // ── 2. 語彙ミラーと整合 ──
 console.log('\n[2] Vocabulary mirrors (enum ⇄ registry)');
@@ -72,6 +86,10 @@ check('Slot.CONF = 0x23', Slot.CONF === 0x23);
 check('Domain.MATH = 0x12', Domain.MATH === 0x12);
 check('Opcode.CALL = 0x30', Opcode.CALL === 0x30);
 check('Opcode.RETURN = 0x31', Opcode.RETURN === 0x31);
+check('CodeOpcode.GREP = 0x56', CodeOpcode.GREP === 0x56);
+check('CodeOpcode.RUN_COMMAND = 0x59', CodeOpcode.RUN_COMMAND === 0x59);
+check('Opcode.NODE_SEND = 0x8B', Opcode.NODE_SEND === 0x8b);
+check('Opcode.ASSERT = 0x92', Opcode.ASSERT === 0x92);
 
 // ── 3. Dialect ──
 console.log('\n[3] Dialect');
@@ -79,6 +97,11 @@ check('MathDialect supports CALL', MATH.supports(Opcode.CALL));
 check('MathDialect supports EQ', MATH.supports(MathOpcode.EQ));
 check('MathDialect rejects CLASS', !MATH.supports(CodeOpcode.CLASS));
 check('CodeDialect supports CLASS', CODE.supports(CodeOpcode.CLASS));
+check('CodeDialect supports GREP', CODE.supports(CodeOpcode.GREP));
+check('CodeDialect supports READ_FILE', CODE.supports(CodeOpcode.READ_FILE));
+check('CodeDialect supports EDIT_FILE', CODE.supports(CodeOpcode.EDIT_FILE));
+check('CodeDialect supports RUN_COMMAND', CODE.supports(CodeOpcode.RUN_COMMAND));
+check('MathDialect rejects GREP', !MATH.supports(CodeOpcode.GREP));
 check('CodeDialect rejects EQ', !CODE.supports(MathOpcode.EQ));
 check('getDialect(math) === MATH', getDialect('math') === MATH);
 
@@ -117,6 +140,43 @@ const jaBytes = encode([
 ]);
 const jaDecoded = decode(jaBytes);
 check('日本語値の roundtrip', jaDecoded[1].slots?.find((s) => s.slot === Slot.OUTPUT)?.value === 'AIです。');
+
+// registry v1.3.0: SWE（code 方言: GREP / READ_FILE / EDIT_FILE / RUN_COMMAND）の roundtrip
+const sweProg: Instruction[] = [
+  {
+    opcode: Opcode.CALL,
+    slots: [
+      { slot: Slot.EXPERT, value: 'programming' },
+      { slot: Slot.TASK_ID, value: '7' },
+      { slot: Slot.DOMAIN, value: 'code' },
+    ],
+  },
+  { opcode: CodeOpcode.GREP, slots: [{ slot: Slot.INPUT, value: 'TODO' }] },
+  { opcode: CodeOpcode.READ_FILE, slots: [{ slot: Slot.INPUT, value: 'src/arcasha/swe/tools.ts' }] },
+  { opcode: CodeOpcode.EDIT_FILE, slots: [{ slot: Slot.INPUT, value: 'TODO を FIXME に置換' }] },
+  { opcode: CodeOpcode.RUN_COMMAND, slots: [{ slot: Slot.INPUT, value: 'npm run build' }] },
+  { opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: '7' }] },
+];
+const sweBytes = encode(sweProg);
+check('SWE 命令列がエンコードできる', sweBytes.length > 0, `len=${sweBytes.length}`);
+check('SWE roundtrip 一致', JSON.stringify(decode(sweBytes)) === JSON.stringify(sweProg));
+
+// registry v1.3.0: 拡張制御（分散 / 教訓 / 観測 / 検証）の roundtrip
+const extProg: Instruction[] = [
+  { opcode: Opcode.CALL, slots: [{ slot: Slot.EXPERT, value: 'general' }, { slot: Slot.TASK_ID, value: '8' }] },
+  { opcode: Opcode.NODE_SEND, slots: [{ slot: Slot.INPUT, value: 'partial-1' }, { slot: Slot.TASK_ID, value: '8' }] },
+  { opcode: Opcode.NODE_RECV, slots: [{ slot: Slot.OUTPUT, value: 'partial-2' }] },
+  { opcode: Opcode.BARRIER },
+  { opcode: Opcode.REDUCE, slots: [{ slot: Slot.INPUT, value: 'sum' }] },
+  { opcode: Opcode.LESSON_STORE, slots: [{ slot: Slot.KEY, value: 'lesson-1' }, { slot: Slot.VALUE, value: 'check before edit' }] },
+  { opcode: Opcode.LESSON_RETRIEVE, slots: [{ slot: Slot.KEY, value: 'lesson-1' }] },
+  { opcode: Opcode.TRACE_POINT, slots: [{ slot: Slot.TRACE, value: 'phase-2' }] },
+  { opcode: Opcode.ASSERT, slots: [{ slot: Slot.INPUT, value: 'result != null' }] },
+  { opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: '8' }] },
+];
+const extBytes = encode(extProg);
+check('拡張制御命令列がエンコードできる', extBytes.length > 0, `len=${extBytes.length}`);
+check('拡張制御 roundtrip 一致', JSON.stringify(decode(extBytes)) === JSON.stringify(extProg));
 
 // 不正バイト列は大声で失敗
 expectThrow('切り詰めバイト列でエラー', () => decode(Uint8Array.from([0x30, 0x29, 0x05])));

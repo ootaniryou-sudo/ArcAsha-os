@@ -1,6 +1,12 @@
 {
-  "version": "1.2.0",
-  "description": "AILSA ISA Registry — ArcAsha Inter Language for Small AI models. 唯一の権威 (Heart of Wisdom 管理)。TypeScript / Python / Rust 全てここを参照する。",
+  "version": "1.3.0",
+  "description": "AILSA ISA Registry — ArcAsha Inter Language for Small AI models. 唯一の権威 (Heart of Wisdom 管理)。TypeScript / Python / Rust 全てここを参照する。v1.3.0: code 方言に SWE 命令（GREP/READ_FILE/EDIT_FILE/RUN_COMMAND）、base に分散・教訓・観測・検証の拡張制御命令（NODE_SEND..ASSERT）を追加。",
+  "extensions": [
+    { "name": "SWE", "version": "1.0", "description": "ソフトウェアエンジニアリング向け拡張（code 方言）: コード検索・ファイル読み書き・コマンド実行" },
+    { "name": "DISTRIBUTED", "version": "1.0", "description": "分散実行拡張（base）: ノード間通信・同期・集約" },
+    { "name": "LESSON", "version": "1.0", "description": "教訓拡張（base）: 失敗から学ぶ知識の保存・想起" },
+    { "name": "OBSERVABILITY", "version": "1.0", "description": "観測・検証拡張（base）: トレースポイント・実行時アサート" }
+  ],
   "dialects": ["base", "math", "code", "search", "reasoning"],
   "instructions": [
     { "name": "TASK_SOLVE", "opcode": 4, "category": "task", "dialect": "base", "description": "求解タスク" },
@@ -66,6 +72,10 @@
     { "name": "PATCH", "opcode": 83, "category": "code", "dialect": "code", "description": "パッチ" },
     { "name": "BUILD", "opcode": 84, "category": "code", "dialect": "code", "description": "ビルド" },
     { "name": "TEST", "opcode": 85, "category": "code", "dialect": "code", "description": "テスト" },
+    { "name": "GREP", "opcode": 86, "category": "code", "dialect": "code", "description": "コード検索（パターンマッチ）" },
+    { "name": "READ_FILE", "opcode": 87, "category": "code", "dialect": "code", "description": "ファイル読み取り" },
+    { "name": "EDIT_FILE", "opcode": 88, "category": "code", "dialect": "code", "description": "ファイル編集" },
+    { "name": "RUN_COMMAND", "opcode": 89, "category": "code", "dialect": "code", "description": "コマンド実行" },
 
     { "name": "QUERY", "opcode": 97, "category": "search", "dialect": "search", "description": "問い合わせ" },
     { "name": "EXTRACT", "opcode": 98, "category": "search", "dialect": "search", "description": "抽出" },
@@ -83,6 +93,15 @@
     { "name": "SYSCALL_MEMORY_LOAD", "opcode": 135, "category": "syscall", "dialect": "base", "description": "syscall: 記憶読出" },
     { "name": "SYSCALL_MEMORY_QUERY", "opcode": 136, "category": "syscall", "dialect": "base", "description": "syscall: 記憶検索" },
     { "name": "SYSCALL_MEMORY_DELETE", "opcode": 137, "category": "syscall", "dialect": "base", "description": "syscall: 記憶削除" },
-    { "name": "SYSCALL_UPDATE_CAPABILITY", "opcode": 138, "category": "syscall", "dialect": "base", "description": "syscall: 能力更新" }
+    { "name": "SYSCALL_UPDATE_CAPABILITY", "opcode": 138, "category": "syscall", "dialect": "base", "description": "syscall: 能力更新" },
+
+    { "name": "NODE_SEND", "opcode": 139, "category": "control", "dialect": "base", "description": "分散: ノードへメッセージ送信" },
+    { "name": "NODE_RECV", "opcode": 140, "category": "control", "dialect": "base", "description": "分散: ノードからメッセージ受信" },
+    { "name": "BARRIER", "opcode": 141, "category": "control", "dialect": "base", "description": "分散: 全ノードの同期バリア" },
+    { "name": "REDUCE", "opcode": 142, "category": "control", "dialect": "base", "description": "分散: 部分結果の集約" },
+    { "name": "LESSON_STORE", "opcode": 143, "category": "control", "dialect": "base", "description": "教訓（失敗からの学び）の保存" },
+    { "name": "LESSON_RETRIEVE", "opcode": 144, "category": "control", "dialect": "base", "description": "教訓の想起・適用" },
+    { "name": "TRACE_POINT", "opcode": 145, "category": "control", "dialect": "base", "description": "観測点の埋め込み（トレース）" },
+    { "name": "ASSERT", "opcode": 146, "category": "control", "dialect": "base", "description": "実行時検証（不変条件の確認）" }
   ]
 }

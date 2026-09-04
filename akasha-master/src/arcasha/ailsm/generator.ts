@@ -12,7 +12,7 @@
 
 import { Domain, Slot, Task } from '../ailsa/vocab.js';
 import { Opcode } from '../ailsa/opcode.js';
-import { MathOpcode } from '../ailsa/dialect.js';
+import { CodeOpcode, MathOpcode } from '../ailsa/dialect.js';
 import type { Instruction } from '../ailsa/encoder.js';
 import type { AilsmGraph } from './ailsm.js';
 import type { CanonicalAction } from './normalizer.js';
@@ -54,6 +54,14 @@ const OPCODE_OF_ACTION: Partial<Record<CanonicalAction, MathOpcode>> = {
   ACTION_MATRIX: MathOpcode.MATRIX,
 };
 
+/** コードファイル操作アクション → Code 方言オペコード（SWE / registry v1.3.0） */
+const CODE_OPCODE_OF_ACTION: Partial<Record<CanonicalAction, CodeOpcode>> = {
+  ACTION_READ_FILE: CodeOpcode.READ_FILE,
+  ACTION_GREP: CodeOpcode.GREP,
+  ACTION_EDIT_FILE: CodeOpcode.EDIT_FILE,
+  ACTION_RUN_COMMAND: CodeOpcode.RUN_COMMAND,
+};
+
 type SlotValue = { slot: number; value: string | number | boolean };
 
 /** スロット追加（重複時は既存値に追記して結合 — スロット重複を構造的に防ぐ） */
@@ -92,12 +100,10 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   addSlot(goalSlots, Slot.GOAL, task.label);
   if (task.attrs.output) addSlot(goalSlots, Slot.OUTPUT, String(task.attrs.output));
 
-  // 要約/検索など: 入力テキストを SLOT_INPUT へ
+  // 要約/検索/コード操作など: 入力テキストを SLOT_INPUT へ
   const inputNode = g.nodes.find((n) => n.kind === 'value' && n.label === 'input');
-  if (inputNode) {
-    const text = String((inputNode.attrs.text as string | undefined) ?? '');
-    if (text) addSlot(goalSlots, Slot.INPUT, text);
-  }
+  const inputText = inputNode ? String((inputNode.attrs.text as string | undefined) ?? '') : '';
+  if (inputText) addSlot(goalSlots, Slot.INPUT, inputText);
 
   // 入力式 / 定数畳み込み結果
   const equation = g.nodes.find((n) => n.type === 'equation');
@@ -105,20 +111,34 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   const inputExpr = equation ? String((equation.attrs.expr as string | undefined) ?? '') : null;
   const foldedValue = constant ? String((constant.attrs.value as number | undefined) ?? '') : null;
 
-  // 数学アクション → 数学オペコード（方程式の入力式が必要）
+  // 数学アクション → 数学オペコード / コード操作アクション → Code 方言オペコード
   const actions = (task.attrs.actions as string[] | undefined) ?? [];
   let mathOpEmitted = 0;
   for (const action of actions) {
     const op = OPCODE_OF_ACTION[action as CanonicalAction];
-    if (op === undefined) {
+    const cop = CODE_OPCODE_OF_ACTION[action as CanonicalAction];
+    if (op === undefined && cop === undefined) {
       addSlot(goalSlots, Slot.GOAL, action);
       continue;
     }
-    if (inputExpr) {
-      instrs.push({ opcode: op, slots: [{ slot: Slot.INPUT, value: inputExpr }] });
-      mathOpEmitted++;
-    } else {
-      addSlot(goalSlots, Slot.GOAL, action);
+    if (op !== undefined) {
+      // 数学オペコード（方程式の入力式が必要）
+      if (inputExpr) {
+        instrs.push({ opcode: op, slots: [{ slot: Slot.INPUT, value: inputExpr }] });
+        mathOpEmitted++;
+      } else {
+        addSlot(goalSlots, Slot.GOAL, action);
+      }
+      continue;
+    }
+    // コード方言オペコード（GREP / READ_FILE / EDIT_FILE / RUN_COMMAND）
+    // domain=code のときだけ命令化（要約文の「読む」等が誤爆しないようガード）
+    if (cop !== undefined && domain === 'code') {
+      if (inputText) {
+        instrs.push({ opcode: cop, slots: [{ slot: Slot.INPUT, value: inputText }] });
+      } else {
+        addSlot(goalSlots, Slot.GOAL, action);
+      }
     }
   }
 

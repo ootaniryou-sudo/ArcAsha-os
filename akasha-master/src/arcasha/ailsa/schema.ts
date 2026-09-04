@@ -103,6 +103,14 @@ export const SCHEMAS: Record<number, InstructionSchema> = {
   [CodeOpcode.BUILD]: def(CodeOpcode.BUILD, [Slot.INPUT], DIALECT_OPTS),
   [CodeOpcode.TEST]: def(CodeOpcode.TEST, [Slot.INPUT], DIALECT_OPTS),
 
+  // --- 専門IR: Code（SWE オペレーション、registry v1.3.0+） ---
+  // GREP[SLOT_INPUT="パターン"] / READ_FILE[SLOT_INPUT="パス"] /
+  // EDIT_FILE[SLOT_INPUT="変更内容"] / RUN_COMMAND[SLOT_INPUT="コマンド"]
+  [CodeOpcode.GREP]: def(CodeOpcode.GREP, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.READ_FILE]: def(CodeOpcode.READ_FILE, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.EDIT_FILE]: def(CodeOpcode.EDIT_FILE, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.RUN_COMMAND]: def(CodeOpcode.RUN_COMMAND, [Slot.INPUT], DIALECT_OPTS),
+
   // --- 専門IR: Search ---
   [SearchOpcode.QUERY]: def(SearchOpcode.QUERY, [Slot.INPUT], [Slot.OUTPUT, Slot.CONSTRAINT]),
   [SearchOpcode.EXTRACT]: def(SearchOpcode.EXTRACT, [Slot.INPUT], [Slot.OUTPUT, Slot.CONSTRAINT]),
@@ -123,6 +131,16 @@ export const SCHEMAS: Record<number, InstructionSchema> = {
   [SyscallOpcode.MEMORY_QUERY]: def(SyscallOpcode.MEMORY_QUERY, [], [Slot.INPUT, Slot.KEY]),
   [SyscallOpcode.MEMORY_DELETE]: def(SyscallOpcode.MEMORY_DELETE, [Slot.KEY], [Slot.TASK_ID]),
   [SyscallOpcode.UPDATE_CAPABILITY]: def(SyscallOpcode.UPDATE_CAPABILITY, [], [Slot.EXPERT, Slot.CONF]),
+
+  // --- 拡張制御（分散 / 教訓 / 観測 / 検証、registry v1.3.0+） ---
+  [Opcode.NODE_SEND]: def(Opcode.NODE_SEND, [Slot.INPUT], [Slot.TASK_ID, Slot.GOAL, Slot.CONTEXT, Slot.OUTPUT]),
+  [Opcode.NODE_RECV]: def(Opcode.NODE_RECV, [], [Slot.TASK_ID, Slot.INPUT, Slot.OUTPUT, Slot.CONTEXT]),
+  [Opcode.BARRIER]: def(Opcode.BARRIER, [], [Slot.TASK_ID, Slot.CONTEXT, Slot.CONSTRAINT]),
+  [Opcode.REDUCE]: def(Opcode.REDUCE, [Slot.INPUT], [Slot.TASK_ID, Slot.OUTPUT, Slot.CONTEXT, Slot.CONSTRAINT]),
+  [Opcode.LESSON_STORE]: def(Opcode.LESSON_STORE, [Slot.KEY, Slot.VALUE], [Slot.TASK_ID, Slot.CONTEXT]),
+  [Opcode.LESSON_RETRIEVE]: def(Opcode.LESSON_RETRIEVE, [Slot.KEY], [Slot.TASK_ID, Slot.OUTPUT, Slot.CONTEXT]),
+  [Opcode.TRACE_POINT]: def(Opcode.TRACE_POINT, [], [Slot.TASK_ID, Slot.TRACE, Slot.INPUT, Slot.OUTPUT, Slot.CONTEXT]),
+  [Opcode.ASSERT]: def(Opcode.ASSERT, [Slot.INPUT], [Slot.TASK_ID, Slot.OUTPUT, Slot.CONF, Slot.CONTEXT]),
 };
 
 export function getSchema(opcode: number): InstructionSchema | undefined {

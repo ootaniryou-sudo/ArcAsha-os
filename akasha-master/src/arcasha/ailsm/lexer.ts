@@ -27,7 +27,13 @@ export function tokenize(text: string): Token[] {
     if (ascii) {
       const s = ascii[0];
       if (/[+\-*/=^]/.test(s)) {
-        tokens.push({ type: 'math', value: s });
+        // ファイルパス（スラッシュ区切り + 拡張子、例: src/arcasha/tools.ts）は数式ではない。
+        // '/' を含むだけの式（例: x/y）は引き続き math として扱う。
+        if (/\/[^/]*\.[A-Za-z0-9]+$/.test(s)) {
+          tokens.push({ type: 'word', value: s });
+        } else {
+          tokens.push({ type: 'math', value: s });
+        }
       } else if (/^\d+(?:\.\d+)?$/.test(s)) {
         tokens.push({ type: 'number', value: s });
       } else if (/^[a-zA-Z]$/.test(s)) {

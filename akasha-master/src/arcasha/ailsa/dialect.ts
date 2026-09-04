@@ -29,6 +29,11 @@ export enum CodeOpcode {
   PATCH = 0x53,
   BUILD = 0x54,
   TEST = 0x55,
+  // ── SWE オペレーション（registry v1.3.0+） ──
+  GREP = 0x56,
+  READ_FILE = 0x57,
+  EDIT_FILE = 0x58,
+  RUN_COMMAND = 0x59,
 }
 
 export enum SearchOpcode {

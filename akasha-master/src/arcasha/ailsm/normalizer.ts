@@ -2,6 +2,7 @@
  * AILSM Normalizer — Stage 1: 同義語を正準語へ畳み込む（100% 決定論）
  *
  * 足してください / 加えて / 和を求めよ  →  ACTION_ADD
+ * ファイルを検索して / grep          →  ACTION_GREP
  * 円 / 円形 / Circle                  →  circle
  *
  * 辞書で判定できない部分だけが Stage 2（LLM残差）へ委譲される。
@@ -15,7 +16,19 @@ export type Domain = 'math' | 'code' | 'search' | 'reasoning' | 'unknown';
 export type CanonicalAction =
   | 'ACTION_ADD' | 'ACTION_SUBTRACT' | 'ACTION_MULTIPLY' | 'ACTION_DIVIDE'
   | 'ACTION_SQRT' | 'ACTION_SQUARE'
-  | 'ACTION_INTEGRAL' | 'ACTION_DERIVE' | 'ACTION_LIMIT' | 'ACTION_EQUATION' | 'ACTION_MATRIX';
+  | 'ACTION_INTEGRAL' | 'ACTION_DERIVE' | 'ACTION_LIMIT' | 'ACTION_EQUATION' | 'ACTION_MATRIX'
+  // ── コードファイル操作（registry v1.3.0: READ_FILE / GREP / EDIT_FILE / RUN_COMMAND） ──
+  | 'ACTION_READ_FILE' | 'ACTION_GREP' | 'ACTION_EDIT_FILE' | 'ACTION_RUN_COMMAND';
+
+/** コードファイル操作アクション（ドメインを code へ導くシグナル） */
+export const CODE_ACTIONS: readonly CanonicalAction[] = [
+  'ACTION_READ_FILE',
+  'ACTION_GREP',
+  'ACTION_EDIT_FILE',
+  'ACTION_RUN_COMMAND',
+];
+
+export const CODE_ACTION_SET: ReadonlySet<CanonicalAction> = new Set(CODE_ACTIONS);
 
 export interface NormalizedInput {
   intent: Intent;
@@ -43,6 +56,11 @@ export const ACTION_SYNONYMS: Record<CanonicalAction, readonly string[]> = {
   ACTION_LIMIT: ['極限', 'リミット'],
   ACTION_EQUATION: ['方程式', '等式'],
   ACTION_MATRIX: ['行列', 'マトリックス'],
+  // ── コードファイル操作（SWE） ──
+  ACTION_READ_FILE: ['ファイルを読んで', 'ファイルを読む', 'ファイルを読み', 'ソースを読んで', 'コードを読んで', 'を読んで', 'を読む', '読み込んで', 'read file', 'read the file'],
+  ACTION_GREP: ['ファイルを検索', 'ファイルを探', 'ソースを検索', 'ソースを探', 'コードを検索', 'コードを探', '関数を検索', '関数を探', 'クラスを検索', 'クラスを探', 'シンボルを検索', 'grep', 'をgrep'],
+  ACTION_EDIT_FILE: ['ファイルを修正', 'ファイルを編集', 'ファイルを直', 'ソースを修正', 'ソースを編集', 'コードを修正', 'コードを編集', 'コードを直', 'バグを修正', 'バグを直', 'を修正して', 'を編集して', 'を書き換えて', '書き換えて', 'edit file', 'fix the bug'],
+  ACTION_RUN_COMMAND: ['コマンドを実行', 'コマンド実行', 'コマンドを走ら', 'テストを実行', 'テストを走ら', 'ビルドを実行', 'ビルドを走ら', 'シェルで実行', 'シェルを実行', 'run command', 'run the command'],
 };
 
 const INTENT_WORDS: { intent: Intent; words: readonly string[] }[] = [
@@ -126,13 +144,21 @@ export function normalize(text: string, tokens: Token[]): NormalizedInput {
   }
 
   let domain: Domain = 'unknown';
-  if (actions.length > 0 || rawMath.length > 0 || intent === 'solve' || objects.some((o) => o !== 'function')) {
-    domain = 'math';
+  const hasCodeAction = actions.some((a) => CODE_ACTION_SET.has(a));
+  if (intent === 'summarize' || intent === 'verify') {
+    // 要約・検証が目的の文は、読み/検索の語を含んでいても reasoning を優先
+    domain = 'reasoning';
+  } else if (hasCodeAction) {
+    // コードファイル操作（読む/検索/編集/実行）は code ドメイン
+    domain = 'code';
+  } else {
+    if (actions.length > 0 || rawMath.length > 0 || intent === 'solve' || objects.some((o) => o !== 'function')) {
+      domain = 'math';
+    }
+    if (intent === 'code' || intent === 'create') domain = 'code';
+    if (intent === 'search') domain = 'search';
+    // （summarize / verify は上の分岐で処理済み — reasoning 優先）
   }
-  if (intent === 'code' || intent === 'create') domain = 'code';
-  if (intent === 'search') domain = 'search';
-  if (intent === 'summarize') domain = 'reasoning';
-  if (intent === 'verify' && domain === 'unknown') domain = 'reasoning';
 
   const signals =
     (intent !== 'unknown' ? 1 : 0) +

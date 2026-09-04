@@ -23,7 +23,7 @@ export enum SyscallOpcode {
   UPDATE_CAPABILITY = 0x8a,
 }
 
-/** Base ISA 制御命令 */
+/** Base ISA 制御命令（0x30–0x3E）＋ 拡張制御命令（0x8B–0x92: 分散/教訓/観測/検証） */
 export enum Opcode {
   CALL = 0x30,
   RETURN = 0x31,
@@ -40,6 +40,15 @@ export enum Opcode {
   SEARCH = 0x3C,
   RANK = 0x3D,
   FILTER = 0x3E,
+  // ── 拡張制御（Base ISA 拡張領域 0x8B–0x92、registry v1.3.0+） ──
+  NODE_SEND = 0x8b,
+  NODE_RECV = 0x8c,
+  BARRIER = 0x8d,
+  REDUCE = 0x8e,
+  LESSON_STORE = 0x8f,
+  LESSON_RETRIEVE = 0x90,
+  TRACE_POINT = 0x91,
+  ASSERT = 0x92,
 }
 
 export const OPCODE_NAMES: Record<number, string> = {
@@ -58,6 +67,14 @@ export const OPCODE_NAMES: Record<number, string> = {
   [Opcode.SEARCH]: 'SEARCH',
   [Opcode.RANK]: 'RANK',
   [Opcode.FILTER]: 'FILTER',
+  [Opcode.NODE_SEND]: 'NODE_SEND',
+  [Opcode.NODE_RECV]: 'NODE_RECV',
+  [Opcode.BARRIER]: 'BARRIER',
+  [Opcode.REDUCE]: 'REDUCE',
+  [Opcode.LESSON_STORE]: 'LESSON_STORE',
+  [Opcode.LESSON_RETRIEVE]: 'LESSON_RETRIEVE',
+  [Opcode.TRACE_POINT]: 'TRACE_POINT',
+  [Opcode.ASSERT]: 'ASSERT',
 };
 
 /** スロット領域（値を持つフィールド識別子）。命令オペコードと排他。 */

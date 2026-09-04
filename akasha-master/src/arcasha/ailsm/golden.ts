@@ -8,7 +8,7 @@
  */
 
 import { compile } from './compiler.js';
-import { MathOpcode } from '../ailsa/dialect.js';
+import { CodeOpcode, MathOpcode } from '../ailsa/dialect.js';
 import { Task } from '../ailsa/vocab.js';
 
 export interface GoldenExpect {
@@ -65,6 +65,18 @@ export const GOLDEN_CASES: GoldenCase[] = [
   { name: 'search', input: 'Webで記事を検索して', expect: { intent: 'search', domain: 'search' } },
   { name: 'verify', input: '結果を検証して', expect: { intent: 'verify', domain: 'reasoning' } },
   { name: 'code', input: 'コードのバグを修正して', expect: { intent: 'code', domain: 'code' } },
+
+  // ── コードファイル操作（SWE: GREP / READ_FILE / EDIT_FILE / RUN_COMMAND、registry v1.3.0） ──
+  { name: 'swe-grep', input: 'コードを検索して', expect: { intent: 'search', domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
+  { name: 'swe-grep-syn', input: 'ソースを探して', expect: { domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
+  { name: 'swe-grep-en', input: 'grep TODO in tools', expect: { domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
+  { name: 'swe-read', input: 'src/arcasha/swe/tools.ts を読んで', expect: { domain: 'code', actions: ['ACTION_READ_FILE'], opcodes: [CodeOpcode.READ_FILE] } },
+  { name: 'swe-edit', input: 'tools.ts のバグを修正して', expect: { intent: 'code', domain: 'code', actions: ['ACTION_EDIT_FILE'], opcodes: [CodeOpcode.EDIT_FILE] } },
+  { name: 'swe-run', input: 'テストを実行して', expect: { domain: 'code', actions: ['ACTION_RUN_COMMAND'], opcodes: [CodeOpcode.RUN_COMMAND] } },
+  // 誤爆ガード: 要約が目的の文は、読みの語を含んでいても reasoning のまま（code 命令を出さない）
+  { name: 'swe-read-guard', input: 'このファイルを読んで要約して', expect: { intent: 'summarize', domain: 'reasoning', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // 誤爆ガード: Web 検索は code ドメインへ倒さない
+  { name: 'swe-grep-guard', input: 'Webで記事を検索して', expect: { intent: 'search', domain: 'search', notOpcodes: [CodeOpcode.GREP] } },
 
   // ── Constant Folding（定数畳み込み） ──
   {
