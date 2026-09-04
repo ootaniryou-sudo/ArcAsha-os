@@ -81,7 +81,8 @@ export const ACTION_SYNONYMS: Record<CanonicalAction, readonly string[]> = {
   ACTION_RUN_COMMAND: ['コマンドを実行', 'コマンド実行', 'コマンドを走ら', 'ビルドを実行', 'ビルドを走ら', 'シェルで実行', 'シェルを実行', 'run command', 'run the command'],
   // ── v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化 ──
   ACTION_GIT_DIFF: ['差分を確認', '差分を表示', '差分を見る', '変更差分', 'diffを確認', '差分をチェック', 'git diff', 'git-diff'],
-  ACTION_GIT_STATUS: ['変更状態', '状態を確認して', '作業ツリーの状態', 'git status', 'git-status', '変更状況'],
+  // Git 固有の語句のみ（「状態を確認して」等の一般語は誤分類を招くので含めない）
+  ACTION_GIT_STATUS: ['変更状態', '作業ツリーの状態', 'リポジトリの状態', 'git status', 'git-status', '変更状況'],
   ACTION_RUN_TESTS: ['テストを実行', 'テストを走ら', 'テストを流', 'テストを回', 'テストを動か', 'テストを試', 'テストをかけ', 'run tests', 'run the tests', 'run test', 'pytest', 'ユニットテスト', 'ユニットテストを実行'],
   ACTION_REPLACE_ALL: ['全置換', '全部置換', '一括置換', 'すべて置換', '全一致を置換', '全箇所を置換', 'replace all', 'replace-all'],
   ACTION_INSERT_LINE: ['行を挿入', '行に挿入', '指定行に挿入', '指定行に追加', '行を追加', 'insert line', 'insert-line'],

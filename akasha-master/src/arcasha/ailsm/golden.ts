@@ -81,11 +81,17 @@ export const GOLDEN_CASES: GoldenCase[] = [
 
   // ── v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化 ──
   { name: 'swe-git-diff', input: '変更差分を確認して', expect: { domain: 'code', actions: ['ACTION_GIT_DIFF'], opcodes: [CodeOpcode.GIT_DIFF, Task.VERIFY] } },
+  { name: 'swe-git-status', input: 'git status', expect: { domain: 'code', actions: ['ACTION_GIT_STATUS'], opcodes: [CodeOpcode.GIT_STATUS, Task.VERIFY] } },
+  { name: 'swe-git-status-ja', input: '作業ツリーの状態を確認して', expect: { domain: 'code', actions: ['ACTION_GIT_STATUS'], opcodes: [CodeOpcode.GIT_STATUS, Task.VERIFY] } },
   { name: 'swe-replace-all', input: 'ファイル内の TODO を全置換して', expect: { domain: 'code', actions: ['ACTION_REPLACE_ALL'], opcodes: [CodeOpcode.REPLACE_ALL, Task.PATCH] } },
   { name: 'swe-move', input: 'src/a.ts を lib/b.ts にファイルを移動して', expect: { domain: 'code', actions: ['ACTION_MOVE_FILE'], opcodes: [CodeOpcode.MOVE_FILE, Task.PATCH] } },
   { name: 'swe-delete', input: 'src/old.ts をファイル削除して', expect: { domain: 'code', actions: ['ACTION_DELETE_FILE'], opcodes: [CodeOpcode.DELETE_FILE, Task.PATCH] } },
   { name: 'swe-insert', input: 'src/main.ts の10行目に行を挿入して', expect: { domain: 'code', actions: ['ACTION_INSERT_LINE'], opcodes: [CodeOpcode.INSERT_LINE, Task.PATCH] } },
+  { name: 'swe-append', input: 'src/main.ts の末尾に追記して', expect: { domain: 'code', actions: ['ACTION_APPEND_LINE'], opcodes: [CodeOpcode.APPEND_LINE, Task.PATCH] } },
   { name: 'swe-find-symbol', input: 'runSweAgent の定義を検索して', expect: { domain: 'code', actions: ['ACTION_FIND_SYMBOL'], opcodes: [CodeOpcode.FIND_SYMBOL, Task.SEARCH] } },
+  { name: 'swe-grep-context', input: 'TODO を前後行付きで検索して', expect: { domain: 'code', actions: ['ACTION_GREP_CONTEXT'], opcodes: [CodeOpcode.GREP_CONTEXT, Task.SEARCH] } },
+  // 誤爆ガード: 一般的な「状態を確認して」は GIT_STATUS を出さない（Git 固有語のみ）
+  { name: 'git-status-guard', input: 'サーバの状態を確認して', expect: { domain: 'reasoning', notOpcodes: [CodeOpcode.GIT_STATUS] } },
 
   // ── レビュー指摘の回帰（lexer / normalizer / generator の誤判定修正） ──
   // 汎用の「を読んで」はファイル文脈なしでは code へ倒さない（数学解釈を維持）
