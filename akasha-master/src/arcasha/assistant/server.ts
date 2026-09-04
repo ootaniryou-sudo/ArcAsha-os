@@ -76,18 +76,26 @@ await settings.load();
  */
 function activeFleet(): FleetExpert[] {
   const s = settings.get();
-  const general = fleet.find((e) => e.role === 'general') ?? fleet[0];
-  const reasoning = fleet.find((e) => e.role === 'reasoning') ?? general;
-  if (!general) return fleet;
-  const custom = s.customModel;
-  const list: FleetExpert[] = [{ ...general, model: s.model || general.model }];
+  // 設定の API キー or env キーがあれば実モデル接続として扱う（起動時に fleet がモックでも設定で接続できる）
+  const hasAnyKey = s.apiKey !== '' || process.env.DEEPSEEK_API_KEY !== '';
+  const fGeneral = fleet.find((e) => e.role === 'general');
+  const fReasoning = fleet.find((e) => e.role === 'reasoning');
+  const generalModel = hasAnyKey ? (s.model || 'deepseek-v4-flash') : (fGeneral?.model ?? 'mock');
+  const reasoningModel = hasAnyKey
+    ? (s.customModel || process.env.DEEPSEEK_PRO_MODEL || 'deepseek-v4-pro')
+    : (fReasoning?.model ?? generalModel);
+  const list: FleetExpert[] = [{
+    nodeId: fGeneral?.nodeId ?? 'general',
+    model: generalModel,
+    role: 'general' as const,
+    label: hasAnyKey ? 'Flash（汎用）' : (fGeneral?.label ?? 'Flash'),
+  }];
   for (let i = 1; i < s.orchestrationCount; i++) {
-    const m = custom || reasoning.model;
     list.push({
-      nodeId: reasoning.nodeId + (i > 1 ? `-${i}` : ''),
-      model: m,
+      nodeId: (fReasoning?.nodeId ?? 'reasoning') + (i > 1 ? `-${i}` : ''),
+      model: reasoningModel,
       role: 'reasoning' as const,
-      label: (custom || reasoning.label) + (i > 1 ? ` #${i}` : ''),
+      label: (hasAnyKey ? 'Pro（推論）' : (fReasoning?.label ?? 'Pro')) + (i > 1 ? ` #${i}` : ''),
     });
   }
   return list;
@@ -109,7 +117,7 @@ function currentThread(): string {
  */
 async function answerThread(
   threadId: string,
-  opts: { maxTokens?: number; mode?: 'casual' | 'expert'; injectFact?: boolean; model?: string } = {},
+  opts: { maxTokens?: number; mode?: 'casual' | 'expert'; injectFact?: boolean; model?: string; systemPrompt?: string } = {},
 ): Promise<{
   reply: string;
   ms: number;
@@ -148,9 +156,10 @@ async function answerThread(
   if (kloads.length > 0) trace.push(`avm.knowledge ×${kloads.length}`);
 
   const system =
-    mode === 'expert'
+    opts.systemPrompt ??
+    (mode === 'expert'
       ? 'あなたは ArcAsha（AI OS）のエキスパートアシスタントです。技術的な質問には正確に、コードは簡潔に答えます。'
-      : 'あなたは ArcAsha（AI OS）のやさしい AI アシスタントです。専門知識がない一般ユーザーが相手なので、難しい用語は避け、日常タスク（文章・要約・相談・調べごと・アイデア出しなど）を手助けします。';
+      : 'あなたは ArcAsha（AI OS）のやさしい AI アシスタントです。専門知識がない一般ユーザーが相手なので、難しい用語は避け、日常タスク（文章・要約・相談・調べごと・アイデア出しなど）を手助けします。');
 
   const userBody = [
     '─── 長期記憶（あなたについて / 教えられた知識 / 直近の会話）───',
@@ -162,10 +171,10 @@ async function answerThread(
     '簡潔に・親しみやすく日本語で答えてください。',
   ].join('\n');
 
-  // 実モデル接続時は thinking を無効化して確実に content を返させる
-  // （deepseek-v4 は既定 thinking 有効のため、回答前に reasoning が出力枠を食い潰すのを防ぐ）
+  // 実モデル接続か: env キーに加えて設定タブの API キーでも実接続になる
+  // （deepseek-v4 は既定 thinking 有効のため、通常は thinking を無効化して確実に content を返す）
   // ハイパー Thinking モードでは逆に thinking + reasoning_effort=max を使う。
-  const realModel = fleet.some((e) => e.model !== 'mock');
+  const realModel = settings.get().apiKey !== '' || process.env.DEEPSEEK_API_KEY !== '' || fleet.some((e) => e.model !== 'mock');
   const hyper = s.hyperThinking;
   const genT0 = Date.now();
   let reply = '';
@@ -279,7 +288,7 @@ function ailsmForMeta(text: string): unknown {
 }
 
 // ─── スラッシュコマンド（エキスパートモード）──────────────────────
-async function runCommand(cmd: string, threadId: string): Promise<{ reply: string; trace?: string[]; reload?: boolean }> {
+async function runCommand(cmd: string, threadId: string): Promise<{ reply: string; trace?: string[]; reload?: boolean; newThreadId?: string }> {
   const [name, ...rest] = cmd.slice(1).trim().split(/\s+/);
   const arg = rest.join(' ').trim();
   switch (name) {
@@ -329,10 +338,10 @@ async function runCommand(cmd: string, threadId: string): Promise<{ reply: strin
           'OpenAI 互換 API は `POST /v1/chat/completions`（baseURL は本サーバの /v1）',
       };
     case 'new': {
-      // 新しいスレッドを作って切り替え
+      // 新しいスレッドを作って切り替え（UI が newThreadId で切替できるように返す）
       const nt = memory.createThread({ mode: 'expert' });
       currentThreadId = nt.id;
-      return { reply: '🆕 新しい会話を開始しました。', reload: true };
+      return { reply: '🆕 新しい会話を開始しました。', reload: true, newThreadId: nt.id };
     }
     default:
       return { reply: `⚠️ 不明なコマンド: /${name}（/help で一覧）` };
@@ -343,8 +352,20 @@ async function runCommand(cmd: string, threadId: string): Promise<{ reply: strin
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://127.0.0.1:${PORT}`);
   const origin = req.headers.origin;
-  const allowOrigin =
-    origin && (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) ? origin : `http://localhost:${PORT}`;
+  // CORS: ローカルホスト（localhost / 127.0.0.1 / ::1）の同ポートのみ許可。
+  // プレフィックス一致ではなくホスト名・ポートを厳密に検証する（localhost.evil.com 等を弾く）。
+  const defaultOrigin = `http://localhost:${PORT}`;
+  const allowOrigin = ((): string => {
+    if (!origin) return defaultOrigin;
+    try {
+      const u = new URL(origin);
+      const okHost = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '::1';
+      if (okHost && u.port === String(PORT)) return origin;
+    } catch {
+      /* 不正な Origin は許可しない */
+    }
+    return defaultOrigin;
+  })();
   const sendJson = (code: number, obj: unknown) => {
     const body = JSON.stringify(obj);
     res.writeHead(code, {
@@ -388,7 +409,9 @@ const server = http.createServer(async (req, res) => {
       const html = await fs.readFile(path.resolve(__dirname, 'ui.html'), 'utf8');
       // UI ロケール: /ja /en /zh /ko が優先、無ければ設定の言語
       const locale = langMatch ? langMatch[1] : settings.get().language;
-      const localized = html.replace('const UI_LOCALE = "__LOCALE__";', `const UI_LOCALE = "${locale}";`);
+      let localized = html.replace('const UI_LOCALE = "__LOCALE__";', `const UI_LOCALE = "${locale}";`);
+      // ARCASHA_API_TOKEN 設定時は UI の fetch 用トークンを注入（認証ミドルウェアと対になる）
+      localized = localized.replace('const UI_API_TOKEN = "__API_TOKEN__";', `const UI_API_TOKEN = ${JSON.stringify(apiToken)};`);
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(localized);
     } catch (e) {
@@ -413,16 +436,25 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const maxTokens = Number(body.max_tokens) > 0 ? Number(body.max_tokens) : DEFAULT_MAX_TOKENS;
-      // API 用の一時スレッド（履歴を長期記憶に残さない）
-      const tmp = memory.createThread({ mode: body.mode === 'expert' ? 'expert' : 'casual' });
+      // API 用の一時スレッド（履歴を長期記憶に残さない・中断されても永続化されない）
+      const tmp = memory.createThread({ mode: body.mode === 'expert' ? 'expert' : 'casual', ephemeral: true });
       for (const m of messages) {
         if (m.role === 'user' || m.role === 'assistant') {
           memory.appendMessage(tmp.id, { role: m.role, content: String(m.content ?? '') });
         }
       }
-      const r = await answerThread(tmp.id, { maxTokens, mode: tmp.mode });
+      // system メッセージは破棄せず、先頭のものをシステムプロンプトとして使う
+      const sysMsg = messages.find((m) => m.role === 'system');
+      const r = await answerThread(tmp.id, {
+        maxTokens,
+        mode: tmp.mode,
+        model: reqModel, // /v1/models で公開したモデルを呼び分けられる
+        systemPrompt: sysMsg ? String(sysMsg.content) : undefined,
+      });
       memory.deleteThread(tmp.id);
       const usage = hub.lastApiUsage;
+      const pTok = usage?.promptTokens ?? Math.ceil(last.content.length / 4);
+      const cTok = usage?.completionTokens ?? Math.ceil(r.reply.length / 4);
       sendJson(200, {
         id: `chatcmpl-arcasha-${Date.now()}`,
         object: 'chat.completion',
@@ -430,9 +462,9 @@ const server = http.createServer(async (req, res) => {
         model: r.model,
         choices: [{ index: 0, message: { role: 'assistant', content: r.reply }, finish_reason: 'stop' }],
         usage: {
-          prompt_tokens: usage?.promptTokens ?? Math.ceil(last.content.length / 4),
-          completion_tokens: usage?.completionTokens ?? Math.ceil(r.reply.length / 4),
-          total_tokens: (usage?.promptTokens ?? 0) + (usage?.completionTokens ?? 0),
+          prompt_tokens: pTok,
+          completion_tokens: cTok,
+          total_tokens: pTok + cTok, // フォールバック値同士で一貫させる
         },
         _arcasha: { ms: r.ms, model: r.model, kind: r.kind, expert: r.expert, trace: r.trace },
       });
@@ -468,8 +500,10 @@ const server = http.createServer(async (req, res) => {
       if (message.startsWith('/')) {
         const r = await runCommand(message, thread.id);
         if (!r.reply.startsWith('⚠️ 不明なコマンド')) {
-          memory.appendMessage(thread.id, { role: 'assistant', content: r.reply, meta: { model: 'command', mode: thread.mode } });
-          sendJson(200, { reply: r.reply, threadId: thread.id, mode: thread.mode, command: true, reload: r.reload ?? false });
+          // /new は新スレッドが本体なので、返信は新スレッドに書き、UI に新スレッド ID を返す
+          const replyThreadId = r.newThreadId ?? thread.id;
+          memory.appendMessage(replyThreadId, { role: 'assistant', content: r.reply, meta: { model: 'command', mode: thread.mode } });
+          sendJson(200, { reply: r.reply, threadId: replyThreadId, mode: thread.mode, command: true, reload: r.reload ?? false, newThreadId: r.newThreadId });
           return;
         }
       }
@@ -504,16 +538,25 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       // root は明示指定がない限り AGENT_WORKDIR（env / cwd）。外部ディレクトリは許可しない。
+      // プレフィックス一致ではなく path.relative の境界判定を使う（/work/repo-other を弾く）
       let root = AGENT_WORKDIR;
       if (typeof body.root === 'string' && body.root.trim() !== '') {
         root = path.resolve(body.root);
-        if (!root.startsWith(AGENT_WORKDIR)) {
+        const rel = path.relative(AGENT_WORKDIR, root);
+        const inside = rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+        if (!inside) {
           sendJson(403, { error: `許可されていない作業ディレクトリです: ${root}` });
           return;
         }
       }
-      const allowRun = body.allowRunCommand === true || AGENT_ALLOW_RUN;
-      const maxIterations = Number.isSafeInteger(Number(body.maxIterations)) && Number(body.maxIterations) >= 1 ? Number(body.maxIterations) : 30;
+      // 任意コマンド実行はサーバ設定（ARCASHA_AGENT_ALLOW_RUN）だけが決める。リクエストからは有効化できない。
+      const allowRun = AGENT_ALLOW_RUN;
+      // ループ数はサーバ側の上限（50）でキャップする
+      const reqIter = Number(body.maxIterations);
+      const maxIterations = Math.min(
+        Number.isSafeInteger(reqIter) && reqIter >= 1 ? reqIter : 30,
+        50,
+      );
 
       // SSE ヘッダー
       res.writeHead(200, {
@@ -532,11 +575,16 @@ const server = http.createServer(async (req, res) => {
       sse('start', { root, allowRunCommand: allowRun, prompt });
 
       try {
+        // 設定タブの API キー / Base URL をエージェントにも適用（.env より優先）
+        const agentChat: { apiKey?: string; baseUrl?: string } = {};
+        if (settings.get().apiKey) agentChat.apiKey = settings.get().apiKey;
+        if (settings.get().apiBase) agentChat.baseUrl = settings.get().apiBase;
         const result = await runSweAgent({
           root,
           issue: prompt,
           allowRunCommand: allowRun,
           maxIterations,
+          chat: agentChat,
           onStep: (step, index) => {
             sse('step', {
               index,
@@ -573,7 +621,23 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/threads') {
     try {
       const body = JSON.parse(await readBody());
-      const t = memory.createThread({ title: body.title, mode: body.mode === 'expert' ? 'expert' : 'casual' });
+      const mode = body.mode === 'expert' ? 'expert' : 'casual';
+      // cloneFrom 指定時は元スレッドのメッセージをコピーした新スレッド（Branch 分岐用）
+      if (typeof body.cloneFrom === 'string' && body.cloneFrom) {
+        const src = memory.getThread(String(body.cloneFrom));
+        if (!src) {
+          sendJson(404, { error: 'cloneFrom のスレッドが見つかりません' });
+          return;
+        }
+        const t = memory.createThread({
+          title: `${src.title}（分岐）`,
+          mode: src.mode,
+          messages: src.messages.map((m) => ({ ...m })),
+        });
+        sendJson(200, { thread: t, cloned: true });
+        return;
+      }
+      const t = memory.createThread({ title: body.title, mode });
       sendJson(200, { thread: t });
     } catch (e) {
       sendJson(500, { error: String(e) });
@@ -603,8 +667,8 @@ const server = http.createServer(async (req, res) => {
         const body = JSON.parse(await readBody());
         if (typeof body.title === 'string') memory.renameThread(id, body.title);
         if (body.pin === true || body.pin === false) {
-          const t = memory.getThread(id);
-          if (t) t.pinned = body.pin;
+          // getThread 経由の直接変更は永続化されないため setPinned mutator を使う
+          memory.setPinned(id, body.pin);
         }
         sendJson(200, { ok: true });
       } catch (e) {

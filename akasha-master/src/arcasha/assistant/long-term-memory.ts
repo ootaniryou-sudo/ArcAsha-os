@@ -90,6 +90,8 @@ export class LongTermMemory {
   private threads: Thread[] = [];
   private facts: Fact[] = [];
   private knowledge: KnowledgeEntry[] = [];
+  /** 一時スレッド（永続化しない。OpenAI 互換 API の一時履歴用） */
+  private ephemeralIds = new Set<string>();
   private readonly filePath: string;
   private writeChain: Promise<void> = Promise.resolve();
   private dirty = false;
@@ -98,7 +100,7 @@ export class LongTermMemory {
     this.filePath = path.join(dir, 'assistant-memory.json');
   }
 
-  /** 起動時にファイルから読み込む（無ければ空で開始） */
+  /** 起動時にファイルから読み込む。ENOENT のみ空で開始し、破損時は .bak へ退避してから空で開始する。 */
   async load(): Promise<void> {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8');
@@ -106,26 +108,41 @@ export class LongTermMemory {
       this.threads = Array.isArray(data.threads) ? data.threads : [];
       this.facts = Array.isArray(data.facts) ? data.facts : [];
       this.knowledge = Array.isArray(data.knowledge) ? data.knowledge : [];
-    } catch {
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        this.threads = [];
+        this.facts = [];
+        this.knowledge = [];
+        return;
+      }
+      // 壊れたファイルで既存の記憶を上書きしないよう、退避してから空で開始する
+      console.error(`⚠️ 記憶ファイルが読めないため .bak へ退避して空で開始します: ${String(e).slice(0, 160)}`);
+      try {
+        await fs.rename(this.filePath, `${this.filePath}.bak`);
+      } catch {
+        /* 退避に失敗しても続行（読み取り不能なままだと次回も同じエラーになるため、退避失敗時はその旨を記録） */
+      }
       this.threads = [];
       this.facts = [];
       this.knowledge = [];
     }
   }
 
-  /** 変更をファイルへ直列化して書く（多重 write を直列化） */
+  /** 変更をファイルへ直列化して書く（多重 write を直列化。失敗時は dirty を保持して次回再試行） */
   private scheduleWrite(): void {
     this.dirty = true;
     this.writeChain = this.writeChain.then(async () => {
       if (!this.dirty) return;
-      this.dirty = false;
       try {
         await fs.mkdir(path.dirname(this.filePath), { recursive: true });
         const tmp = this.filePath + '.tmp';
-        await fs.writeFile(tmp, JSON.stringify(this.snapshot(), null, 2), 'utf8');
+        await fs.writeFile(tmp, JSON.stringify(this.snapshot(), null, 2), { encoding: 'utf8', mode: 0o600 });
+        await fs.chmod(tmp, 0o600).catch(() => undefined);
         await fs.rename(tmp, this.filePath);
+        this.dirty = false; // 書き込み成功して初めてクリア（失敗時は次回の scheduleWrite で再試行）
       } catch (e) {
-        console.error('[LongTermMemory] 保存失敗:', String(e).slice(0, 200));
+        console.error(`⚠️ 記憶の保存に失敗（再試行します）: ${String(e).slice(0, 120)}`);
       }
     });
   }
@@ -139,8 +156,8 @@ export class LongTermMemory {
     return this.threads.find((t) => t.id === id);
   }
 
-  /** 新規スレッド作成（既存 id 指定で復元も可能） */
-  createThread(opts: { title?: string; mode?: 'casual' | 'expert'; messages?: StoredMessage[] } = {}): Thread {
+  /** 新規スレッド作成（既存 id 指定で復元も可能。ephemeral=true は永続化しない一時スレッド） */
+  createThread(opts: { title?: string; mode?: 'casual' | 'expert'; messages?: StoredMessage[]; ephemeral?: boolean } = {}): Thread {
     const now = new Date().toISOString();
     const thread: Thread = {
       id: uid(),
@@ -151,6 +168,7 @@ export class LongTermMemory {
       mode: opts.mode ?? 'casual',
     };
     this.threads.push(thread);
+    if (opts.ephemeral === true) this.ephemeralIds.add(thread.id);
     this.scheduleWrite();
     return thread;
   }
@@ -185,7 +203,14 @@ export class LongTermMemory {
   togglePinned(threadId: string): boolean {
     const t = this.getThread(threadId);
     if (!t) return false;
-    t.pinned = !t.pinned;
+    return this.setPinned(threadId, !t.pinned);
+  }
+
+  /** ピン留めを設定して永続化する（getThread 経由の直接変更は保存されないためこの mutator を使う） */
+  setPinned(threadId: string, pinned: boolean): boolean {
+    const t = this.getThread(threadId);
+    if (!t) return false;
+    t.pinned = pinned;
     this.scheduleWrite();
     return true;
   }
@@ -198,8 +223,9 @@ export class LongTermMemory {
     return true;
   }
 
-  /** 会話履歴（直近 N 件まで）を返す */
+  /** 会話履歴（直近 N 件まで）を返す。limit<=0 は空（slice(-0) の全件返却を防ぐ） */
   recentMessages(threadId: string, limit = 30): StoredMessage[] {
+    if (limit <= 0) return [];
     const t = this.getThread(threadId);
     if (!t) return [];
     return t.messages.slice(-limit);
@@ -290,7 +316,9 @@ export class LongTermMemory {
   }
 
   snapshot(): MemorySnapshot {
-    return { threads: this.threads, facts: this.facts, knowledge: this.knowledge, path: this.filePath };
+    // ephemeral スレッドは永続化しない（一時スレッドはファイルに残さない）
+    const threads = this.threads.filter((t) => !this.ephemeralIds.has(t.id));
+    return { threads, facts: this.facts, knowledge: this.knowledge, path: this.filePath };
   }
 
   memoryPath(): string {

@@ -504,6 +504,8 @@ textarea::placeholder{color:var(--dim)}
 const $=id=>document.getElementById(id);
 // サーバが /ja /en /zh /ko のエンドポイントで置換するロケール（/ では設定の言語）
 const UI_LOCALE = "__LOCALE__";
+// サーバが注入する UI 用 API トークン（ARCASHA_API_TOKEN 設定時のみ）。全ての fetch に Authorization を付ける。
+const UI_API_TOKEN = "__API_TOKEN__";
 let busy=false, mode='casual', threadId=null, tab='chat';
 let model='deepseek-v4-flash';
 let accessMode='read'; // 'read' | 'write'（Workspace Write = Coding Agent）
@@ -511,8 +513,22 @@ let stats={turns:0, steps:0, llmMs:0, ttftMs:0, inputTok:0, outputTok:0, cacheHi
 let traj=[]; // エージェント実行ログ（Trajectory タブ用）
 let dictData=null; // AILSM 辞典キャッシュ
 let serverSettings=null; // サーバから取得した設定
+let autoOpened=false; // 起動時に最後のスレッドを自動復元済みか
+const LS_THREAD='arcasha.lastThread';
+function rememberThread(id){try{localStorage.setItem(LS_THREAD,id)}catch(_){}}
+function lastThreadId(){try{return localStorage.getItem(LS_THREAD)}catch(_){return null}}
 const msgsEl=$('msgs'), chatInner=$('chatInner'), inp=$('inp');
 const MODEL_DISPLAY={'deepseek-v4-flash':'DeepSeek-V4-Flash','deepseek-v4-pro':'DeepSeek-V4-Pro'};
+
+/* ARCASHA_API_TOKEN 設定時: すべての fetch に Bearer ヘッダーを付ける（401 を防ぐ） */
+if (UI_API_TOKEN) {
+  const rawFetch = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    const headers = new Headers(init.headers || {});
+    if (!headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + UI_API_TOKEN);
+    return rawFetch(input, { ...init, headers });
+  };
+}
 
 /* ===== 多言語対応（I18N） ===== */
 const I18N={
@@ -645,8 +661,9 @@ function md(src){
   let s=esc(src);
   const blocks=[];
   s=s.replace(/```[\s\S]*?```/g,m=>{
+    // s は既に esc 済みなので、フェンス内コードはそのまま使う（二重エスケープ防止）
     const code=m.replace(/^```\w*\n?/,'').replace(/\n?```$/,'');
-    blocks.push('<pre><code>'+esc(code)+'</code></pre>');
+    blocks.push('<pre><code>'+code+'</code></pre>');
     return '\u0000'+(blocks.length-1)+'\u0000';
   });
   s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
@@ -852,9 +869,15 @@ async function runAgent(text){
   const state={box, run:{prompt:text, steps:[], finalAnswer:'', ts:Date.now(), totalMs:0, inputTok:0, outputTok:0, stopReason:''}};
   setTyping(true);
   try{
+    // 任意コマンド実行可否はサーバ設定（ARCASHA_AGENT_ALLOW_RUN）だけが決める
     const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({prompt:text, allowRunCommand:true})});
-    if(!res.ok||!res.body){const d=await res.json().catch(()=>({}));addSystem('⚠️ '+(d.error||('agent failed: '+res.status)));return}
+      body:JSON.stringify({prompt:text})});
+    if(!res.ok||!res.body){
+      const d=await res.json().catch(()=>({}));
+      addSystem('⚠️ '+(d.error||('agent failed: '+res.status)));
+      setTyping(false); // 早期 return でも typing 表示を残さない
+      return;
+    }
     const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
     for(;;){
       const {done,value}=await reader.read();
@@ -984,6 +1007,7 @@ async function send(){
     if(d.error){addSystem('⚠️ '+d.error)}
     else{
       threadId=d.threadId||threadId;
+      if(threadId)rememberThread(threadId);
       if(d.mode)mode=d.mode;
       const meta=[];
       if(d.model)meta.push({label:d.model,cls:'model'});
@@ -1006,10 +1030,11 @@ inp.addEventListener('keydown',e=>{
 inp.addEventListener('input',autoGrow);
 function autoGrow(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,180)+'px'}
 
-/* 新規会話 */
+/* 新規会話 / 分岐（cloneFrom 指定時は元スレッドのメッセージをサーバ側でコピー） */
 async function newConversation(branch){
-  const r=await fetch('/api/threads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});
-  const d=await r.json();threadId=d.thread.id;
+  const r=await fetch('/api/threads',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({mode, cloneFrom: branch?threadId:undefined})});
+  const d=await r.json();threadId=d.thread.id;rememberThread(threadId);
   if(!branch){chatInner.querySelectorAll('.turn').forEach(n=>n.remove());addSystem('🆕 新しい会話を始めましょう。何でも話しかけてください。')}
   refreshSide();
 }
@@ -1026,6 +1051,13 @@ async function refreshSide(){
     if(d.models&&d.models.length&&!MODEL_DISPLAY[model]){
       const m0=d.models[0].id;
       if(MODEL_DISPLAY[m0])applyModel(m0);
+    }
+    // リロード後の復元: まだ会話が描画されていなければ最後のスレッドを開く
+    // （サーバの currentThreadId が無い場合も localStorage の記録を使う）
+    if(!autoOpened && chatInner.querySelectorAll('.turn').length===0){
+      const last = lastThreadId();
+      const target = d.currentThreadId || ((last && (d.threads||[]).some(t=>t.id===last)) ? last : null);
+      if(target){autoOpened=true;threadId=target;openThread(target)}
     }
   }catch(_){}
   try{
@@ -1049,7 +1081,7 @@ function renderThreads(threads){
   });
 }
 async function openThread(id){
-  threadId=id;
+  threadId=id;rememberThread(id);
   const r=await fetch('/api/threads/'+id);const d=await r.json();
   const t=d.thread;mode=t.mode||'casual';
   chatInner.querySelectorAll('.turn').forEach(n=>n.remove());

@@ -73,7 +73,7 @@ npx tsx examples/quickstart.ts  # 5 分钟体验
 ## 💬 AI 助手（丰富的 Chat WebUI・带长期记忆）
 
 无需专业知识、可立即用于日常任务的 **AI 助手**（类似 Hermes Agent / DeepSeek Web UI・零依赖）。
-多模型（`deepseek-v4-flash` / `deepseek-v4-pro`）按任务自动路由，**长期记忆**（用户信息・好み・
+多模型（`deepseek-v4-flash` / `deepseek-v4-pro`）按任务自动路由，**长期记忆**（用户信息・喜好・
 会话线程）以 JSON 持久化（重启后仍保留）。
 
 ```bash

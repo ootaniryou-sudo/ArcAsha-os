@@ -123,14 +123,16 @@ export class SettingsStore {
     this.dirty = true;
     this.writeChain = this.writeChain.then(async () => {
       if (!this.dirty) return;
-      this.dirty = false;
       try {
         await fs.mkdir(path.dirname(this.filePath), { recursive: true });
         const tmp = this.filePath + '.tmp';
-        await fs.writeFile(tmp, JSON.stringify(this.settings, null, 2), 'utf8');
+        // API キーを含むため 0600 で作成（他のローカルユーザーから読めないように）
+        await fs.writeFile(tmp, JSON.stringify(this.settings, null, 2), { encoding: 'utf8', mode: 0o600 });
+        await fs.chmod(tmp, 0o600).catch(() => undefined);
         await fs.rename(tmp, this.filePath);
+        this.dirty = false; // 書き込み成功して初めてクリア（失敗時は次回の update で再試行）
       } catch (e) {
-        console.error(`⚠️ 設定の保存に失敗: ${String(e).slice(0, 120)}`);
+        console.error(`⚠️ 設定の保存に失敗（再試行します）: ${String(e).slice(0, 120)}`);
       }
     });
   }

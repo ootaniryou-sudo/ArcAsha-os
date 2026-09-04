@@ -23,7 +23,8 @@ function ok(cond: boolean, label: string): void {
 }
 
 async function main(): Promise<void> {
-  const dir = path.join(os.tmpdir(), `arcasha-mem-test-${Date.now()}`);
+  // 並列実行でも衝突しないよう mkdtemp で専用ディレクトリを作る
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-mem-test-'));
   const mem = new LongTermMemory(dir);
   await mem.load();
 
@@ -51,6 +52,9 @@ async function main(): Promise<void> {
   const ctx = mem.buildMemoryContext('コーヒーの話をしよう', t.id);
   ok(ctx.includes('コーヒー'), 'クエリ関連 fact をコンテキストに含む');
   ok(ctx.includes('直近の会話'), '直近会話を含む');
+  // マッチングの回帰検知: factMax=1 で正確にマッチした fact が選ばれること（recent は 0 で切る）
+  const ctx2 = mem.buildMemoryContext('コーヒー', t.id, { recent: 0, factMax: 1, knowMax: 0 });
+  ok(ctx2.includes('ユーザーはコーヒーが好き') && !ctx2.includes('直近の会話'), 'factMax=1 でクエリ一致 fact だけを選ぶ');
 
   // 5) 永続化（新インスタンスで再ロード）
   await mem.flush();
@@ -61,12 +65,18 @@ async function main(): Promise<void> {
   ok(mem2.listKnowledge().length === 1, '再ロードで knowledge 保持');
   ok(mem2.getThread(t.id)?.messages.length === 2, '再ロードでメッセージ保持');
 
-  // 6) 削除
+  // 6) 削除（メモリ上の変化だけでなく永続化まで検証）
   const f = mem2.listFacts()[0];
   mem2.deleteFact(f.id);
   ok(mem2.listFacts().length === 1, 'fact 削除');
   mem2.deleteThread(t.id);
   ok(mem2.listThreads().length === 0, 'スレッド削除');
+  // 削除後にディスクへ書き出し、再ロードしても消えたままであること
+  await mem2.flush();
+  const mem3 = new LongTermMemory(dir);
+  await mem3.load();
+  ok(mem3.listFacts().length === 1 && !mem3.listFacts().some((x) => x.id === f.id), '削除した fact が再ロード後も消えている');
+  ok(mem3.listThreads().length === 0, '削除したスレッドが再ロード後も消えている');
 
   // 7) guessTitle
   ok(guessTitle([{ role: 'user', content: 'あいうえお'.repeat(10) }]).endsWith('…'), '長文タイトル省略');
@@ -92,6 +102,18 @@ async function main(): Promise<void> {
   const r5a = extractRememberAll('コーヒーが好き', dupCheck);
   const r5b = extractRememberAll('コーヒーが好き', dupCheck);
   ok(r5a.length === 1 && r5b.length === 0, '重複した好みは抽出しない');
+  // P1 回帰: 「私は猫が好き」で主語が「私」にならず「猫」を捕捉する
+  const r6 = extractRememberAll('私は猫が好き', () => false);
+  ok(r6.some((x) => x.text === 'ユーザーは猫が好き'), '一人称接頭「私は〜が好き」で主語を正しく捕捉');
+  ok(!r6.some((x) => x.text.includes('私')), '主語に「私」を含まない');
+  // P2 回帰: 名前の文字（すず / かなで）をクリーニングで壊さない
+  const r7 = extractRememberAll('私の名前はすずです', () => false);
+  ok(r7.some((x) => x.text === 'ユーザーの名前はすずさん'), '名前「すず」が文字欠けしない');
+  const r8 = extractRememberAll('私の名前はかなでです', () => false);
+  ok(r8.some((x) => x.text === 'ユーザーの名前はかなでさん'), '名前「かなで」が文字欠けしない');
+  // 同一メッセージ内の重複は 1 回だけ抽出
+  const r9 = extractRememberAll('コーヒーが好きです。コーヒーが好きです', () => false);
+  ok(r9.filter((x) => x.text === 'ユーザーはコーヒーが好き').length === 1, '同一メッセージ内の重複は 1 回だけ');
 
   // 後片付け（書き込みチェーンの完了を待ってから削除）
   await new Promise((r) => setTimeout(r, 50));

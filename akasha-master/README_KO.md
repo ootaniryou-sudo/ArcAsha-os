@@ -85,10 +85,17 @@ npm run assistant:test     # 장기 기억 + 기억 추출 규칙 단위 테스�
 - **캐주얼 모드(기본)**: 자연어로 일상 작업(상담・글쓰기・요약・아이디어 등).
   자기소개(「제 이름은〜」「〜좋아함/싫어함」)는 자동으로 기억되어 이후 대화에서 활용
 - **전문가 모드**: 우측 상단 전환으로 `/help` `/memory` `/remember` `/forget` `/pin` 등 슬래시 명령 사용 가능
+- **AI Coding Agent(Workspace Write)**: 컴포저 왼쪽 아래의 Access mode를 `Workspace Write`로 전환하면 Chat에서 지시하는 것만으로 **실제 파일을 편집**(SWE 에이전트 툴 루프 + 툴 호출/Thought/Trajectory 스트리밍)
+- **다국어 엔드포인트**: `/ja` `/en` `/zh` `/ko`로 Chat 화면 언어 전환(배너의 🌐 칩도 동일. `/`는 설정 탭에 저장한 언어가 기본)
+- **설정 탭**: 사용할 API(키 / Base URL)를 웹에서 입력 가능(.env보다 우선, `~/.arcasha/assistant-settings.json`에 저장・키는 마스크). 모델 선택은「기타」에서 직접 모델명 입력 가능
+- **오케스트레이션 제어**: 참여 모델 수(1〜4)를 슬라이더로 제어 — 1 = Flash만 / 2 = Flash + Pro(기본) / 3〜4 = 추론 노드 확장 폴백 체인
+- **하이퍼 Thinking 모드**: `thinking` 활성화 + `reasoning_effort=max` + 8000 토큰 예산
+- **AILSM 출력 뷰어**: 각 답변의「⚙ AILSM 출력」버튼에서 AILSA 명령열・검증・바이트(hex) 확인. **이미 끝난 Chat을 열어도 표시**
+- **AILSM 지시어 사전 탭**: `registry.json`(유일한 권위)을 카테고리별・검색으로 표시
 - **OpenAI 호환 API**: `POST /v1/chat/completions`(baseURL = `http://localhost:4781/v1`)
   를 Cursor 등 외부 도구에서 그대로 사용 가능. `/v1/models`로 모델 공개
 - **장기 기억 저장 위치**: `~/.arcasha/assistant-memory.json`(`ARCASHA_MEMORY_DIR`로 변경 가능)
-- 구현: `src/arcasha/assistant/`(server / long-term-memory / remember / ui.html)
+- 구현: `src/arcasha/assistant/`(server / settings / long-term-memory / remember / ui.html)
 
 ---
 
