@@ -138,6 +138,14 @@
 - **3 技術**: 出力語彙の制限 + 文法制約付き生成 + OS が NL を担当（対話は Front-end / Back-end Compiler の仕事）。将来は「IR を話す専門モデル」と「NL を話す汎用モデル」を同居させる。
 - **仕様**: `AI_IR_MODEL.md`, `AI_TOOLCHAIN.md`, `training/finetune.py`
 
+## 13. Assistant オーケストレーション設定 — roles / uniform と複数 API プロバイダ（v1.5）
+
+- **フリート構成モード（fleetMode）** を導入:
+  - `roles`（既定）: General=選択モデル ×1 + Reasoning=Pro/カスタム ×(N-1) の**役割別フォールバック**（タスク分類で空応答時に次のモデルへ委譲）。
+  - `uniform`: 選択モデルで **N 台を並列同時呼び出し**。実行時は（プロバイダ, モデル）のユニーク組み合わせだけ `Promise.allSettled` で並列に投げ、最初の有効応答を採用（同一 API への無駄な多重リクエストは統合）。UI の監視画面は「deepseek-v4-flash ×15」のように設定どおりの構成を表示。
+- **複数 API プロバイダ登録（providers）**: 各エントリが `{ name, apiBase, apiKey, model }` を持ち、**モデル名の一致するプロバイダへ自動ルーティング**。DeepSeek / OpenAI / Anthropic 等を混在させて 1 つのオーケストレーションに参加させられる。旧 `apiKey/apiBase` とは双方向同期（後方互換）。
+- **実証**: uniform で「Flash ×15」構成・並列実行（重複統合 1 ノード + 採用 trace）を実 API で確認。golden 38 / selftest / tools-test / memory 34 passed 全パス。
+
 ---
 
 ## 全体まとめ（革新技術マップ）
@@ -157,6 +165,7 @@
 | 11 | **Belief-Driven + LinUCB-Shadow** | シャドウによるフル情報バンディット + 能力推定 | capability 除去で Regret +37.6% |
 | 12 | **Akasha Wire Protocol** | JSON 禁止の 48B バイナリ + ゼロコピー WebGPU | — |
 | 13 | **IR ネイティブ / NL を生成しない AI** | 文法制約付き生成 + 蒸留 | —（ロードマップ） |
+| 14 | **Assistant オーケストレーション設定** | roles（役割別フォールバック）/ uniform（同一モデル N 並列）+ 複数 API プロバイダ混在 | uniform で Flash×N 並列を実 API 確認 |
 
 > **全体を貫く主張**: ArcAsha の独自性は「AI を強くする研究」ではなく「**AI Runtime を設計する研究**」にある。
 > 蓄積されるのは LLM の重みではなく **OS の運用知識（チーム編成・推論経路・Executive 判断・Lesson）** であり、モデルを再学習しなくても OS 全体は経験とともに賢くなる。

@@ -87,35 +87,59 @@ function logCall(e: Omit<CallLogEntry, 'ts'>): void {
 /**
  * オーケストレーションに参加するモデル艦隊を設定から構築する。
  * orchestrationCount = 参加モデル数（1〜50）。
- *   - 1: Flash（general）1 台
- *   - 2: Flash + Pro（既定）
- *   - 3〜50: 推論ノードを増やしてフォールバックチェーンを長くする
- * customModel（「その他」で入力したモデル名）があれば推論ノードのモデルになる。
+ *
+ * fleetMode:
+ *   - 'roles'（既定）: General 1 台 + Reasoning (N-1) 台の役割別フォールバック。
+ *     General は model（既定 Flash）、Reasoning は customModel / Pro。
+ *   - 'uniform'      : 選択した既定モデル（model）で N 台を揃える。
+ *     例: model=deepseek-v4-flash なら General:Flash × N（同時並列の土台）。
+ *
+ * 各ノードは providers のうちモデル名が一致するプロバイダ（無ければ既定）で呼ぶ。
  */
 function activeFleet(): FleetExpert[] {
   const s = settings.get();
-  // 設定の API キー or env キーがあれば実モデル接続として扱う（起動時に fleet がモックでも設定で接続できる）
-  // 注: process.env.DEEPSEEK_API_KEY は未定義だと undefined !== '' が true になるため、
-  // truthiness（!!）で判定する（P0: モックモードが壊れるバグの修正）
-  const hasAnyKey = s.apiKey !== '' || !!process.env.DEEPSEEK_API_KEY;
   const fGeneral = fleet.find((e) => e.role === 'general');
   const fReasoning = fleet.find((e) => e.role === 'reasoning');
+  const def = settings.defaultProvider();
+  // 設定の API キー or env キー or いずれかの provider キーがあれば実モデル接続として扱う
+  const hasAnyKey = s.apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || s.providers.some((p) => p.apiKey !== '');
   const generalModel = hasAnyKey ? (s.model || 'deepseek-v4-flash') : (fGeneral?.model ?? 'mock');
   const reasoningModel = hasAnyKey
     ? (s.customModel || process.env.DEEPSEEK_PRO_MODEL || 'deepseek-v4-pro')
     : (fReasoning?.model ?? generalModel);
-  const list: FleetExpert[] = [{
-    nodeId: fGeneral?.nodeId ?? 'general',
-    model: generalModel,
-    role: 'general' as const,
-    label: hasAnyKey ? 'Flash（汎用）' : (fGeneral?.label ?? 'Flash'),
-  }];
-  for (let i = 1; i < s.orchestrationCount; i++) {
+
+  // モデル名に一致するプロバイダ（apiKey 付き）を探す。無ければ既定プロバイダ。
+  const providerFor = (model: string): string | undefined => {
+    const hit = s.providers.find((p) => p.model === model && p.apiKey !== '');
+    return hit?.id ?? def.id;
+  };
+
+  const uniform = s.fleetMode === 'uniform';
+  const list: FleetExpert[] = [];
+  for (let i = 0; i < s.orchestrationCount; i++) {
+    if (i === 0) {
+      // 1 台目は常に General（uniform では既定モデル、roles でも既定モデル）
+      list.push({
+        nodeId: fGeneral?.nodeId ?? 'general',
+        model: generalModel,
+        role: 'general' as const,
+        label: (hasAnyKey ? 'Flash（汎用）' : (fGeneral?.label ?? 'Flash')),
+        providerId: providerFor(generalModel),
+      });
+      continue;
+    }
+    // uniform: 2 台目以降も同じ既定モデル（同時並列のための複数ノード）。
+    // roles: 推論ノード（Pro / customModel）。
+    const model = uniform ? generalModel : reasoningModel;
+    const suffix = i > 1 ? `-${i}` : '';
     list.push({
-      nodeId: (fReasoning?.nodeId ?? 'reasoning') + (i > 1 ? `-${i}` : ''),
-      model: reasoningModel,
-      role: 'reasoning' as const,
-      label: (hasAnyKey ? 'Pro（推論）' : (fReasoning?.label ?? 'Pro')) + (i > 1 ? ` #${i}` : ''),
+      nodeId: (fReasoning?.nodeId ?? 'reasoning') + suffix,
+      model,
+      role: (uniform ? 'general' : 'reasoning') as 'general' | 'reasoning',
+      label: (uniform
+        ? (hasAnyKey ? 'Flash（汎用）' : (fGeneral?.label ?? 'Flash'))
+        : (hasAnyKey ? 'Pro（推論）' : (fReasoning?.label ?? 'Pro'))) + (i > 1 ? ` #${i}` : ''),
+      providerId: providerFor(model),
     });
   }
   return list;
@@ -197,7 +221,7 @@ async function answerThread(
   // 実モデル接続か: env キーに加えて設定タブの API キーでも実接続になる
   // （deepseek-v4 は既定 thinking 有効のため、通常は thinking を無効化して確実に content を返す）
   // ハイパー Thinking モードでは逆に thinking + reasoning_effort=max を使う。
-  const realModel = settings.get().apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || fleet.some((e) => e.model !== 'mock');
+  const realModel = settings.get().apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || s.providers.some((p) => p.apiKey !== '') || fleet.some((e) => e.model !== 'mock');
   const hyper = s.hyperThinking;
   // 思考（reasoning）に割り当てるトークン上限（ハイパー Thinking 時は設定値を使う）
   const thinkingTokens = s.thinkingTokens;
@@ -209,13 +233,16 @@ async function answerThread(
   let totalCompletion = 0;
   // 明示モデル指定（WebUI のモデル選択）があれば chatOpts の model を上書き
   const requestedModel = opts.model ?? '';
-  const callModel = async (node: { model: string; nodeId: string }): Promise<{ text: string; reasoning: string; promptTokens: number; completionTokens: number }> => {
+  const callModel = async (node: { model: string; nodeId: string; providerId?: string }): Promise<{ text: string; reasoning: string; promptTokens: number; completionTokens: number }> => {
     if (realModel) {
       const chatOpts = { ...chatDefaults(), timeoutMs: 240_000 };
-      // 設定: API キー / ベース URL（設定が空なら .env 既定のまま）
-      if (s.apiKey) chatOpts.apiKey = s.apiKey;
-      if (s.apiBase) chatOpts.baseUrl = s.apiBase;
-      chatOpts.model = requestedModel || node.model;
+      // ノードのプロバイダ（複数 API 登録）を解決する。無ければ既定プロバイダ。
+      const prov = (node.providerId ? settings.providerById(node.providerId) : undefined) ?? settings.defaultProvider();
+      // 各プロバイダの baseUrl / apiKey / model を優先。空欄は env 既定へフォールバック。
+      if (prov?.apiKey) chatOpts.apiKey = prov.apiKey;
+      if (prov?.apiBase) chatOpts.baseUrl = prov.apiBase;
+      // 明示モデル指定があれば最優先。無ければノードのモデル名（= プロバイダ由来）。
+      chatOpts.model = requestedModel || node.model || prov?.model || chatOpts.model;
       chatOpts.maxTokens = hyper ? thinkingTokens : maxTokens;
       chatOpts.temperature = 0.3;
       if (hyper) {
@@ -242,31 +269,71 @@ async function answerThread(
     return { text: String((await hub.generate(node.nodeId, [system, '', userBody].join('\n'), maxTokens)) ?? '').trim(), reasoning: '', promptTokens: 0, completionTokens: 0 };
   };
 
-  // フォールバックチェーン: 担当 → 艦隊の残りノードを順に試す（参加モデル数の制御）。
-  // 同じモデル名のノードへの重複リトライは無意味なので、モデルごとに 1 回だけ試す。
-  const seenModels = new Set<string>();
-  const chain = [expert, ...orchestration.filter((e) => e !== expert)].filter((n) => {
-    if (seenModels.has(n.model)) return false;
-    seenModels.add(n.model);
-    return true;
-  });
-  for (let i = 0; i < chain.length; i++) {
-    const node = chain[i];
-    try {
-      const out = await callModel(node);
-      totalPrompt += out.promptTokens;
-      totalCompletion += out.completionTokens;
-      reply = out.text;
-      reasoningUsed = out.reasoning;
-      if (reply !== '') {
-        usedExpert = node;
-        if (i > 0) trace.push(`フォールバック #${i}: ${node.label}`);
-        break;
+  // モデル呼び出し（直列 or 並列）:
+  //   - fleetMode='roles'（既定）: 担当 → 艦隊の残りを順に試すフォールバックチェーン。
+  //     同一（プロバイダ, モデル）のノードへの重複リトライは無意味なので、組み合わせごとに 1 回だけ試す。
+  //   - fleetMode='uniform'      : 選択モデルのノードを並列同時に投げ、最初に有効な
+  //     応答が返ったものを採用する（同時オーケストレーション）。
+  //     表示上のノード数（orchestrationCount）はそのまま、実行時は（プロバイダ, モデル）
+  //     のユニーク組み合わせのみ並列実行する（同一 API への無駄な多重リクエストを防ぐ）。
+  const uniform = s.fleetMode === 'uniform';
+  const nodeKey = (n: { model: string; providerId?: string }): string => `${n.providerId ?? ''}|${n.model}`;
+  if (uniform) {
+    const uniqNodes = orchestration.filter((n, i, arr) => arr.findIndex((x) => nodeKey(x) === nodeKey(n)) === i);
+    if (uniqNodes.length < orchestration.length) {
+      trace.push(`並列実行: ${uniqNodes.length} ノード（同一プロバイダ+モデルの重複 ${orchestration.length - uniqNodes.length} を統合）`);
+    }
+    // 並列実行: 全ノードへ同時に投げる（プロバイダ違い・モデル違いの多様な回答を集める）
+    const results = await Promise.allSettled(uniqNodes.map((n) => callModel(n).then((o) => ({ node: n, ...o }))));
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const node = uniqNodes[i];
+      if (r.status === 'fulfilled') {
+        totalPrompt += r.value.promptTokens;
+        totalCompletion += r.value.completionTokens;
+        if (r.value.text !== '' && reply === '') {
+          reply = r.value.text;
+          reasoningUsed = r.value.reasoning;
+          usedExpert = node;
+          trace.push(`並列採用 #${i}: ${node.label}（${node.model}）`);
+        } else if (r.value.text === '' && r.value.reasoning !== '' && reply === '') {
+          reply = r.value.reasoning;
+          reasoningUsed = r.value.reasoning;
+          usedExpert = node;
+          trace.push(`並列採用 #${i}（reasoning）: ${node.label}`);
+        }
+      } else {
+        trace.push(`⚠️ ${node.label} 失敗: ${String((r.reason as Error)?.message ?? r.reason).slice(0, 80)}`);
       }
-      if (i === 0) trace.push(`空応答 → フォールバック: ${node.label}`);
-    } catch (e) {
-      trace.push(`⚠️ ${node.label} 失敗: ${String(e).slice(0, 80)}`);
-      if (i === chain.length - 1) reply = `⚠️ モデル呼び出し失敗: ${String(e).slice(0, 200)}`;
+    }
+    if (reply === '') reply = '（応答が空でした。もう一度お試しください）';
+  } else {
+    // 直列フォールバックチェーン（従来動作）: （プロバイダ, モデル）の組み合わせごとに 1 回だけ試す
+    const seen = new Set<string>();
+    const chain = [expert, ...orchestration.filter((e) => e !== expert)].filter((n) => {
+      const key = nodeKey(n);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    for (let i = 0; i < chain.length; i++) {
+      const node = chain[i];
+      try {
+        const out = await callModel(node);
+        totalPrompt += out.promptTokens;
+        totalCompletion += out.completionTokens;
+        reply = out.text;
+        reasoningUsed = out.reasoning;
+        if (reply !== '') {
+          usedExpert = node;
+          if (i > 0) trace.push(`フォールバック #${i}: ${node.label}`);
+          break;
+        }
+        if (i === 0) trace.push(`空応答 → フォールバック: ${node.label}`);
+      } catch (e) {
+        trace.push(`⚠️ ${node.label} 失敗: ${String(e).slice(0, 80)}`);
+        if (i === chain.length - 1) reply = `⚠️ モデル呼び出し失敗: ${String(e).slice(0, 200)}`;
+      }
     }
   }
   // ハイパー Thinking: content が空でも reasoning が得られていれば返す
@@ -680,10 +747,14 @@ const server = http.createServer(async (req, res) => {
       sse('start', { root, allowRunCommand: allowRun, prompt });
 
       try {
-        // 設定タブの API キー / Base URL をエージェントにも適用（.env より優先）
+        // 設定の API キー / Base URL をエージェントにも適用（.env より優先）。
+        // 旧 apiKey フィールドが空でも既定プロバイダ（providers[0]）のキーを使う。
+        const prov = settings.defaultProvider();
         const agentChat: { apiKey?: string; baseUrl?: string } = {};
-        if (settings.get().apiKey) agentChat.apiKey = settings.get().apiKey;
-        if (settings.get().apiBase) agentChat.baseUrl = settings.get().apiBase;
+        const agentKey = settings.get().apiKey || prov.apiKey || '';
+        const agentBase = settings.get().apiBase || prov.apiBase || '';
+        if (agentKey) agentChat.apiKey = agentKey;
+        if (agentBase) agentChat.baseUrl = agentBase;
         const result = await runSweAgent({
           root,
           issue: prompt,
@@ -851,6 +922,12 @@ const server = http.createServer(async (req, res) => {
       ...s,
       apiKey: maskSecret(s.apiKey), // キーはマスクして返す
       hasApiKey: s.apiKey !== '',
+      // 複数 API プロバイダはキーをマスクして返す
+      providers: s.providers.map((p) => ({
+        ...p,
+        apiKey: maskSecret(p.apiKey),
+        hasApiKey: p.apiKey !== '',
+      })),
       path: settings.path(),
       availableModels: [
         { id: 'deepseek-v4-flash', label: 'DeepSeek-V4-Flash' },
@@ -870,16 +947,34 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.model === 'string' && body.model !== '__custom__') patch.model = body.model;
       if (typeof body.customModel === 'string') patch.customModel = body.customModel;
       if (body.orchestrationCount !== undefined) patch.orchestrationCount = Number(body.orchestrationCount);
+      if (body.fleetMode === 'roles' || body.fleetMode === 'uniform') patch.fleetMode = body.fleetMode;
       if (body.thinkingTokens !== undefined) patch.thinkingTokens = Number(body.thinkingTokens);
       if (typeof body.hyperThinking === 'boolean') patch.hyperThinking = body.hyperThinking;
       if (typeof body.language === 'string') patch.language = body.language;
+      // 複数 API プロバイダ: 配列なら保存（マスク済みキーは既存値を保持）
+      if (Array.isArray(body.providers)) {
+        const cur = settings.get();
+        patch.providers = (body.providers as Array<Record<string, unknown>>).map((p) => {
+          const apiKey = typeof p.apiKey === 'string'
+            ? (String(p.apiKey).includes('••••') ? (cur.providers.find((x) => x.id === p.id)?.apiKey ?? '') : p.apiKey)
+            : '';
+          return {
+            id: String(p.id ?? '').trim(),
+            name: String(p.name ?? '').trim(),
+            apiKey,
+            apiBase: String(p.apiBase ?? '').trim(),
+            model: String(p.model ?? '').trim(),
+          };
+        });
+      }
       const s = settings.update(patch);
       sendJson(200, {
         ...s,
         apiKey: maskSecret(s.apiKey),
         hasApiKey: s.apiKey !== '',
+        providers: s.providers.map((p) => ({ ...p, apiKey: maskSecret(p.apiKey), hasApiKey: p.apiKey !== '' })),
         saved: true,
-        note: 'API キー・モデル等の変更は次のリクエストから反映されます（サーバ再起動は不要）。',
+        note: 'API キー・モデル・プロバイダ等の変更は次のリクエストから反映されます（サーバ再起動は不要）。',
       });
     } catch (e) {
       sendJson(500, { error: String(e) });
@@ -926,9 +1021,10 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       now: Date.now(),
       uptimeMs: Date.now() - serverStart,
-      fleet: activeFleet().map((e) => ({ nodeId: e.nodeId, role: e.role, model: e.model, label: e.label })),
+      fleet: activeFleet().map((e) => ({ nodeId: e.nodeId, role: e.role, model: e.model, label: e.label, providerId: e.providerId })),
       settings: {
         orchestrationCount: s.orchestrationCount,
+        fleetMode: s.fleetMode,
         thinkingTokens: s.thinkingTokens,
         hyperThinking: s.hyperThinking,
         model: s.model,
@@ -936,6 +1032,7 @@ const server = http.createServer(async (req, res) => {
         apiBase: s.apiBase || '(default)',
         hasApiKey: s.apiKey !== '',
         language: s.language,
+        providers: s.providers.map((p) => ({ id: p.id, name: p.name, model: p.model, apiBase: p.apiBase, hasApiKey: p.apiKey !== '' })),
       },
       hub: {
         experts: hub.experts.map((e) => ({ nodeId: e.nodeId, modelId: e.modelId, family: e.family, paramsM: e.paramsM })),
@@ -972,6 +1069,7 @@ const server = http.createServer(async (req, res) => {
       settings: {
         language: settings.get().language,
         orchestrationCount: settings.get().orchestrationCount,
+        fleetMode: settings.get().fleetMode,
         thinkingTokens: settings.get().thinkingTokens,
         hyperThinking: settings.get().hyperThinking,
         model: settings.get().model,

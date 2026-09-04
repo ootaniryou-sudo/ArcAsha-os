@@ -17,6 +17,8 @@ export interface FleetExpert {
   model: string;
   role: 'general' | 'reasoning';
   label: string;
+  /** このノードがどの API プロバイダ（設定の providers）で呼ぶか。無ければ既定。 */
+  providerId?: string;
 }
 
 /** 発言からタスク種別を推定する（簡易キーワード分類・英語キーワードは単語境界） */

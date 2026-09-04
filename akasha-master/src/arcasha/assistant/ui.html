@@ -261,6 +261,14 @@ textarea::placeholder{color:var(--dim)}
 .set-save{width:100%;padding:11px;border-radius:11px;background:var(--brand);color:#fff;font-weight:700;font-size:13.5px;transition:.15s}
 .set-save:hover{background:var(--send-fill-hover)}
 .set-save:disabled{opacity:.5;cursor:default}
+/* 複数 API プロバイダ */
+.prov-row{display:flex;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:#12161f;margin-bottom:8px;align-items:flex-start}
+.prov-row input{background:#0d1117;border:1px solid var(--line2);border-radius:8px;color:var(--ink);padding:7px 10px;font-size:12px;outline:none}
+.prov-row input:focus{border-color:var(--brand)}
+.prov-del{background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:6px;border-radius:6px;flex:none}
+.prov-del:hover{background:#2a1a1a;color:var(--danger)}
+.add-prov{background:var(--brand-soft);color:var(--brand2);border:1px dashed var(--line2);border-radius:10px;padding:8px 12px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.15s;width:100%}
+.add-prov:hover{border-color:var(--brand);color:var(--brand)}
 .toggle{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--ink2);font-weight:600}
 .toggle input{display:none}
 .toggle .track{width:40px;height:22px;border-radius:999px;background:var(--panel3);border:1px solid var(--line2);position:relative;transition:.18s}
@@ -457,15 +465,13 @@ textarea::placeholder{color:var(--dim)}
         <!-- ===== 基本設定 ===== -->
         <div class="set-card">
           <h3>🔑 API 接続</h3>
+          <!-- 複数 API プロバイダ -->
           <div class="set-row">
-            <label data-i18n="set.apiKey">API キー（DeepSeek API）</label>
-            <input type="password" id="setApiKey" placeholder="sk-...（空欄なら .env の DEEPSEEK_API_KEY を使用）" autocomplete="off" />
-            <div class="desc" id="setApiKeyStatus" data-i18n="set.apiKeyDesc">Web から設定したキーが .env より優先されます。保存先はサーバの ~/.arcasha/assistant-settings.json（git 管理外）です。</div>
+            <label>🌐 登録済み API プロバイダ</label>
+            <div id="provList" style="width:100%"></div>
+            <div class="desc">複数の API（DeepSeek / OpenAI / Anthropic 等）を登録できます。各ノードは自分のプロバイダで呼ばれ、モデル名の一致するプロバイダへ自動ルーティングされます。</div>
           </div>
-          <div class="set-row">
-            <label data-i18n="set.apiBase">API ベース URL</label>
-            <input type="text" id="setApiBase" placeholder="https://api.deepseek.com（空欄なら既定）" />
-          </div>
+          <button type="button" class="add-prov" id="provAdd" style="margin-top:8px">＋ API プロバイダを追加</button>
         </div>
         <div class="set-card">
           <h3>🧠 モデル</h3>
@@ -508,6 +514,14 @@ textarea::placeholder{color:var(--dim)}
                 <span class="count-val" id="setCountVal">2</span>
               </div>
               <div class="desc" data-i18n="set.orchestrationDesc">1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。</div>
+            </div>
+            <div class="set-row">
+              <label>⚙️ フリート構成モード</label>
+              <select id="setFleetMode">
+                <option value="roles">役割別（General=選択モデル ×1 + Reasoning ×N）</option>
+                <option value="uniform">同一モデルで N 台（選択モデルを並列同時呼び出し）</option>
+              </select>
+              <div class="desc"><b>役割別</b>: General は既定 Flash、Reasoning は Pro/カスタムで役割分担し、空応答時にフォールバック。<br/><b>同一モデルで N 台</b>: 選んだモデル（例: DeepSeek-V4-Flash）を N 台並列同時に呼び、最初の有効応答を採用します。複数 API を登録すればプロバイダ違いの同一モデルも並列できます。</div>
             </div>
             <div class="set-row">
               <label data-i18n="set.thinking">💭 思考（Thinking）に使用するトークン上限</label>
@@ -1268,15 +1282,25 @@ async function renderMon(){
     const r=await fetch('/api/orchestration');const d=await r.json();
     if(d.error){el.innerHTML='<div class="traj-empty">⚠️ '+esc(d.error)+'</div>';return}
     const s=d.settings||{};
-    // 同一モデルのノードは集約して表示（×N）
+    // 同一モデル・プロバイダのノードは集約して表示（×N）
     const fleetGroups=new Map();
-    (d.fleet||[]).forEach(n=>{const k=n.role+'|'+n.model;fleetGroups.set(k,(fleetGroups.get(k)||0)+1)});
+    (d.fleet||[]).forEach(n=>{
+      const k=(n.role||'?')+'|'+(n.model||'?');
+      fleetGroups.set(k,(fleetGroups.get(k)||0)+1);
+    });
     const fleetHtml=[...fleetGroups.entries()].map(([k,n])=>{
       const [role,model]=k.split('|');
       return '<div class="mon-node"><span class="dot '+(role==='reasoning'?'rea':'gen')+'"></span>'+
         '<span class="nm">'+esc(model)+(n>1?' <span style="color:var(--dim)">×'+n+'</span>':'')+'</span>'+
         '<span class="rl '+(role==='reasoning'?'rea':'')+'">'+esc(role)+'</span></div>';
     }).join('')||'<div class="mon-empty">'+t('mon.empty')+'</div>';
+    // 登録済み API プロバイダの一覧
+    const provHtml=(((d.settings||{}).providers)||[]).map(p=>
+      '<div class="mon-node"><span class="dot '+(p.hasApiKey?'gen':'')+'" style="'+(p.hasApiKey?'':'background:var(--line2)')+'"></span>'+
+      '<span class="nm">'+esc(p.name||p.id)+'</span>'+
+      '<span class="rl">'+esc(p.model)+'</span>'+
+      '<span style="color:var(--dim);font-size:10px;overflow:hidden;text-overflow:ellipsis;max-width:180px;white-space:nowrap">'+esc(p.apiBase||'')+'</span></div>'
+    ).join('')||'<div class="mon-empty">登録なし</div>';
     const callsHtml=(d.recentCalls||[]).slice(0,12).map(c=>
       '<div class="mon-call"><span class="st '+esc(c.status)+'">'+esc(c.status)+'</span>'+
       '<span class="md">'+esc(c.kind)+' · '+esc(c.model)+'</span>'+
@@ -1293,8 +1317,10 @@ async function renderMon(){
         '<div class="mon-stat" style="margin-bottom:10px">'+
           '<span class="mon-chip">'+t('mon.nodes')+' <b>'+(d.fleet||[]).length+'</b></span>'+
           '<span class="mon-chip">'+t('mon.count')+' <b>'+esc(s.orchestrationCount??'-')+'</b></span>'+
+          '<span class="mon-chip">mode <b>'+esc(s.fleetMode||'roles')+'</b></span>'+
           '<span class="mon-chip">Hyper Thinking <b>'+(s.hyperThinking?'ON':'OFF')+'</b></span>'+
         '</div>'+fleetHtml+'</div>'+
+      '<div class="mon-card"><h3>🔑 API プロバイダ <span class="sub">'+((((d.settings||{}).providers)||[]).length)+' registered</span></h3>'+provHtml+'</div>'+
       '<div class="mon-card"><h3>📞 '+t('mon.calls')+' <span class="sub">'+(d.recentCalls||[]).length+' recent</span></h3>'+callsHtml+'</div>'+
       '<div class="mon-card"><h3>🧠 '+t('mon.avm')+'</h3>'+
         '<div class="mon-stat" style="margin-bottom:8px">'+
@@ -1374,26 +1400,73 @@ $('knowAdd').addEventListener('click',async()=>{
 });
 ['knowTitle','knowText'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){$('knowAdd').click()}}));
 
-/* ===== 設定タブ（基本: API キー / モデル / 言語 ・ アドバンス: オーケストレーション / 思考トークン / Hyper Thinking） ===== */
+/* ===== 設定タブ（基本: 複数 API プロバイダ / モデル / 言語 ・ アドバンス: オーケストレーション / 思考トークン / Hyper Thinking） ===== */
 $('setCount').addEventListener('input',()=>{$('setCountVal').textContent=$('setCount').value});
 $('setThinking').addEventListener('input',()=>{$('setThinkingVal').textContent=Number($('setThinking').value).toLocaleString()});
 $('setModel').addEventListener('change',()=>{
   $('customModelRow').style.display = $('setModel').value==='__custom__'?'flex':'none';
 });
+
+/* ---- 複数 API プロバイダの編集状態（未保存の一時データ） ---- */
+let provDraft=[];
+function provRowHtml(p,idx){
+  return '<div class="prov-row" data-idx="'+idx+'">'+
+    '<div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<input class="prov-name" placeholder="名前（例: DeepSeek）" value="'+esc(p.name||'')+'" style="flex:1;min-width:90px"/>'+
+        '<input class="prov-model" placeholder="モデル名（例: deepseek-v4-flash）" value="'+esc(p.model||'')+'" style="flex:1;min-width:140px"/>'+
+        '<input class="prov-base" placeholder="API ベース URL（例: https://api.deepseek.com）" value="'+esc(p.apiBase||'')+'" style="flex:2;min-width:200px"/>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px;align-items:center">'+
+        '<input class="prov-key" type="password" placeholder="API キー（'+(p.hasApiKey?'設定済み — 変更時のみ入力':'sk-...')+'）" value="'+esc(p.apiKey||'')+'" autocomplete="off" style="flex:1;min-width:160px"/>'+
+        '<span class="prov-ok" style="color:var(--good);font-size:11px">'+(p.hasApiKey?'✓ 設定済み':'')+'</span>'+
+        '<button type="button" class="prov-del" title="このプロバイダを削除">🗑</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+function renderProvList(){
+  const list=$('provList');
+  list.innerHTML=provDraft.map(provRowHtml).join('')||'<div class="prov-empty" style="color:var(--dim);font-size:12px">プロバイダ未登録（既定の DeepSeek を使用）</div>';
+}
+$('provAdd').addEventListener('click',()=>{
+  provDraft.push({id:'',name:'',model:'',apiBase:'',apiKey:'',hasApiKey:false});
+  renderProvList();
+});
+$('provList').addEventListener('click',(e)=>{
+  if(!e.target.classList.contains('prov-del'))return;
+  const row=e.target.closest('.prov-row');
+  const i=Number(row.getAttribute('data-idx'));
+  provDraft.splice(i,1);
+  renderProvList();
+});
+// プロバイダ行の入力変更をドラフトへ反映（保存時に直列化）
+$('provList').addEventListener('input',(e)=>{
+  const row=e.target.closest('.prov-row');if(!row)return;
+  const i=Number(row.getAttribute('data-idx'));
+  const cur=provDraft[i]||{};
+  if(e.target.classList.contains('prov-name'))cur.name=e.target.value;
+  else if(e.target.classList.contains('prov-model'))cur.model=e.target.value;
+  else if(e.target.classList.contains('prov-base'))cur.apiBase=e.target.value;
+  else if(e.target.classList.contains('prov-key'))cur.apiKey=e.target.value;
+  provDraft[i]=cur;
+});
+
 async function loadSettings(){
   try{
     const r=await fetch('/api/settings');const d=await r.json();
     if(d.error){toast('⚠️ '+d.error);return}
     serverSettings=d;
-    $('setApiKey').value = d.apiKey; // マスク済み
-    $('setApiKey').placeholder = d.hasApiKey ? '••••••••（設定済み — 変更する場合のみ入力）' : 'sk-...（空欄なら .env を使用）';
-    $('setApiBase').value=d.apiBase||'';
+    // 複数 API プロバイダ（キーはマスク済み）
+    provDraft=(d.providers||[]).map(p=>({id:p.id||'',name:p.name||'',model:p.model||'',apiBase:p.apiBase||'',apiKey:p.apiKey||'',hasApiKey:!!p.hasApiKey}));
+    renderProvList();
     const modelVal = (d.availableModels||[]).some(m=>m.id===d.model&&m.id!=='__custom__') ? d.model : '__custom__';
     $('setModel').value=modelVal;
     $('setCustomModel').value=modelVal==='__custom__'?d.model:(d.customModel||'');
     $('customModelRow').style.display = $('setModel').value==='__custom__'?'flex':'none';
     $('setCount').value=d.orchestrationCount||2;
     $('setCountVal').textContent=d.orchestrationCount||2;
+    $('setFleetMode').value=d.fleetMode||'roles';
     $('setThinking').value=d.thinkingTokens||8000;
     $('setThinkingVal').textContent=Number($('setThinking').value).toLocaleString();
     $('setHyper').checked=!!d.hyperThinking;
@@ -1405,11 +1478,19 @@ $('setSave').addEventListener('click',async()=>{
   const btn=$('setSave');btn.disabled=true;
   const modelSel=$('setModel').value;
   const custom=$('setCustomModel').value.trim();
+  // プロバイダを保存用の形へ（id は名前から生成。空キーは除外してサーバが既存値を保持）
+  const providers=provDraft.map((p,i)=>{
+    const name=(p.name||'').trim();
+    const model=(p.model||'').trim();
+    const apiBase=(p.apiBase||'').trim();
+    const id=p.id||name||'provider-'+(i+1);
+    return {id,name,model,apiBase,apiKey:p.apiKey||'',hasApiKey:!!p.hasApiKey};
+  });
   const body={
-    apiKey:$('setApiKey').value,        // 空なら変更なし（マスク値はサーバ側で無視）
-    apiBase:$('setApiBase').value.trim(),
+    providers,
     customModel:custom,
     orchestrationCount:Number($('setCount').value),
+    fleetMode:$('setFleetMode').value,
     thinkingTokens:Number($('setThinking').value),
     hyperThinking:$('setHyper').checked,
     language:$('setLanguage').value,
@@ -1422,7 +1503,6 @@ $('setSave').addEventListener('click',async()=>{
     else{
       serverSettings=d;
       toast(t('set.saved'));
-      $('setApiKey').value='';
       await loadSettings();
       if(d.model&&modelSel!=='__custom__')applyModel(d.model);
       refreshSide();

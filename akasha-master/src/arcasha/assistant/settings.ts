@@ -17,10 +17,27 @@ import { defaultMemoryDir } from './long-term-memory.js';
 
 export type UiLanguage = 'ja' | 'en' | 'zh' | 'ko';
 
-export interface AssistantSettings {
-  /** DeepSeek API キー（空 = .env の DEEPSEEK_API_KEY を使う） */
+/** フリート（オーケストレーション）の構成モード。 */
+export type FleetMode = 'roles' | 'uniform';
+
+/** 1 つの API プロバイダ（モデルごとに baseUrl / apiKey / model を紐付けて登録）。 */
+export interface ApiProvider {
+  /** 一意な ID（例: 'deepseek', 'openai', 'custom-2'）。 */
+  id: string;
+  /** 表示名（例: 'DeepSeek', 'OpenAI'）。 */
+  name: string;
+  /** API キー（空なら env の DEEPSEEK_API_KEY をフォールバック）。 */
   apiKey: string;
-  /** API ベース URL（空 = 既定 https://api.deepseek.com） */
+  /** API ベース URL（例: https://api.deepseek.com）。 */
+  apiBase: string;
+  /** このプロバイダが公開するモデル名。 */
+  model: string;
+}
+
+export interface AssistantSettings {
+  /** DeepSeek API キー（空 = .env の DEEPSEEK_API_KEY を使う）。既定プロバイダ #0 と同期。 */
+  apiKey: string;
+  /** API ベース URL（空 = 既定 https://api.deepseek.com）。既定プロバイダ #0 と同期。 */
   apiBase: string;
   /** 既定モデル（モデル選択の初期値） */
   model: string;
@@ -28,6 +45,10 @@ export interface AssistantSettings {
   customModel: string;
   /** オーケストレーションに参加できるモデル数（1〜50、既定 2） */
   orchestrationCount: number;
+  /** フリート構成モード: 'roles' = General/Reasoning 役割別 / 'uniform' = 選んだモデルで N 台 */
+  fleetMode: FleetMode;
+  /** 複数 API プロバイダの登録リスト（先頭 = 既定）。空なら旧 apiKey/apiBase から構築。 */
+  providers: ApiProvider[];
   /** ハイパー Thinking / thinking モード時に思考（reasoning）へ割り当てるトークン上限（既定 8000） */
   thinkingTokens: number;
   /** ハイパー Thinking モード（thinking enabled + reasoning_effort=max） */
@@ -41,6 +62,18 @@ export const ORCHESTRATION_MAX = 50;
 export const THINKING_TOKENS_MIN = 512;
 export const THINKING_TOKENS_MAX = 32768;
 
+function defaultProviders(): ApiProvider[] {
+  const model = process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
+  const base = (process.env.DEEPSEEK_API_BASE ?? 'https://api.deepseek.com').replace(/\/+$/, '');
+  return [{
+    id: 'deepseek',
+    name: 'DeepSeek',
+    apiKey: process.env.DEEPSEEK_API_KEY ?? '',
+    apiBase: base,
+    model,
+  }];
+}
+
 export function defaultSettings(): AssistantSettings {
   return {
     apiKey: '',
@@ -48,10 +81,39 @@ export function defaultSettings(): AssistantSettings {
     model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash',
     customModel: '',
     orchestrationCount: 2,
+    fleetMode: 'roles',
+    providers: defaultProviders(),
     thinkingTokens: 8000,
     hyperThinking: false,
     language: 'ja',
   };
+}
+
+/** プロバイダ配列の正規化（不正なエントリを除去し、apiKey/apiBase の空欄を既定で補完）。 */
+function sanitizeProviders(raw: unknown, fallback: ApiProvider[]): ApiProvider[] {
+  if (!Array.isArray(raw) || raw.length === 0) return fallback;
+  const list: ApiProvider[] = [];
+  const seen = new Set<string>();
+  for (const p of raw) {
+    if (!p || typeof p !== 'object') continue;
+    const o = p as Record<string, unknown>;
+    const id = String(o.id ?? '').trim() || `provider-${list.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const model = String(o.model ?? '').trim();
+    list.push({
+      id,
+      name: String(o.name ?? '').trim() || id,
+      apiKey: String(o.apiKey ?? '').trim(),
+      apiBase: String(o.apiBase ?? '').trim().replace(/\/+$/, '') || (fallback[0]?.apiBase ?? ''),
+      model,
+    });
+  }
+  return list.length > 0 ? list : fallback;
+}
+
+function sanitizeFleetMode(s: unknown): FleetMode {
+  return s === 'uniform' ? 'uniform' : 'roles';
 }
 
 function settingsPath(): string {
@@ -109,6 +171,8 @@ export class SettingsStore {
         model: sanitize(data.model) || d.model,
         customModel: sanitize(data.customModel),
         orchestrationCount: clampCount(data.orchestrationCount ?? d.orchestrationCount),
+        fleetMode: sanitizeFleetMode(data.fleetMode),
+        providers: sanitizeProviders(data.providers, d.providers),
         thinkingTokens: clampThinkingTokens(data.thinkingTokens ?? d.thinkingTokens),
         hyperThinking: data.hyperThinking === true,
         language: sanitizeLanguage(data.language),
@@ -132,16 +196,47 @@ export class SettingsStore {
   /** 部分更新して永続化（JSON 直列化で多重書き込みを防ぐ） */
   update(patch: Partial<AssistantSettings>): Readonly<AssistantSettings> {
     const s = this.settings;
-    if (typeof patch.apiKey === 'string') s.apiKey = patch.apiKey;
-    if (typeof patch.apiBase === 'string') s.apiBase = sanitize(patch.apiBase);
+    // 旧フィールド（apiKey / apiBase）と providers[0] を双方向で同期する（後方互換）。
+    // UI は providers 経由で保存するため、どちらが来ても整合する。
+    if (Array.isArray(patch.providers)) {
+      s.providers = sanitizeProviders(patch.providers, s.providers);
+      const p0 = s.providers[0];
+      if (p0) {
+        s.apiKey = p0.apiKey;
+        if (p0.apiBase) s.apiBase = p0.apiBase;
+      }
+    }
+    if (typeof patch.apiKey === 'string') {
+      s.apiKey = patch.apiKey;
+      if (s.providers.length > 0 && patch.apiKey !== '') s.providers[0].apiKey = patch.apiKey;
+    }
+    if (typeof patch.apiBase === 'string') {
+      const base = sanitize(patch.apiBase);
+      s.apiBase = base;
+      if (s.providers.length > 0 && base !== '') s.providers[0].apiBase = base;
+    }
     if (typeof patch.model === 'string' && sanitize(patch.model)) s.model = sanitize(patch.model);
     if (typeof patch.customModel === 'string') s.customModel = sanitize(patch.customModel);
     if (patch.orchestrationCount !== undefined) s.orchestrationCount = clampCount(patch.orchestrationCount);
+    if (patch.fleetMode !== undefined) s.fleetMode = sanitizeFleetMode(patch.fleetMode);
     if (patch.thinkingTokens !== undefined) s.thinkingTokens = clampThinkingTokens(patch.thinkingTokens);
     if (typeof patch.hyperThinking === 'boolean') s.hyperThinking = patch.hyperThinking;
     if (patch.language !== undefined) s.language = sanitizeLanguage(patch.language);
     this.scheduleWrite();
     return this.settings;
+  }
+
+  /** 既定プロバイダ（providers[0]）。無ければ構築。 */
+  defaultProvider(): ApiProvider {
+    if (this.settings.providers.length > 0) return this.settings.providers[0];
+    const d = defaultProviders();
+    this.settings.providers = d;
+    return d[0];
+  }
+
+  /** ID でプロバイダを探す（無ければ undefined）。 */
+  providerById(id: string): ApiProvider | undefined {
+    return this.settings.providers.find((p) => p.id === id);
   }
 
   /** 設定ファイルのパス（UI 表示用） */
