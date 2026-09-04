@@ -111,6 +111,20 @@ export const SCHEMAS: Record<number, InstructionSchema> = {
   [CodeOpcode.EDIT_FILE]: def(CodeOpcode.EDIT_FILE, [Slot.INPUT], DIALECT_OPTS),
   [CodeOpcode.RUN_COMMAND]: def(CodeOpcode.RUN_COMMAND, [Slot.INPUT], DIALECT_OPTS),
 
+  // --- 専門IR: Code（Git / テスト / 編集細分化 / ファイル操作、registry v1.4.0+） ---
+  // いずれも SLOT_INPUT に操作対象（パス・パターン・差分範囲など）を取る。
+  // 実行結果・差分は SLOT_OUTPUT、編集位置・行番号は SLOT_CONTEXT で補足できる。
+  [CodeOpcode.GIT_DIFF]: def(CodeOpcode.GIT_DIFF, [], [Slot.INPUT, Slot.OUTPUT, Slot.CONTEXT]),
+  [CodeOpcode.GIT_STATUS]: def(CodeOpcode.GIT_STATUS, [], [Slot.INPUT, Slot.OUTPUT, Slot.CONTEXT]),
+  [CodeOpcode.RUN_TESTS]: def(CodeOpcode.RUN_TESTS, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.REPLACE_ALL]: def(CodeOpcode.REPLACE_ALL, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.INSERT_LINE]: def(CodeOpcode.INSERT_LINE, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.APPEND_LINE]: def(CodeOpcode.APPEND_LINE, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.MOVE_FILE]: def(CodeOpcode.MOVE_FILE, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.GREP_CONTEXT]: def(CodeOpcode.GREP_CONTEXT, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.FIND_SYMBOL]: def(CodeOpcode.FIND_SYMBOL, [Slot.INPUT], DIALECT_OPTS),
+  [CodeOpcode.DELETE_FILE]: def(CodeOpcode.DELETE_FILE, [Slot.INPUT], DIALECT_OPTS),
+
   // --- 専門IR: Search ---
   [SearchOpcode.QUERY]: def(SearchOpcode.QUERY, [Slot.INPUT], [Slot.OUTPUT, Slot.CONSTRAINT]),
   [SearchOpcode.EXTRACT]: def(SearchOpcode.EXTRACT, [Slot.INPUT], [Slot.OUTPUT, Slot.CONSTRAINT]),
@@ -141,6 +155,11 @@ export const SCHEMAS: Record<number, InstructionSchema> = {
   [Opcode.LESSON_RETRIEVE]: def(Opcode.LESSON_RETRIEVE, [Slot.KEY], [Slot.TASK_ID, Slot.OUTPUT, Slot.CONTEXT]),
   [Opcode.TRACE_POINT]: def(Opcode.TRACE_POINT, [], [Slot.TASK_ID, Slot.TRACE, Slot.INPUT, Slot.OUTPUT, Slot.CONTEXT]),
   [Opcode.ASSERT]: def(Opcode.ASSERT, [Slot.INPUT], [Slot.TASK_ID, Slot.OUTPUT, Slot.CONF, Slot.CONTEXT]),
+
+  // --- スクラッチパッド（registry v1.4.0+） ---
+  // NOTE_SAVE[SLOT_KEY="メモ名"][SLOT_VALUE="内容"] / NOTE_READ[SLOT_KEY="メモ名"]→SLOT_OUTPUT
+  [Opcode.NOTE_SAVE]: def(Opcode.NOTE_SAVE, [Slot.KEY, Slot.VALUE], [Slot.TASK_ID, Slot.CONTEXT]),
+  [Opcode.NOTE_READ]: def(Opcode.NOTE_READ, [Slot.KEY], [Slot.TASK_ID, Slot.OUTPUT, Slot.CONTEXT]),
 };
 
 export function getSchema(opcode: number): InstructionSchema | undefined {

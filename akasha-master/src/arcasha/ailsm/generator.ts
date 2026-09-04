@@ -54,12 +54,23 @@ const OPCODE_OF_ACTION: Partial<Record<CanonicalAction, MathOpcode>> = {
   ACTION_MATRIX: MathOpcode.MATRIX,
 };
 
-/** コードファイル操作アクション → Code 方言オペコード（SWE / registry v1.3.0） */
+/** コードファイル操作アクション → Code 方言オペコード（SWE / registry v1.3.0+ / v1.4.0） */
 const CODE_OPCODE_OF_ACTION: Partial<Record<CanonicalAction, CodeOpcode>> = {
   ACTION_READ_FILE: CodeOpcode.READ_FILE,
   ACTION_GREP: CodeOpcode.GREP,
   ACTION_EDIT_FILE: CodeOpcode.EDIT_FILE,
   ACTION_RUN_COMMAND: CodeOpcode.RUN_COMMAND,
+  // v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化
+  ACTION_GIT_DIFF: CodeOpcode.GIT_DIFF,
+  ACTION_GIT_STATUS: CodeOpcode.GIT_STATUS,
+  ACTION_RUN_TESTS: CodeOpcode.RUN_TESTS,
+  ACTION_REPLACE_ALL: CodeOpcode.REPLACE_ALL,
+  ACTION_INSERT_LINE: CodeOpcode.INSERT_LINE,
+  ACTION_APPEND_LINE: CodeOpcode.APPEND_LINE,
+  ACTION_MOVE_FILE: CodeOpcode.MOVE_FILE,
+  ACTION_DELETE_FILE: CodeOpcode.DELETE_FILE,
+  ACTION_GREP_CONTEXT: CodeOpcode.GREP_CONTEXT,
+  ACTION_FIND_SYMBOL: CodeOpcode.FIND_SYMBOL,
 };
 
 type SlotValue = { slot: number; value: string | number | boolean };
@@ -151,16 +162,26 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   if (foldedValue) addSlot(goalSlots, Slot.INPUT, foldedValue);
 
   // タスク動詞を選ぶ。code ドメインでは実行したアクションに応じて適切なタスクを選ぶ
-  // （READ/GREP → 検索タスク、EDIT → 修正タスク、RUN_COMMAND → 実行タスク）。
+  // （READ/GREP/検索強化 → 検索タスク、EDIT/ファイル操作 → 修正タスク、
+  //   RUN_COMMAND → 実行タスク、テスト/Git差分 → 検証タスク）。
   let taskOp: Task;
   if (domain === 'code') {
     const codeActs = actions.filter((a) => CODE_OPCODE_OF_ACTION[a as CanonicalAction] !== undefined);
-    if (codeActs.some((a) => a === 'ACTION_EDIT_FILE')) {
+    const isSearchLike = (a: string): boolean =>
+      a === 'ACTION_READ_FILE' || a === 'ACTION_GREP' || a === 'ACTION_GREP_CONTEXT' || a === 'ACTION_FIND_SYMBOL';
+    const isEditLike = (a: string): boolean =>
+      a === 'ACTION_EDIT_FILE' || a === 'ACTION_REPLACE_ALL' || a === 'ACTION_INSERT_LINE' ||
+      a === 'ACTION_APPEND_LINE' || a === 'ACTION_MOVE_FILE' || a === 'ACTION_DELETE_FILE';
+    const isVerifyLike = (a: string): boolean =>
+      a === 'ACTION_RUN_TESTS' || a === 'ACTION_GIT_DIFF' || a === 'ACTION_GIT_STATUS';
+    if (codeActs.some(isEditLike)) {
       taskOp = Task.PATCH;
-    } else if (codeActs.some((a) => a === 'ACTION_READ_FILE' || a === 'ACTION_GREP')) {
+    } else if (codeActs.some(isSearchLike)) {
       taskOp = Task.SEARCH;
     } else if (codeActs.some((a) => a === 'ACTION_RUN_COMMAND')) {
       taskOp = Task.SOLVE;
+    } else if (codeActs.some(isVerifyLike)) {
+      taskOp = Task.VERIFY;
     } else {
       taskOp = TASK_OF_INTENT[intent] ?? Task.PATCH;
     }

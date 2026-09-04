@@ -72,11 +72,20 @@ export const GOLDEN_CASES: GoldenCase[] = [
   { name: 'swe-grep-en', input: 'grep TODO in tools', expect: { domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
   { name: 'swe-read', input: 'src/arcasha/swe/tools.ts を読んで', expect: { domain: 'code', actions: ['ACTION_READ_FILE'], opcodes: [CodeOpcode.READ_FILE] } },
   { name: 'swe-edit', input: 'tools.ts のバグを修正して', expect: { intent: 'code', domain: 'code', actions: ['ACTION_EDIT_FILE'], opcodes: [CodeOpcode.EDIT_FILE] } },
-  { name: 'swe-run', input: 'テストを実行して', expect: { domain: 'code', actions: ['ACTION_RUN_COMMAND'], opcodes: [CodeOpcode.RUN_COMMAND] } },
+  // v1.4.0: テスト実行は専用 RUN_TESTS（汎用 RUN_COMMAND から独立）
+  { name: 'swe-run', input: 'テストを実行して', expect: { domain: 'code', actions: ['ACTION_RUN_TESTS'], opcodes: [CodeOpcode.RUN_TESTS, Task.VERIFY] } },
   // 誤爆ガード: 要約が目的の文は、読みの語を含んでいても reasoning のまま（code 命令を出さない）
   { name: 'swe-read-guard', input: 'このファイルを読んで要約して', expect: { intent: 'summarize', domain: 'reasoning', notOpcodes: [CodeOpcode.READ_FILE] } },
   // 誤爆ガード: Web 検索は code ドメインへ倒さない
   { name: 'swe-grep-guard', input: 'Webで記事を検索して', expect: { intent: 'search', domain: 'search', notOpcodes: [CodeOpcode.GREP] } },
+
+  // ── v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化 ──
+  { name: 'swe-git-diff', input: '変更差分を確認して', expect: { domain: 'code', actions: ['ACTION_GIT_DIFF'], opcodes: [CodeOpcode.GIT_DIFF, Task.VERIFY] } },
+  { name: 'swe-replace-all', input: 'ファイル内の TODO を全置換して', expect: { domain: 'code', actions: ['ACTION_REPLACE_ALL'], opcodes: [CodeOpcode.REPLACE_ALL, Task.PATCH] } },
+  { name: 'swe-move', input: 'src/a.ts を lib/b.ts にファイルを移動して', expect: { domain: 'code', actions: ['ACTION_MOVE_FILE'], opcodes: [CodeOpcode.MOVE_FILE, Task.PATCH] } },
+  { name: 'swe-delete', input: 'src/old.ts をファイル削除して', expect: { domain: 'code', actions: ['ACTION_DELETE_FILE'], opcodes: [CodeOpcode.DELETE_FILE, Task.PATCH] } },
+  { name: 'swe-insert', input: 'src/main.ts の10行目に行を挿入して', expect: { domain: 'code', actions: ['ACTION_INSERT_LINE'], opcodes: [CodeOpcode.INSERT_LINE, Task.PATCH] } },
+  { name: 'swe-find-symbol', input: 'runSweAgent の定義を検索して', expect: { domain: 'code', actions: ['ACTION_FIND_SYMBOL'], opcodes: [CodeOpcode.FIND_SYMBOL, Task.SEARCH] } },
 
   // ── レビュー指摘の回帰（lexer / normalizer / generator の誤判定修正） ──
   // 汎用の「を読んで」はファイル文脈なしでは code へ倒さない（数学解釈を維持）

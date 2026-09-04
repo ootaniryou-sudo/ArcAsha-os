@@ -59,8 +59,8 @@ console.log('═'.repeat(60));
 // ── 1. Registry ──
 console.log('\n[1] Registry');
 const reg = registry();
-check('バージョン 1.3.0', version() === '1.3.0', `got ${version()}`);
-check('命令数 >= 85', reg.instructions.length >= 85, `got ${reg.instructions.length}`);
+check('バージョン 1.4.0', version() === '1.4.0', `got ${version()}`);
+check('命令数 >= 97', reg.instructions.length >= 97, `got ${reg.instructions.length}`);
 check('TASK_SOLVE=0x04', reg.instructions.some((e) => e.name === 'TASK_SOLVE' && e.opcode === 0x04));
 check('DOMAIN_MATH=0x12', reg.instructions.some((e) => e.name === 'DOMAIN_MATH' && e.opcode === 0x12));
 check('CALL=0x30', reg.instructions.some((e) => e.name === 'CALL' && e.opcode === 0x30));
@@ -68,13 +68,34 @@ check('GREP=0x56', reg.instructions.some((e) => e.name === 'GREP' && e.opcode ==
 check('READ_FILE=0x57', reg.instructions.some((e) => e.name === 'READ_FILE' && e.opcode === 0x57));
 check('EDIT_FILE=0x58', reg.instructions.some((e) => e.name === 'EDIT_FILE' && e.opcode === 0x58));
 check('RUN_COMMAND=0x59', reg.instructions.some((e) => e.name === 'RUN_COMMAND' && e.opcode === 0x59));
+check('RUN_COMMAND=0x59', reg.instructions.some((e) => e.name === 'RUN_COMMAND' && e.opcode === 0x59));
+check('GIT_DIFF=0x5A', reg.instructions.some((e) => e.name === 'GIT_DIFF' && e.opcode === 0x5a));
+check('GIT_STATUS=0x5B', reg.instructions.some((e) => e.name === 'GIT_STATUS' && e.opcode === 0x5b));
+check('RUN_TESTS=0x5C', reg.instructions.some((e) => e.name === 'RUN_TESTS' && e.opcode === 0x5c));
+check('REPLACE_ALL=0x5D', reg.instructions.some((e) => e.name === 'REPLACE_ALL' && e.opcode === 0x5d));
+check('INSERT_LINE=0x5E', reg.instructions.some((e) => e.name === 'INSERT_LINE' && e.opcode === 0x5e));
+check('APPEND_LINE=0x5F', reg.instructions.some((e) => e.name === 'APPEND_LINE' && e.opcode === 0x5f));
+check('MOVE_FILE=0x60', reg.instructions.some((e) => e.name === 'MOVE_FILE' && e.opcode === 0x60));
+check('GREP_CONTEXT=0x63', reg.instructions.some((e) => e.name === 'GREP_CONTEXT' && e.opcode === 0x63));
+check('FIND_SYMBOL=0x64', reg.instructions.some((e) => e.name === 'FIND_SYMBOL' && e.opcode === 0x64));
+check('DELETE_FILE=0x65', reg.instructions.some((e) => e.name === 'DELETE_FILE' && e.opcode === 0x65));
+check('NOTE_SAVE=0x93', reg.instructions.some((e) => e.name === 'NOTE_SAVE' && e.opcode === 0x93));
+check('NOTE_READ=0x94', reg.instructions.some((e) => e.name === 'NOTE_READ' && e.opcode === 0x94));
 check('NODE_SEND=0x8B', reg.instructions.some((e) => e.name === 'NODE_SEND' && e.opcode === 0x8b));
 check('ASSERT=0x92', reg.instructions.some((e) => e.name === 'ASSERT' && e.opcode === 0x92));
 check('SWE 4命令は code 方言', ['GREP', 'READ_FILE', 'EDIT_FILE', 'RUN_COMMAND'].every((n) => {
   const e = reg.instructions.find((x) => x.name === n);
   return e !== undefined && e.dialect === 'code' && e.category === 'code';
 }));
+check('v1.4.0 の Git/テスト/ファイル命令は code 方言', ['GIT_DIFF', 'GIT_STATUS', 'RUN_TESTS', 'REPLACE_ALL', 'INSERT_LINE', 'APPEND_LINE', 'MOVE_FILE', 'GREP_CONTEXT', 'FIND_SYMBOL', 'DELETE_FILE'].every((n) => {
+  const e = reg.instructions.find((x) => x.name === n);
+  return e !== undefined && e.dialect === 'code' && e.category === 'code';
+}));
 check('拡張制御は base 方言', ['NODE_SEND', 'NODE_RECV', 'BARRIER', 'REDUCE', 'LESSON_STORE', 'LESSON_RETRIEVE', 'TRACE_POINT', 'ASSERT'].every((n) => {
+  const e = reg.instructions.find((x) => x.name === n);
+  return e !== undefined && e.dialect === 'base' && e.category === 'control';
+}));
+check('v1.4.0 の NOTE は base 方言', ['NOTE_SAVE', 'NOTE_READ'].every((n) => {
   const e = reg.instructions.find((x) => x.name === n);
   return e !== undefined && e.dialect === 'base' && e.category === 'control';
 }));
@@ -88,8 +109,15 @@ check('Opcode.CALL = 0x30', Opcode.CALL === 0x30);
 check('Opcode.RETURN = 0x31', Opcode.RETURN === 0x31);
 check('CodeOpcode.GREP = 0x56', CodeOpcode.GREP === 0x56);
 check('CodeOpcode.RUN_COMMAND = 0x59', CodeOpcode.RUN_COMMAND === 0x59);
+check('CodeOpcode.GIT_DIFF = 0x5A', CodeOpcode.GIT_DIFF === 0x5a);
+check('CodeOpcode.RUN_TESTS = 0x5C', CodeOpcode.RUN_TESTS === 0x5c);
+check('CodeOpcode.REPLACE_ALL = 0x5D', CodeOpcode.REPLACE_ALL === 0x5d);
+check('CodeOpcode.INSERT_LINE = 0x5E', CodeOpcode.INSERT_LINE === 0x5e);
+check('CodeOpcode.DELETE_FILE = 0x65', CodeOpcode.DELETE_FILE === 0x65);
 check('Opcode.NODE_SEND = 0x8B', Opcode.NODE_SEND === 0x8b);
 check('Opcode.ASSERT = 0x92', Opcode.ASSERT === 0x92);
+check('Opcode.NOTE_SAVE = 0x93', Opcode.NOTE_SAVE === 0x93);
+check('Opcode.NOTE_READ = 0x94', Opcode.NOTE_READ === 0x94);
 
 // ── 3. Dialect ──
 console.log('\n[3] Dialect');
@@ -101,6 +129,11 @@ check('CodeDialect supports GREP', CODE.supports(CodeOpcode.GREP));
 check('CodeDialect supports READ_FILE', CODE.supports(CodeOpcode.READ_FILE));
 check('CodeDialect supports EDIT_FILE', CODE.supports(CodeOpcode.EDIT_FILE));
 check('CodeDialect supports RUN_COMMAND', CODE.supports(CodeOpcode.RUN_COMMAND));
+check('CodeDialect supports GIT_DIFF', CODE.supports(CodeOpcode.GIT_DIFF));
+check('CodeDialect supports RUN_TESTS', CODE.supports(CodeOpcode.RUN_TESTS));
+check('CodeDialect supports REPLACE_ALL', CODE.supports(CodeOpcode.REPLACE_ALL));
+check('CodeDialect supports INSERT_LINE', CODE.supports(CodeOpcode.INSERT_LINE));
+check('CodeDialect supports FIND_SYMBOL', CODE.supports(CodeOpcode.FIND_SYMBOL));
 check('MathDialect rejects GREP', !MATH.supports(CodeOpcode.GREP));
 check('CodeDialect rejects EQ', !CODE.supports(MathOpcode.EQ));
 check('getDialect(math) === MATH', getDialect('math') === MATH);
@@ -177,6 +210,34 @@ const extProg: Instruction[] = [
 const extBytes = encode(extProg);
 check('拡張制御命令列がエンコードできる', extBytes.length > 0, `len=${extBytes.length}`);
 check('拡張制御 roundtrip 一致', JSON.stringify(decode(extBytes)) === JSON.stringify(extProg));
+
+// registry v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / スクラッチパッドの roundtrip
+const swe2Prog: Instruction[] = [
+  {
+    opcode: Opcode.CALL,
+    slots: [
+      { slot: Slot.EXPERT, value: 'programming' },
+      { slot: Slot.TASK_ID, value: '9' },
+      { slot: Slot.DOMAIN, value: 'code' },
+    ],
+  },
+  { opcode: CodeOpcode.GIT_STATUS },
+  { opcode: CodeOpcode.GIT_DIFF, slots: [{ slot: Slot.INPUT, value: 'src/tools.ts' }] },
+  { opcode: CodeOpcode.RUN_TESTS, slots: [{ slot: Slot.INPUT, value: 'pytest tests/' }] },
+  { opcode: CodeOpcode.REPLACE_ALL, slots: [{ slot: Slot.INPUT, value: 'old -> new' }] },
+  { opcode: CodeOpcode.INSERT_LINE, slots: [{ slot: Slot.INPUT, value: 'src/main.ts:10 import' }] },
+  { opcode: CodeOpcode.APPEND_LINE, slots: [{ slot: Slot.INPUT, value: 'src/main.ts' }] },
+  { opcode: CodeOpcode.MOVE_FILE, slots: [{ slot: Slot.INPUT, value: 'a.ts -> b.ts' }] },
+  { opcode: CodeOpcode.GREP_CONTEXT, slots: [{ slot: Slot.INPUT, value: 'TODO' }] },
+  { opcode: CodeOpcode.FIND_SYMBOL, slots: [{ slot: Slot.INPUT, value: 'runSweAgent' }] },
+  { opcode: CodeOpcode.DELETE_FILE, slots: [{ slot: Slot.INPUT, value: 'tmp.ts' }] },
+  { opcode: Opcode.NOTE_SAVE, slots: [{ slot: Slot.KEY, value: '調査結果' }, { slot: Slot.VALUE, value: 'GIT_DIFF で確認済み' }] },
+  { opcode: Opcode.NOTE_READ, slots: [{ slot: Slot.KEY, value: '調査結果' }] },
+  { opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: '9' }] },
+];
+const swe2Bytes = encode(swe2Prog);
+check('v1.4.0 命令列がエンコードできる', swe2Bytes.length > 0, `len=${swe2Bytes.length}`);
+check('v1.4.0 roundtrip 一致', JSON.stringify(decode(swe2Bytes)) === JSON.stringify(swe2Prog));
 
 // 不正バイト列は大声で失敗
 expectThrow('切り詰めバイト列でエラー', () => decode(Uint8Array.from([0x30, 0x29, 0x05])));

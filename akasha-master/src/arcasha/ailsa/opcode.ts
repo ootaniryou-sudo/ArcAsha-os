@@ -49,6 +49,9 @@ export enum Opcode {
   LESSON_RETRIEVE = 0x90,
   TRACE_POINT = 0x91,
   ASSERT = 0x92,
+  // ── スクラッチパッド（Base ISA 拡張領域 0x93–0x94、registry v1.4.0+） ──
+  NOTE_SAVE = 0x93,
+  NOTE_READ = 0x94,
 }
 
 export const OPCODE_NAMES: Record<number, string> = {
@@ -75,6 +78,8 @@ export const OPCODE_NAMES: Record<number, string> = {
   [Opcode.LESSON_RETRIEVE]: 'LESSON_RETRIEVE',
   [Opcode.TRACE_POINT]: 'TRACE_POINT',
   [Opcode.ASSERT]: 'ASSERT',
+  [Opcode.NOTE_SAVE]: 'NOTE_SAVE',
+  [Opcode.NOTE_READ]: 'NOTE_READ',
 };
 
 /** スロット領域（値を持つフィールド識別子）。命令オペコードと排他。 */

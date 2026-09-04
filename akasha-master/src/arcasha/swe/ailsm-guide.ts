@@ -2,7 +2,7 @@
  * AILSM Guide — LLM が AILSM を「読める・書ける」ための説明書
  *
  * AILSM（ArcAsha Inter Language for Small AI models）は ArcAsha の中心にある
- * 型付き中間言語（IR）で、registry.json（唯一の権威）が全 85 命令を定義する。
+ * 型付き中間言語（IR）で、registry.json（唯一の権威）が全 97 命令を定義する。
  * このモジュールは、その registry から LLM 向けの「説明書」を自動生成する。
  *
  * LLM は人間向けの仕様書を読まなくても、このガイドだけで
@@ -22,9 +22,9 @@ const CATEGORY_NOTE: Record<string, string> = {
   task: 'タスク宣言（この仕事は何か）。文の先頭で TASK_* を宣言し、SLOT_GOAL 等で目的を添える',
   domain: 'ドメイン宣言（どの専門分野か）。CALL の前に DOMAIN_* を置くことが多い',
   slot: 'スロット（値を持つフィールド）。命令の直後に置き、SLOT_GOAL="…" のように値を与える',
-  control: '制御命令（実行フロー）。CALL / RETURN / STORE / LOAD / 並列・統合など。RETURN で 1 命令列が終わる。v1.3.0 以降は拡張制御（分散 NODE_SEND〜 / 教訓 LESSON_STORE〜 / 観測 TRACE_POINT / 検証 ASSERT）も含む',
+  control: '制御命令（実行フロー）。CALL / RETURN / STORE / LOAD / 並列・統合など。RETURN で 1 命令列が終わる。v1.3.0 以降は拡張制御（分散 NODE_SEND〜 / 教訓 LESSON_STORE〜 / 観測 TRACE_POINT / 検証 ASSERT）、v1.4.0 はスクラッチパッド（NOTE_SAVE / NOTE_READ）も含む',
   math: '数学方言（Math Dialect）: 方程式・微分・積分・四則などの数学演算',
-  code: 'コード方言（Code Dialect）: 関数・クラス・パッチ・ビルド・テスト、および SWE オペレーション（検索・読み書き・コマンド実行）',
+  code: 'コード方言（Code Dialect）: 関数・クラス・パッチ・ビルド・テスト、および SWE オペレーション（検索・読み書き・編集・Git・テスト・ファイル操作）',
   search: '検索方言（Search Dialect）: 問い合わせ・抽出',
   reasoning: '推論方言（Reasoning Dialect）: 因果・目標',
   syscall: 'システムコール: AI OS の機能（実行・生成・計画・検証・記憶操作・ルーティング）を呼ぶ',
@@ -62,6 +62,17 @@ const NAME_LABEL: Record<string, string> = {
   READ_FILE: 'ファイルを読む（例: READ_FILE [SLOT_INPUT="src/main.ts"]）',
   EDIT_FILE: 'ファイルを編集する（例: EDIT_FILE [SLOT_INPUT="TODO を FIXME に置換"]）',
   RUN_COMMAND: 'コマンドを実行する（例: RUN_COMMAND [SLOT_INPUT="npm run build"]）',
+  // v1.4.0: Git / テスト / 編集細分化 / ファイル操作（code 方言）
+  GIT_DIFF: 'Git: 作業ツリー差分を表示する（編集前確認・編集後ロールバック用）',
+  GIT_STATUS: 'Git: 作業ツリー状態を表示する',
+  RUN_TESTS: 'テストを実行する（pytest/unittest 等）',
+  REPLACE_ALL: '全一致文字列を置換する（例: REPLACE_ALL [SLOT_INPUT="TODO"][SLOT_CONTEXT="FIXME に全置換"]）',
+  INSERT_LINE: '指定行に挿入する（例: INSERT_LINE [SLOT_INPUT="src/main.ts:10 に import を追加"]）',
+  APPEND_LINE: 'ファイル末尾へ追記する',
+  MOVE_FILE: 'ファイルを移動・リネームする',
+  GREP_CONTEXT: '前後行コンテキスト付きでコードを検索する（大規模リポジトリ用）',
+  FIND_SYMBOL: '関数・クラス定義を検索する（シンボル定義位置）',
+  DELETE_FILE: 'ファイルを削除する（リファクタリング用）',
   // v1.3.0: 拡張制御（base）
   NODE_SEND: '分散: ノードへメッセージ送信',
   NODE_RECV: '分散: ノードからメッセージ受信',
@@ -71,6 +82,9 @@ const NAME_LABEL: Record<string, string> = {
   LESSON_RETRIEVE: '教訓を想起して適用',
   TRACE_POINT: '観測点を埋める（トレース）',
   ASSERT: '実行時検証（不変条件の確認）',
+  // v1.4.0: スクラッチパッド（base）
+  NOTE_SAVE: 'スクラッチパッド: 調査結果・メモを保存（例: NOTE_SAVE [SLOT_KEY="調査結果"][SLOT_VALUE="…"]）',
+  NOTE_READ: 'スクラッチパッド: 保存済みメモを読み出す（例: NOTE_READ [SLOT_KEY="調査結果"]）',
 };
 
 /** カテゴリ表示順 */
@@ -113,6 +127,8 @@ export function buildAilsmGuide(): string {
   lines.push('   → CALL [SLOT_EXPERT="programming"] / DOMAIN_CODE / EDIT_FILE [SLOT_INPUT="src/main.ts のバグを修正して"] / TASK_PATCH / RETURN');
   lines.push('5. 「コードを検索して」（SWE）');
   lines.push('   → CALL [SLOT_EXPERT="programming"] / DOMAIN_CODE / GREP [SLOT_INPUT="コードを検索して"] / TASK_SEARCH / RETURN');
+  lines.push('6. 「変更差分を確認してからテストを実行して」（SWE・Git/テスト）');
+  lines.push('   → CALL [SLOT_EXPERT="programming"] / DOMAIN_CODE / GIT_DIFF / RUN_TESTS [SLOT_INPUT="テストを実行して"] / TASK_VERIFY / RETURN');
   lines.push('');
   lines.push('注意:');
   lines.push('- 命令列は RETURN（または SUCCESS/FAIL）で終わります');
@@ -127,7 +143,7 @@ export function buildAilsmQuickGuide(): string {
   lines.push('【AILSM 要約ガイド】ArcAsha の型付き命令語（IR）。指示は「命令 + [スロット="値"]」の並び:');
   lines.push('- タスク宣言: TASK_SOLVE（解く）/ TASK_VERIFY（検証）/ TASK_PATCH（修正）/ TASK_SUMMARIZE（要約）/ TASK_SEARCH（検索）');
   lines.push('- 制御: CALL（エキスパート呼出）/ RETURN（終了）/ STORE・LOAD（記憶）/ DECOMPOSE（分解）/ VERIFY（検証）');
-  lines.push('- コード操作（SWE）: GREP（検索）/ READ_FILE（読取）/ EDIT_FILE（編集）/ RUN_COMMAND（コマンド実行）');
+  lines.push('- コード操作（SWE）: GREP（検索）/ READ_FILE（読取）/ EDIT_FILE（編集）/ RUN_COMMAND（コマンド）/ GIT_DIFF（差分）/ RUN_TESTS（テスト）');
   lines.push('- スロット: SLOT_GOAL（目的）/ SLOT_INPUT（入力）/ SLOT_EXPERT（担当）/ SLOT_TASK_ID（ID）');
   lines.push(`- 例: 「x+2=5 を解く」→ TASK_SOLVE [SLOT_GOAL="solve"] / DOMAIN_MATH / EQ [SLOT_INPUT="x+2=5"] / RETURN`);
   lines.push('- 自然言語を AILSM に変換・検証したいときは ailsm_compile ツールを呼ぶこと（書いた命令列が正しいか確認できる）');

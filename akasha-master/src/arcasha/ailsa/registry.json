@@ -1,11 +1,12 @@
 {
-  "version": "1.3.0",
-  "description": "AILSA ISA Registry — ArcAsha Inter Language for Small AI models. 唯一の権威 (Heart of Wisdom 管理)。TypeScript / Python / Rust 全てここを参照する。v1.3.0: code 方言に SWE 命令（GREP/READ_FILE/EDIT_FILE/RUN_COMMAND）、base に分散・教訓・観測・検証の拡張制御命令（NODE_SEND..ASSERT）を追加。",
+  "version": "1.4.0",
+  "description": "AILSA ISA Registry — ArcAsha Inter Language for Small AI models. 唯一の権威 (Heart of Wisdom 管理)。TypeScript / Python / Rust 全てここを参照する。v1.4.0: code 方言に Git 操作（GIT_DIFF/STATUS）・テスト（RUN_TESTS）・編集細分化（REPLACE_ALL/INSERT_LINE/APPEND_LINE）・ファイル操作（MOVE_FILE/DELETE_FILE）・検索強化（GREP_CONTEXT/FIND_SYMBOL）、base にスクラッチパッド（NOTE_SAVE/READ）を追加。v1.3.0: code 方言に SWE 命令（GREP/READ_FILE/EDIT_FILE/RUN_COMMAND）、base に分散・教訓・観測・検証の拡張制御命令（NODE_SEND..ASSERT）を追加。",
   "extensions": [
-    { "name": "SWE", "version": "1.0", "description": "ソフトウェアエンジニアリング向け拡張（code 方言）: コード検索・ファイル読み書き・コマンド実行" },
+    { "name": "SWE", "version": "1.1", "description": "ソフトウェアエンジニアリング向け拡張（code 方言）: コード検索・Git・テスト・ファイル読み書き編集・コマンド実行" },
     { "name": "DISTRIBUTED", "version": "1.0", "description": "分散実行拡張（base）: ノード間通信・同期・集約" },
     { "name": "LESSON", "version": "1.0", "description": "教訓拡張（base）: 失敗から学ぶ知識の保存・想起" },
-    { "name": "OBSERVABILITY", "version": "1.0", "description": "観測・検証拡張（base）: トレースポイント・実行時アサート" }
+    { "name": "OBSERVABILITY", "version": "1.0", "description": "観測・検証拡張（base）: トレースポイント・実行時アサート" },
+    { "name": "SCRATCHPAD", "version": "1.0", "description": "スクラッチパッド拡張（base）: 調査結果・メモの保存・読み出し（NOTE_SAVE / NOTE_READ）" }
   ],
   "dialects": ["base", "math", "code", "search", "reasoning"],
   "instructions": [
@@ -76,6 +77,16 @@
     { "name": "READ_FILE", "opcode": 87, "category": "code", "dialect": "code", "description": "ファイル読み取り" },
     { "name": "EDIT_FILE", "opcode": 88, "category": "code", "dialect": "code", "description": "ファイル編集" },
     { "name": "RUN_COMMAND", "opcode": 89, "category": "code", "dialect": "code", "description": "コマンド実行" },
+    { "name": "GIT_DIFF", "opcode": 90, "category": "code", "dialect": "code", "description": "Git: 作業ツリーの差分表示（編集前確認・編集後ロールバック用）" },
+    { "name": "GIT_STATUS", "opcode": 91, "category": "code", "dialect": "code", "description": "Git: 作業ツリー状態表示" },
+    { "name": "RUN_TESTS", "opcode": 92, "category": "code", "dialect": "code", "description": "テスト実行（pytest/unittest 等。実行結果の検証を IR レベルで扱う）" },
+    { "name": "REPLACE_ALL", "opcode": 93, "category": "code", "dialect": "code", "description": "全一致文字列の置換（EDIT_FILE の全置換バリアント）" },
+    { "name": "INSERT_LINE", "opcode": 94, "category": "code", "dialect": "code", "description": "指定行への挿入（EDIT_FILE の行単位バリアント）" },
+    { "name": "APPEND_LINE", "opcode": 95, "category": "code", "dialect": "code", "description": "ファイル末尾への追記（EDIT_FILE の追記バリアント）" },
+    { "name": "MOVE_FILE", "opcode": 96, "category": "code", "dialect": "code", "description": "ファイル移動・リネーム" },
+    { "name": "GREP_CONTEXT", "opcode": 99, "category": "code", "dialect": "code", "description": "前後行コンテキスト付きコード検索（大規模リポジトリ用）" },
+    { "name": "FIND_SYMBOL", "opcode": 100, "category": "code", "dialect": "code", "description": "関数・クラス定義の検索（シンボル定義位置）" },
+    { "name": "DELETE_FILE", "opcode": 101, "category": "code", "dialect": "code", "description": "ファイル削除（リファクタリング用）" },
 
     { "name": "QUERY", "opcode": 97, "category": "search", "dialect": "search", "description": "問い合わせ" },
     { "name": "EXTRACT", "opcode": 98, "category": "search", "dialect": "search", "description": "抽出" },
@@ -102,6 +113,8 @@
     { "name": "LESSON_STORE", "opcode": 143, "category": "control", "dialect": "base", "description": "教訓（失敗からの学び）の保存" },
     { "name": "LESSON_RETRIEVE", "opcode": 144, "category": "control", "dialect": "base", "description": "教訓の想起・適用" },
     { "name": "TRACE_POINT", "opcode": 145, "category": "control", "dialect": "base", "description": "観測点の埋め込み（トレース）" },
-    { "name": "ASSERT", "opcode": 146, "category": "control", "dialect": "base", "description": "実行時検証（不変条件の確認）" }
+    { "name": "ASSERT", "opcode": 146, "category": "control", "dialect": "base", "description": "実行時検証（不変条件の確認）" },
+    { "name": "NOTE_SAVE", "opcode": 147, "category": "control", "dialect": "base", "description": "スクラッチパッド: 調査結果・メモの保存" },
+    { "name": "NOTE_READ", "opcode": 148, "category": "control", "dialect": "base", "description": "スクラッチパッド: 保存済みメモの読み出し" }
   ]
 }

@@ -25,9 +25,10 @@
 
 ### AILSA（AI Instruction Set Architecture）
 
-- レジストリ **v1.3.0（85 命令）**。バイナリ形式は `Opcode + Slot + varint + UTF-8`。決定論的で検証可能な AI カーネル向け ISA。
-- **v1.3.0 拡張（SWE 対応）**: code 方言に `GREP 0x56` / `READ_FILE 0x57` / `EDIT_FILE 0x58` / `RUN_COMMAND 0x59` を追加。自然言語「…を読んで / コードを検索して / …を修正して / テストを実行して」が SWE 命令列へコンパイルされる（golden 38 ケースで回帰保証）。ファイルパス（`src/…/tools.ts`）が数式と誤判定されない lexer ルールも導入。
+- レジストリ **v1.4.0（97 命令）**。バイナリ形式は `Opcode + Slot + varint + UTF-8`。決定論的で検証可能な AI カーネル向け ISA。
+- **v1.3.0 拡張（SWE 対応）**: code 方言に `GREP 0x56` / `READ_FILE 0x57` / `EDIT_FILE 0x58` / `RUN_COMMAND 0x59` を追加。自然言語「…を読んで / コードを検索して / …を修正して / テストを実行して」が SWE 命令列へコンパイルされる（golden 43 ケースで回帰保証）。ファイルパス（`src/…/tools.ts`）が数式と誤判定されない lexer ルールも導入。
 - **v1.3.0 拡張（分散・教訓・観測・検証）**: base 拡張制御として `NODE_SEND` / `NODE_RECV` / `BARRIER` / `REDUCE`（分散）、`LESSON_STORE` / `LESSON_RETRIEVE`（教訓）、`TRACE_POINT`（観測）、`ASSERT`（実行時検証）を登録。これにより SWE / 分散推論 / 教訓 / Observability が 1 つの IR で記述・制御・計測できる。
+- **v1.4.0 拡張（SWE 実用命令・スクラッチパッド）**: code 方言に Git 操作 `GIT_DIFF 0x5A` / `GIT_STATUS 0x5B`、テスト独立 `RUN_TESTS 0x5C`、編集細分化 `REPLACE_ALL 0x5D` / `INSERT_LINE 0x5E` / `APPEND_LINE 0x5F`、ファイル操作 `MOVE_FILE 0x60` / `DELETE_FILE 0x65`、検索強化 `GREP_CONTEXT 0x63` / `FIND_SYMBOL 0x64` を追加（0x61/0x62 は search 方言が占有のため 0x63 以降へ）。base にスクラッチパッド `NOTE_SAVE 0x93` / `NOTE_READ 0x94` を追加。これにより「編集前差分確認 → 編集 → テスト → ロールバック」の SWE ワークフローと、イテレーション間の調査結果保持を 1 つの IR で記述・追跡できる（golden 49 ケースで回帰保証）。
 - **仕様**: `AILSA_ISA.md`, `AILSA_RUNTIME.md`
 
 ### AILSM（AI 向けセマンティック中間表現, SSA グラフ IR, v1.8）
@@ -50,7 +51,7 @@
 - モデルは「読む・検索する・編集する・実行する」を **JSON 引数の関数呼び出し**で行う。ツール実装（OS 側）が realpath 境界・テストファイル保護・タイムアウト・出力制限を 100% 決定論で保証する（モデルはファイルシステムの安全を任されない）。
 - **ツール拡張（v1.4）**: 編集の精密化（`replace_all` = 全置換 / occurrence=N 番目、`insert_line` / `append_line`）、git 連携（`git_status` / `git_diff` / `git_revert` = ファイル単位のロールバック）、テスト実行（`run_tests` = pytest ラッパー。シェル文字列を組まず引数分離で安全）、検索強化（`grep_context` = grep -C 相当 / `find_symbol` = 言語別の定義行検索）、ファイル操作（`move_file` / `delete_file` / `delete_dir`）。
 - **安全設計**: 全パスは root 配下に realpath 解決（symlink 迂回は拒否）、テストファイル（SWE-bench の gold patch が当たる場所）への書き込み・削除・revert は禁止、任意コマンドと `delete_dir` は opt-in。
-- **実証**: SWE-bench（sympy 3問）を解く最小構成を維持したまま、Claude Code 級の編集・検証・ロールバックを追加。golden 38 + tools-test 全パス + memory 34 passed で回帰保証。
+- **実証**: SWE-bench（sympy 3問）を解く最小構成を維持したまま、Claude Code 級の編集・検証・ロールバックを追加。golden 49 + tools-test 全パス + memory 34 passed で回帰保証。
 
 ## 3. AVM — AI Virtual Memory（コンテキストの仮想記憶化）
 
@@ -144,7 +145,7 @@
   - `roles`（既定）: General=選択モデル ×1 + Reasoning=Pro/カスタム ×(N-1) の**役割別フォールバック**（タスク分類で空応答時に次のモデルへ委譲）。
   - `uniform`: 選択モデルで **N 台を並列同時呼び出し**。実行時は（プロバイダ, モデル）のユニーク組み合わせだけ `Promise.allSettled` で並列に投げ、最初の有効応答を採用（同一 API への無駄な多重リクエストは統合）。UI の監視画面は「deepseek-v4-flash ×15」のように設定どおりの構成を表示。
 - **複数 API プロバイダ登録（providers）**: 各エントリが `{ name, apiBase, apiKey, model }` を持ち、**モデル名の一致するプロバイダへ自動ルーティング**。DeepSeek / OpenAI / Anthropic 等を混在させて 1 つのオーケストレーションに参加させられる。旧 `apiKey/apiBase` とは双方向同期（後方互換）。
-- **実証**: uniform で「Flash ×15」構成・並列実行（重複統合 1 ノード + 採用 trace）を実 API で確認。golden 43 / selftest / tools-test / audit-test / sandbox-test / memory 34 passed 全パス。
+- **実証**: uniform で「Flash ×15」構成・並列実行（重複統合 1 ノード + 採用 trace）を実 API で確認。golden 49 / selftest / tools-test / audit-test / sandbox-test / memory 34 passed 全パス。
 
 ## 14. Agent 安全化 — 監査ログ（署名付き証跡）・safe-mode（PR 隔離）・サンドボックス
 
@@ -170,7 +171,7 @@
 | # | 革新技術 | 既存との差別化（何が新しいか） | 主要な実証 |
 |---|---|---|---|
 | 1 | **AI OS パラダイム** | モデルを大きくせず OS 層で知能を管理 | — |
-| 2 | **AILSA / AILSM（ISA / SSA-IR）** | AI の思考・状態・記憶を実行可能 IR で表現 | selftest 89 件 / golden 43 |
+| 2 | **AILSA / AILSM（ISA / SSA-IR）** | AI の思考・状態・記憶を実行可能 IR で表現 | selftest 89 件 / golden 49 |
 | 3 | **AVM（AI 仮想記憶）** | コンテキスト窓拡大ではなくデマンドページング | トークン **96.5% 削減**・精度 100% |
 | 4 | **Reasoning Runtime** | 推論（仮説の生成・淘汰・統合）を OS で明示管理 | Reasoning 57% → 93% |
 | 5 | **Executive / Meta Executive** | 探索途中の戦略切替・推論予算・設定の学習 | 品質 0.50 → 0.71 / レイテンシ +37ms |

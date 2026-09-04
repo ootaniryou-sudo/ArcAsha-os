@@ -18,7 +18,11 @@ export type CanonicalAction =
   | 'ACTION_SQRT' | 'ACTION_SQUARE'
   | 'ACTION_INTEGRAL' | 'ACTION_DERIVE' | 'ACTION_LIMIT' | 'ACTION_EQUATION' | 'ACTION_MATRIX'
   // ── コードファイル操作（registry v1.3.0: READ_FILE / GREP / EDIT_FILE / RUN_COMMAND） ──
-  | 'ACTION_READ_FILE' | 'ACTION_GREP' | 'ACTION_EDIT_FILE' | 'ACTION_RUN_COMMAND';
+  | 'ACTION_READ_FILE' | 'ACTION_GREP' | 'ACTION_EDIT_FILE' | 'ACTION_RUN_COMMAND'
+  // ── Git / テスト / 編集細分化 / ファイル操作 / 検索強化（registry v1.4.0） ──
+  | 'ACTION_GIT_DIFF' | 'ACTION_GIT_STATUS' | 'ACTION_RUN_TESTS' | 'ACTION_REPLACE_ALL'
+  | 'ACTION_INSERT_LINE' | 'ACTION_APPEND_LINE' | 'ACTION_MOVE_FILE' | 'ACTION_DELETE_FILE'
+  | 'ACTION_GREP_CONTEXT' | 'ACTION_FIND_SYMBOL';
 
 /** コードファイル操作アクション（ドメインを code へ導くシグナル） */
 export const CODE_ACTIONS: readonly CanonicalAction[] = [
@@ -26,6 +30,16 @@ export const CODE_ACTIONS: readonly CanonicalAction[] = [
   'ACTION_GREP',
   'ACTION_EDIT_FILE',
   'ACTION_RUN_COMMAND',
+  'ACTION_GIT_DIFF',
+  'ACTION_GIT_STATUS',
+  'ACTION_RUN_TESTS',
+  'ACTION_REPLACE_ALL',
+  'ACTION_INSERT_LINE',
+  'ACTION_APPEND_LINE',
+  'ACTION_MOVE_FILE',
+  'ACTION_DELETE_FILE',
+  'ACTION_GREP_CONTEXT',
+  'ACTION_FIND_SYMBOL',
 ];
 
 export const CODE_ACTION_SET: ReadonlySet<CanonicalAction> = new Set(CODE_ACTIONS);
@@ -62,7 +76,20 @@ export const ACTION_SYNONYMS: Record<CanonicalAction, readonly string[]> = {
   ACTION_READ_FILE: ['ファイルを読んで', 'ファイルを読む', 'ファイルを読み', 'ソースを読んで', 'コードを読んで', '読み込んで', 'read file', 'read the file'],
   ACTION_GREP: ['ファイルを検索', 'ファイルを探', 'ソースを検索', 'ソースを探', 'コードを検索', 'コードを探', '関数を検索', '関数を探', 'クラスを検索', 'クラスを探', 'シンボルを検索', 'grep', 'をgrep'],
   ACTION_EDIT_FILE: ['ファイルを修正', 'ファイルを編集', 'ファイルを直', 'ソースを修正', 'ソースを編集', 'コードを修正', 'コードを編集', 'コードを直', 'バグを修正', 'バグを直', 'edit file', 'fix the bug'],
-  ACTION_RUN_COMMAND: ['コマンドを実行', 'コマンド実行', 'コマンドを走ら', 'テストを実行', 'テストを走ら', 'ビルドを実行', 'ビルドを走ら', 'シェルで実行', 'シェルを実行', 'run command', 'run the command'],
+  // 汎用のコマンド実行。テスト・ビルドは専用命令（RUN_TESTS）へ分離したので、
+  // 「テストを実行」は ACTION_RUN_COMMAND ではなく ACTION_RUN_TESTS に分類される。
+  ACTION_RUN_COMMAND: ['コマンドを実行', 'コマンド実行', 'コマンドを走ら', 'ビルドを実行', 'ビルドを走ら', 'シェルで実行', 'シェルを実行', 'run command', 'run the command'],
+  // ── v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化 ──
+  ACTION_GIT_DIFF: ['差分を確認', '差分を表示', '差分を見る', '変更差分', 'diffを確認', '差分をチェック', 'git diff', 'git-diff'],
+  ACTION_GIT_STATUS: ['変更状態', '状態を確認して', '作業ツリーの状態', 'git status', 'git-status', '変更状況'],
+  ACTION_RUN_TESTS: ['テストを実行', 'テストを走ら', 'テストを流', 'テストを回', 'テストを動か', 'テストを試', 'テストをかけ', 'run tests', 'run the tests', 'run test', 'pytest', 'ユニットテスト', 'ユニットテストを実行'],
+  ACTION_REPLACE_ALL: ['全置換', '全部置換', '一括置換', 'すべて置換', '全一致を置換', '全箇所を置換', 'replace all', 'replace-all'],
+  ACTION_INSERT_LINE: ['行を挿入', '行に挿入', '指定行に挿入', '指定行に追加', '行を追加', 'insert line', 'insert-line'],
+  ACTION_APPEND_LINE: ['末尾に追加', '末尾に追記', '最後に追記', '最後に追加', 'ファイル末尾に', 'append line', 'append-line'],
+  ACTION_MOVE_FILE: ['ファイルを移動', 'ファイル移動', 'ファイルをリネーム', 'ファイルを改名', 'ファイルを移し', 'move file', 'rename file'],
+  ACTION_DELETE_FILE: ['ファイルを削除', 'ファイル削除', 'ファイルを消し', 'ファイルを除去', 'ファイルを消去', 'delete file', 'remove file'],
+  ACTION_GREP_CONTEXT: ['前後行付きで検索', '文脈付きで検索', 'コンテキスト付きで検索', '前後を添えて検索', '周辺行ごと検索', 'grep -C', 'grep -A', 'grep -B'],
+  ACTION_FIND_SYMBOL: ['定義を検索', '定義を探', '定義位置', '関数の定義を探', 'クラスの定義を探', 'メソッドの定義を探', '定義を調べ', 'find symbol', 'find-symbol', 'シンボルの定義'],
 };
 
 /**
@@ -197,11 +224,13 @@ export function normalize(text: string, tokens: Token[]): NormalizedInput {
   // 出力するため、verify/summarize 意図でも domain=reasoning に倒すと Capability 検証が矛盾する）。
   if (mathSignals) {
     domain = 'math';
-  } else if (intent === 'summarize' || intent === 'verify') {
-    // 要約・検証が目的の文は、読み/検索の語を含んでいても reasoning を優先
+  } else if (intent === 'summarize') {
+    // 要約が目的の文は、読みの語を含んでいても reasoning を優先（読解が主目的）
     domain = 'reasoning';
   } else if (hasCodeAction) {
-    // コードファイル操作（読む/検索/編集/実行）は code ドメイン
+    // コードファイル操作（読む/検索/編集/実行/Git/テスト/ファイル操作）は code ドメイン。
+    // 「差分を確認して」「テストを実行して」等の検証系も、明示的な code 操作語があれば
+    // コード検証として code へ倒す（汎用の「結果を検証して」は code アクションが無いので reasoning のまま）。
     domain = 'code';
   } else {
     if (actions.length > 0 || intent === 'solve' || objects.some((o) => o !== 'function')) {
@@ -209,6 +238,7 @@ export function normalize(text: string, tokens: Token[]): NormalizedInput {
     }
     if (intent === 'code' || intent === 'create') domain = 'code';
     if (intent === 'search') domain = 'search';
+    if (intent === 'verify') domain = 'reasoning';
   }
 
   const signals =
