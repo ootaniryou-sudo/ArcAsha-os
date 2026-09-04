@@ -90,8 +90,10 @@ async function main(): Promise<void> {
     check('run_command 実行（opt-in + 引数分離 + exit 0）', cmdAllowed.ok && cmdAllowed.output.includes('42'), cmdAllowed.output);
 
     // シェルメタ文字はリテラル引数として扱われる（インジェクション防止）
-    // $HOME / ; / | / > を args として実際に渡し、展開・解釈されずそのまま出力されることを検証
-    const shellMetaArgs = ['$HOME', ';', '|', '>', '$(id)', '`whoami`'];
+    // $HOME / ; / | / > / $(id) / `whoami` を args として実際に渡し、展開・解釈されず
+    // そのまま出力されることを検証。> の直後にリダイレクト先（evil-out.txt）を渡し、
+    // リダイレクトとして解釈されればファイルが作られるが、shell:false では作られない。
+    const shellMetaArgs = ['$HOME', ';', '|', '>', 'evil-out.txt', '$(id)', '`whoami`'];
     const cmdMeta = await getSweTool('run_command')!.run(
       {
         command: 'python3',
@@ -101,13 +103,13 @@ async function main(): Promise<void> {
     );
     const metaOut = cmdMeta.output;
     check(
-      'run_command のシェルメタ文字がリテラル（$HOME/;/|/> が展開・解釈されない）',
+      'run_command のシェルメタ文字がリテラル（$HOME/;/|/>/evil-out.txt が展開・解釈されない）',
       cmdMeta.ok && shellMetaArgs.every((a) => metaOut.includes(a)),
       cmdMeta.output,
     );
-    // リダイレクト（>）がファイルを作らないこと（リテラル引数として扱われた）
+    // > evil-out.txt がリダイレクトでなく、リテラル引数として扱われたためファイルが作られない
     const noRedirectFile = await fs.stat(path.join(root, 'evil-out.txt')).then(() => false).catch(() => true);
-    check('run_command の > がリダイレクトでなくファイルを作らない', noRedirectFile, '');
+    check('run_command の > evil-out.txt がリダイレクトでなくファイルを作らない', noRedirectFile, '');
 
     // シェル機能が必要なら bash -c を明示する
     const cmdBash = await getSweTool('run_command')!.run(
