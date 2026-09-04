@@ -70,6 +70,26 @@ async function main(): Promise<void> {
   const all = await log2.readAll();
   check('readAll で 3 エントリ読める', all.length === 3, `len=${all.length}`);
 
+  // ── チェーン終端（anchor）: 末尾切り詰め・全削除の検知 ──
+  check('anchor ファイルが存在する', await fs.stat(log.anchorFile()).then(() => true).catch(() => false), '');
+  const anchor = await log.readAnchor();
+  check('anchor に行数 3 と最終ハッシュが記録される', anchor !== null && anchor.count === 3 && anchor.lastHash.length === 64, JSON.stringify(anchor));
+
+  // 新規ロガー（同じ dir）でも verify() が通る（連鎖 + anchor 一致）
+  check('verify() が整合ログで通る', (await log2.verify()) === null, String(await log2.verify()));
+
+  // 末尾行を削除 → verify() が行数の不一致を検知
+  const jsonlPath = log.file();
+  const rawLines = (await fs.readFile(jsonlPath, 'utf8')).trim().split('\n');
+  await fs.writeFile(jsonlPath, rawLines.slice(0, 2).join('\n') + '\n', 'utf8');
+  const log3 = createAuditLogger({ dir, secret });
+  check('末尾行削除を anchor で検知できる', (await log3.verify()) !== null, String(await log3.verify()));
+
+  // ログ全削除 → verify() が行数 0 と anchor の不一致を検知
+  await fs.writeFile(jsonlPath, '', 'utf8');
+  const log4 = createAuditLogger({ dir, secret });
+  check('ログ全削除を anchor で検知できる', (await log4.verify()) !== null, String(await log4.verify()));
+
   await fs.rm(dir, { recursive: true, force: true });
   console.log(`\n${failures === 0 ? '✅ ALL PASS — audit' : `❌ ${failures} failures`}`);
   process.exit(failures === 0 ? 0 : 1);

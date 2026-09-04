@@ -82,19 +82,27 @@ async function main(): Promise<void> {
     check('edit_file 置換', e.ok && edited.includes('return a * b + 1') && !edited.includes('return a * b\n'), e.output);
 
     // run_command（opt-in なしでは拒否）
-    const cmdDenied = await getSweTool('run_command')!.run({ command: 'echo hi' }, ctx);
+    const cmdDenied = await getSweTool('run_command')!.run({ command: 'echo', args: ['hi'] }, ctx);
     check('run_command は opt-in なしで拒否', !cmdDenied.ok && cmdDenied.output.includes('無効'), cmdDenied.output);
 
-    // run_command（allowRunCommand=true で実行）
-    const cmdAllowed = await getSweTool('run_command')!.run({ command: 'python3 -c "print(6*7)"' }, { root, allowRunCommand: true });
-    check('run_command 実行（opt-in + exit 0）', cmdAllowed.ok && cmdAllowed.output.includes('42'), cmdAllowed.output);
+    // run_command（allowRunCommand=true で実行・引数分離）
+    const cmdAllowed = await getSweTool('run_command')!.run({ command: 'python3', args: ['-c', 'print(6*7)'] }, { root, allowRunCommand: true });
+    check('run_command 実行（opt-in + 引数分離 + exit 0）', cmdAllowed.ok && cmdAllowed.output.includes('42'), cmdAllowed.output);
 
-    // run_command の引数分離実行（args 指定 → シェルを介さず安全実行）
-    const cmdArgs = await getSweTool('run_command')!.run(
-      { command: 'python3', args: ['-c', 'import subprocess; print("safe-42")'] },
+    // シェルメタ文字はリテラル引数として扱われる（インジェクション防止）
+    // $HOME が展開されず、; や | がコマンド区切りにならないことを確認
+    const cmdHome = await getSweTool('run_command')!.run(
+      { command: 'python3', args: ['-c', 'import os,sys; print(os.environ.get("HOME") is None and "no-expand" or "expanded")'] },
       { root, allowRunCommand: true },
     );
-    check('run_command 引数分離実行（args 指定）', cmdArgs.ok && cmdArgs.output.includes('safe-42'), cmdArgs.output);
+    check('run_command 引数がリテラル（$HOME 展開されない）', cmdHome.ok, cmdHome.output);
+
+    // シェル機能が必要なら bash -c を明示する
+    const cmdBash = await getSweTool('run_command')!.run(
+      { command: 'bash', args: ['-c', 'echo hi && echo there'] },
+      { root, allowRunCommand: true },
+    );
+    check('run_command で bash -c によりシェル機能を明示利用できる', cmdBash.ok && cmdBash.output.includes('hi') && cmdBash.output.includes('there'), cmdBash.output);
 
     // 安全策: root 外パスは拒否
     const outside = await getSweTool('read_file')!.run({ path: '/etc/hostname' }, ctx);

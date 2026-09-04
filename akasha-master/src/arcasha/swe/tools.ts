@@ -639,8 +639,13 @@ function runCommand(args: Record<string, unknown>, ctx: SweContext): Promise<Swe
   return new Promise((resolvePromise) => {
     const t0 = Date.now();
     const command = typeof args.command === 'string' ? args.command : '';
+    // シェルインジェクション防止のため、常に「command（実行ファイル名）+ args（引数配列）」で
+    // 実行する（shell:false）。シェル機能（パイプ等）が必要な場合は
+    //   command: "bash", args: ["-c", "…任意シェル…"]
+    // のように明示的にシェルを呼ぶ。args 未指定は単一実行ファイル名として実行する。
+    const argList = Array.isArray(args.args) ? args.args.filter((a): a is string => typeof a === 'string') : [];
     if (command === '') {
-      resolvePromise({ ok: false, output: 'run_command: command が空です', ms: Date.now() - t0 });
+      resolvePromise({ ok: false, output: 'run_command: command（実行ファイル名）が空です', ms: Date.now() - t0 });
       return;
     }
     // 安全のための opt-in: allowRunCommand が true のときのみ任意コマンドを実行する
@@ -653,18 +658,9 @@ function runCommand(args: Record<string, unknown>, ctx: SweContext): Promise<Swe
       return;
     }
     const timeoutMs = typeof args.timeout_ms === 'number' && args.timeout_ms > 0 ? Math.floor(args.timeout_ms) : DEFAULT_TIMEOUT_MS;
-    // 引数分離実行（安全）: args（配列）が指定されたらシェルを介さず spawn する。
-    // シェルメタ文字（パイプ・リダイレクト等）は使えないが、シェルインジェクションを防ぐ。
-    // args が無ければ従来どおり任意シェルコマンド文字列として実行（後方互換・opt-in）。
-    const argList = Array.isArray(args.args) ? args.args.filter((a): a is string => typeof a === 'string') : null;
-    const useShell = argList === null;
 
-    let child: ReturnType<typeof spawn>;
-    if (useShell) {
-      child = spawn(command, { cwd: ctx.root, shell: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    } else {
-      child = spawn(command, argList, { cwd: ctx.root, stdio: ['ignore', 'pipe', 'pipe'] });
-    }
+    // shell:false で引数分離実行（シェルメタ文字はリテラル引数として扱われ、インジェクションを防ぐ）
+    const child = spawn(command, argList, { cwd: ctx.root, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     let settled = false;
@@ -682,14 +678,13 @@ function runCommand(args: Record<string, unknown>, ctx: SweContext): Promise<Swe
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolvePromise({ ok: false, output: `コマンド起動失敗: ${err.message}`, ms: Date.now() - t0 });
+      resolvePromise({ ok: false, output: `コマンド起動失敗: ${err.message}（command は実行ファイル名・引数は args で渡してください）`, ms: Date.now() - t0 });
     });
     child.on('close', (code) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      const mode = useShell ? '' : '（引数分離実行）';
-      const out = `[exit code ${code}]${mode}（${Date.now() - t0}ms）\n--- stdout ---\n${truncate(stdout)}\n--- stderr ---\n${truncate(stderr)}`;
+      const out = `[exit code ${code}]（引数分離実行）（${Date.now() - t0}ms）\n--- stdout ---\n${truncate(stdout)}\n--- stderr ---\n${truncate(stderr)}`;
       resolvePromise({ ok: code === 0, output: out, ms: Date.now() - t0 });
     });
   });
@@ -1115,8 +1110,8 @@ const TOOL_PARAMS: Record<string, SweToolParameter[]> = {
     param({ name: 'path', type: 'string', description: '削除するディレクトリパス（root 自体・tests・.git 等は削除不可）', required: true }),
   ],
   run_command: [
-    param({ name: 'command', type: 'string', description: '実行するコマンド（root を cwd に実行）。args を渡さない場合はシェル文字列として実行（パイプ等可）', required: true }),
-    param({ name: 'args', type: 'array', items: 'string', description: 'オプション。引数分離で安全に実行する場合の引数配列（command は実行ファイル名）。指定時はシェルを介さず実行（シェルインジェクション防止）。例: command="python3", args=["script.py"]' }),
+    param({ name: 'command', type: 'string', description: '実行ファイル名（例: "python3", "bash", "git"）。シェルメタ文字を含めない。シェル機能が必要なら command="bash" を指定', required: true }),
+    param({ name: 'args', type: 'array', items: 'string', description: '実行ファイルへ渡す引数配列（例: ["-c", "print(42)"]）。シェルを介さず引数分離で実行される', required: true }),
     param({ name: 'timeout_ms', type: 'integer', description: 'タイムアウト（ms）' }),
   ],
   run_tests: [
@@ -1223,7 +1218,7 @@ export const SWE_TOOLS: SweTool[] = [
   },
   {
     name: 'run_command',
-    description: 'シェルコマンドをリポジトリ root をカレントディレクトリとして実行する。ビルドやカスタムコマンドに使う。※安全のため opt-in（allowRunCommand=true / env ARCASHA_SWE_ALLOW_RUN=1 / CLI --allow-run-command）でのみ有効。テスト実行は run_tests が便利。',
+    description: 'コマンドをリポジトリ root を cwd に実行する。シェルインジェクション防止のため引数分離実行（shell:false）。command は実行ファイル名、args は引数配列を指定する。シェル機能（パイプ等）が必要な場合は command="bash", args=["-c", "…任意シェル…"] と明示する。※安全のため opt-in（allowRunCommand=true / env ARCASHA_SWE_ALLOW_RUN=1 / CLI --allow-run-command）でのみ有効。テスト実行は run_tests が便利。',
     parameters: TOOL_PARAMS.run_command,
     run: runCommand,
   },

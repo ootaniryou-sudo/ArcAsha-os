@@ -78,6 +78,22 @@ export interface AuditLogger {
   file(): string;
   /** 過去ログ（read-only・改ざん検知付き）を読む。 */
   readAll(): Promise<AuditLine[]>;
+  /** チェーン終端（anchor）ファイルのパス。末尾切り詰め検知用の信頼境界。 */
+  anchorFile(): string;
+  /** 現在の anchor（最終行数 + 最終ハッシュ）を読み出す。無ければ null。 */
+  readAnchor(): Promise<AuditAnchor | null>;
+  /** ログ全体の整合性（ハッシュ連鎖 + anchor 一致）を検証する。 */
+  verify(): Promise<string | null>;
+}
+
+/** チェーン終端（anchor）。JSONL とは別ファイルに保存し、末尾切り詰め・全削除を検知する。 */
+export interface AuditAnchor {
+  /** ログの行数（この行数までが anchor で固定されている）。 */
+  count: number;
+  /** 最終行の連鎖ハッシュ（lineHash）。 */
+  lastHash: string;
+  /** 更新時刻（ISO）。 */
+  ts: string;
 }
 
 /** 監査ロガー生成オプション。 */
@@ -135,17 +151,53 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
   // 鍵: 明示 → env → 一時生成（永続検証には env ARCASHA_AUDIT_SECRET を設定）
   const secret = opts.secret ?? process.env.ARCASHA_AUDIT_SECRET ?? randomUUID();
   const file = path.join(dir, `agent-audit-${new Date().toISOString().slice(0, 10)}.jsonl`);
+  // チェーン終端（anchor）は JSONL とは別ファイルに保存する（末尾切り詰め検知の信頼境界）
+  const anchorPath = path.join(dir, `agent-audit-${new Date().toISOString().slice(0, 10)}.anchor.json`);
   let writeChain: Promise<void> = Promise.resolve();
   // 最後に書き込んだ行の連鎖ハッシュ（並行 emit でも順序を保証するため writeChain 内で更新）
   let lastHash = '';
+  // 現在の行数（anchor 保存用）
+  let rowCount = 0;
 
   function sign(entry: AuditEntry, prevHash: string): string {
     return createHmac('sha256', secret).update(`${canonicalize(entry)}\nprevHash=${prevHash}`).digest('hex');
   }
 
+  // チェーン終端（anchor）を保存する。JSONL 追記後に別ファイルへ書く。
+  async function saveAnchor(hash: string, count: number): Promise<void> {
+    const anchor: AuditAnchor = { count, lastHash: hash, ts: new Date().toISOString() };
+    await fs.writeFile(anchorPath, JSON.stringify(anchor) + '\n', { encoding: 'utf8', mode: 0o600 });
+  }
+
   return {
     dir: () => dir,
     file: () => file,
+    anchorFile: () => anchorPath,
+    async readAnchor(): Promise<AuditAnchor | null> {
+      try {
+        const raw = await fs.readFile(anchorPath, 'utf8');
+        return JSON.parse(raw.trim()) as AuditAnchor;
+      } catch {
+        return null;
+      }
+    },
+    async verify(): Promise<string | null> {
+      const lines = await this.readAll();
+      const chainErr = verifyAuditChain(lines, secret);
+      if (chainErr) return chainErr;
+      // anchor がある場合、末尾切り詰め・全削除を検知する
+      const anchor = await this.readAnchor();
+      if (anchor) {
+        if (lines.length !== anchor.count) {
+          return `ログ行数が anchor（${anchor.count} 行）と不一致（現在 ${lines.length} 行）→ 末尾切り詰めまたは全削除の可能性`;
+        }
+        const finalHash = lines.length > 0 ? lineHash(lines[lines.length - 1]) : '';
+        if (finalHash !== anchor.lastHash) {
+          return '最終ハッシュが anchor と不一致 → ログの末尾が改ざんされた可能性';
+        }
+      }
+      return null;
+    },
     async emit(entry: Omit<AuditEntry, 'ts'>): Promise<AuditLine> {
       const full: AuditEntry = { ...entry, ts: new Date().toISOString() };
       // 初回はファイル末尾の既存行から連鎖を再開する（既存ログへの追記を維持）
@@ -158,6 +210,7 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
             if (rows.length > 0) {
               const prev = JSON.parse(rows[rows.length - 1]) as AuditLine;
               lastHash = lineHash(prev);
+              rowCount = rows.length;
             }
           }
           const prevHash = lastHash;
@@ -166,7 +219,10 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
           await fs.mkdir(dir, { recursive: true, mode: 0o700 });
           // 追記モード（append-only）・0600 で保存
           await fs.appendFile(file, JSON.stringify(line) + '\n', { encoding: 'utf8', mode: 0o600 });
+          rowCount += 1;
           lastHash = lineHash(line);
+          // チェーン終端（anchor）を別ファイルへ更新（末尾切り詰め検知用）
+          await saveAnchor(lastHash, rowCount);
         } catch (e) {
           // 監査ログ失敗はエージェントを止めない（ログに出すだけ）
           console.error(`⚠️ 監査ログ書込失敗: ${String(e).slice(0, 160)}`);
