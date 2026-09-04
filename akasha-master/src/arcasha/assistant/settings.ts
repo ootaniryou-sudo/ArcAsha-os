@@ -74,12 +74,23 @@ export class SettingsStore {
   private settings: AssistantSettings = defaultSettings();
   private readonly filePath = settingsPath();
   private writeChain: Promise<void> = Promise.resolve();
-  private dirty = false;
+  /** 書き込み世代（更新のたびに増える。古い世代の書き込みはスキップされる） */
+  private writeGen = 0;
 
-  /** 起動時に読み込む（無ければ既定値で開始） */
+  /** 起動時に読み込む。ENOENT は既定値。JSON 破損時は .bak へ退避してから既定値で開始する。 */
   async load(): Promise<void> {
+    let raw: string;
     try {
-      const raw = await fs.readFile(this.filePath, 'utf8');
+      raw = await fs.readFile(this.filePath, 'utf8');
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT') {
+        console.error(`⚠️ 設定ファイルを読めません（ファイルは保持します）: ${String(e).slice(0, 160)}`);
+      }
+      this.settings = defaultSettings();
+      return;
+    }
+    try {
       const data = JSON.parse(raw) as Partial<AssistantSettings>;
       const d = defaultSettings();
       this.settings = {
@@ -91,7 +102,14 @@ export class SettingsStore {
         hyperThinking: data.hyperThinking === true,
         language: sanitizeLanguage(data.language),
       };
-    } catch {
+    } catch (e) {
+      // 壊れた設定ファイルで上書きしないよう .bak へ退避してから既定値で開始
+      console.error(`⚠️ 設定ファイルが壊れているため .bak へ退避して既定値で開始します: ${String(e).slice(0, 160)}`);
+      try {
+        await fs.rename(this.filePath, `${this.filePath}.bak`);
+      } catch {
+        /* 退避失敗はログのみ */
+      }
       this.settings = defaultSettings();
     }
   }
@@ -119,20 +137,24 @@ export class SettingsStore {
     return this.filePath;
   }
 
+  /**
+   * 世代番号で書き込みを管理する。
+   * 書き込み中に新しい update が来た場合はこの書き込みをスキップし、
+   * 後続のチェーン（最新世代）が最新状態を保存する。
+   */
   private scheduleWrite(): void {
-    this.dirty = true;
+    const gen = ++this.writeGen;
     this.writeChain = this.writeChain.then(async () => {
-      if (!this.dirty) return;
+      if (gen !== this.writeGen) return; // より新しい更新が来ている → そちらに任せる
       try {
         await fs.mkdir(path.dirname(this.filePath), { recursive: true });
         const tmp = this.filePath + '.tmp';
         // API キーを含むため 0600 で作成（他のローカルユーザーから読めないように）
         await fs.writeFile(tmp, JSON.stringify(this.settings, null, 2), { encoding: 'utf8', mode: 0o600 });
-        await fs.chmod(tmp, 0o600).catch(() => undefined);
+        await fs.chmod(tmp, 0o600); // 失敗したら rename せず throw（0600 以外で保存しない）
         await fs.rename(tmp, this.filePath);
-        this.dirty = false; // 書き込み成功して初めてクリア（失敗時は次回の update で再試行）
       } catch (e) {
-        console.error(`⚠️ 設定の保存に失敗（再試行します）: ${String(e).slice(0, 120)}`);
+        console.error(`⚠️ 設定の保存に失敗（次回の update 時に再試行します）: ${String(e).slice(0, 120)}`);
       }
     });
   }

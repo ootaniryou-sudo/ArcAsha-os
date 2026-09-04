@@ -451,7 +451,8 @@ async function ailsmCompileTool(args: Record<string, unknown>): Promise<SweToolR
       lines.push(`  ${nameOf(i.opcode)} ${slots}`.trimEnd());
     }
     lines.push('');
-    lines.push(`検証: ${r.verification.valid ? '✅ 有効な命令列です' : '❌ 検証に失敗しました: ' + r.verification.issues.map((i) => i.message).join('; ')}`);
+    // compile() は検証に失敗すると throw するため、ここに到達した時点で常に valid
+    lines.push('検証: ✅ 有効な命令列です（Verifier 通過）');
     if (r.notes.length > 0) {
       lines.push('');
       lines.push('最適化メモ:');

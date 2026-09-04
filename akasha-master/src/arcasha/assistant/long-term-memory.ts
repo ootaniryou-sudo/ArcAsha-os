@@ -94,20 +94,18 @@ export class LongTermMemory {
   private ephemeralIds = new Set<string>();
   private readonly filePath: string;
   private writeChain: Promise<void> = Promise.resolve();
-  private dirty = false;
+  /** 書き込み世代（更新のたびに増える。古い世代の書き込みはスキップされる） */
+  private writeGen = 0;
 
   constructor(dir = defaultMemoryDir()) {
     this.filePath = path.join(dir, 'assistant-memory.json');
   }
 
-  /** 起動時にファイルから読み込む。ENOENT のみ空で開始し、破損時は .bak へ退避してから空で開始する。 */
+  /** 起動時にファイルから読み込む。ENOENT のみ空で開始。JSON 破損時のみ .bak へ退避してから空で開始する（読み取り不能ファイルは退避せずそのまま保持）。 */
   async load(): Promise<void> {
+    let raw: string;
     try {
-      const raw = await fs.readFile(this.filePath, 'utf8');
-      const data = JSON.parse(raw) as Partial<MemorySnapshot>;
-      this.threads = Array.isArray(data.threads) ? data.threads : [];
-      this.facts = Array.isArray(data.facts) ? data.facts : [];
-      this.knowledge = Array.isArray(data.knowledge) ? data.knowledge : [];
+      raw = await fs.readFile(this.filePath, 'utf8');
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
       if (code === 'ENOENT') {
@@ -116,12 +114,25 @@ export class LongTermMemory {
         this.knowledge = [];
         return;
       }
-      // 壊れたファイルで既存の記憶を上書きしないよう、退避してから空で開始する
-      console.error(`⚠️ 記憶ファイルが読めないため .bak へ退避して空で開始します: ${String(e).slice(0, 160)}`);
+      // 読み取り自体が失敗（権限など）: ファイルは退避せず、空で開始する
+      console.error(`⚠️ 記憶ファイルを読めません（ファイルは保持します）: ${String(e).slice(0, 160)}`);
+      this.threads = [];
+      this.facts = [];
+      this.knowledge = [];
+      return;
+    }
+    try {
+      const data = JSON.parse(raw) as Partial<MemorySnapshot>;
+      this.threads = Array.isArray(data.threads) ? data.threads : [];
+      this.facts = Array.isArray(data.facts) ? data.facts : [];
+      this.knowledge = Array.isArray(data.knowledge) ? data.knowledge : [];
+    } catch (e) {
+      // 読めたが JSON が壊れている場合のみ .bak に退避（壊れたファイルで記憶を上書きしない）
+      console.error(`⚠️ 記憶ファイルが壊れているため .bak へ退避して空で開始します: ${String(e).slice(0, 160)}`);
       try {
         await fs.rename(this.filePath, `${this.filePath}.bak`);
       } catch {
-        /* 退避に失敗しても続行（読み取り不能なままだと次回も同じエラーになるため、退避失敗時はその旨を記録） */
+        /* 退避失敗はログのみ */
       }
       this.threads = [];
       this.facts = [];
@@ -129,20 +140,23 @@ export class LongTermMemory {
     }
   }
 
-  /** 変更をファイルへ直列化して書く（多重 write を直列化。失敗時は dirty を保持して次回再試行） */
+  /**
+   * 変更をファイルへ直列化して書く（世代番号で管理）。
+   * 書き込み中に新しい変更が来た場合はこの書き込みをスキップし、
+   * 後続のチェーン（最新世代）が最新状態を保存する。
+   */
   private scheduleWrite(): void {
-    this.dirty = true;
+    const gen = ++this.writeGen;
     this.writeChain = this.writeChain.then(async () => {
-      if (!this.dirty) return;
+      if (gen !== this.writeGen) return; // より新しい変更が来ている → そちらに任せる
       try {
         await fs.mkdir(path.dirname(this.filePath), { recursive: true });
         const tmp = this.filePath + '.tmp';
         await fs.writeFile(tmp, JSON.stringify(this.snapshot(), null, 2), { encoding: 'utf8', mode: 0o600 });
-        await fs.chmod(tmp, 0o600).catch(() => undefined);
+        await fs.chmod(tmp, 0o600); // 失敗したら rename せず throw（0600 以外で保存しない）
         await fs.rename(tmp, this.filePath);
-        this.dirty = false; // 書き込み成功して初めてクリア（失敗時は次回の scheduleWrite で再試行）
       } catch (e) {
-        console.error(`⚠️ 記憶の保存に失敗（再試行します）: ${String(e).slice(0, 120)}`);
+        console.error(`⚠️ 記憶の保存に失敗（次回の変更時に再試行します）: ${String(e).slice(0, 120)}`);
       }
     });
   }
@@ -219,6 +233,7 @@ export class LongTermMemory {
     const i = this.threads.findIndex((t) => t.id === threadId);
     if (i < 0) return false;
     this.threads.splice(i, 1);
+    this.ephemeralIds.delete(threadId); // 一時スレッド ID のリーク防止
     this.scheduleWrite();
     return true;
   }

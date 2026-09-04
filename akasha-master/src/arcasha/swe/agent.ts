@@ -67,9 +67,17 @@ export interface SweAgentOptions {
   maxIterations?: number;
   /**
    * run_command（任意コマンド実行）を許可するか。既定 false（安全のため opt-in）。
-   * env ARCASHA_SWE_ALLOW_RUN=1 でも有効化される。
+   * honorEnvAllowRun=true（既定）のときは env ARCASHA_SWE_ALLOW_RUN=1 でも有効化される。
+   * サーバ経由では honorEnvAllowRun=false にして env を無視する（CLI 専用）。
    */
   allowRunCommand?: boolean;
+  /**
+   * env ARCASHA_SWE_ALLOW_RUN を尊重するか。既定 true（CLI 互換）。
+   * サーバ（/api/agent）では false を指定する。
+   */
+  honorEnvAllowRun?: boolean;
+  /** 中断信号（SSE クライアント切断時など）。ループ先頭と各ツール実行前に確認する。 */
+  signal?: AbortSignal;
   /** 追加のコンテキスト（既存テスト名・失敗出力など）。 */
   extraContext?: string;
   /**
@@ -110,7 +118,7 @@ export async function runSweAgent(
     throw new Error(`root が存在しません: ${root}（${(e as Error).message}）`);
   }
 
-  const allowRunCommand = opts.allowRunCommand === true || process.env.ARCASHA_SWE_ALLOW_RUN === '1';
+  const allowRunCommand = opts.allowRunCommand === true || (opts.honorEnvAllowRun !== false && process.env.ARCASHA_SWE_ALLOW_RUN === '1');
   const ctx: SweContext = { root, allowRunCommand };
   const chatOpts: ChatOptions = { ...chatDefaults(), ...opts.chat };
 
@@ -131,14 +139,23 @@ export async function runSweAgent(
 
   let emptyReplies = 0; // 不完全応答（空 content / 打ち切り）の連続回数
   for (let i = 0; i < maxIterations; i++) {
+    // クライアント切断などの中断信号があれば即座に打ち切る
+    if (opts.signal?.aborted) {
+      stopReason = 'aborted';
+      finalAnswer = steps.length > 0
+        ? '（クライアントが切断されたため中断しました）'
+        : '（中断されました）';
+      break;
+    }
     // 残りステップが少なくなったら収束を促す警告を注入する
+    // （予算が小さい場合は最初から警告せず、ツールを使わせる）
     const remaining = maxIterations - i;
-    if (remaining === 5) {
+    if (maxIterations >= 8 && remaining === 5) {
       messages.push({
         role: 'user',
         content: '（システム: 残りステップはあと 5 回です。調査を打ち切り、わかった範囲で結論をまとめて最終回答を出してください。修正が必要ならこの時点で write_file / edit_file を実行してください。）',
       });
-    } else if (remaining === 2) {
+    } else if (maxIterations >= 5 && remaining === 2) {
       messages.push({
         role: 'user',
         content: '（システム: 残りステップはあと 2 回です。ツールを呼ばず、ここまでの結果を日本語で最終回答してください。）',
@@ -196,8 +213,9 @@ export async function runSweAgent(
     // 不完全応答でなければカウンタをリセット
     emptyReplies = 0;
 
-    // tool_calls を実行する
+    // tool_calls を実行する（各ツールの前にも中断を確認する）
     for (const tc of message.toolCalls) {
+      if (opts.signal?.aborted) break;
       toolCalls++;
       const tool = getSweTool(tc.name);
       if (!tool) {

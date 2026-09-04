@@ -718,7 +718,7 @@ function makeAiActions(el, text){
   const cp=mk('📋 Copy',()=>copyText(text),'Copy');
   const good=mk('👍 Good response',()=>{good.classList.toggle('on-good');toast('👍 フィードバックを記録しました');},'Good response');
   const bad=mk('👎 Bad response',()=>{bad.classList.toggle('on-bad');toast('👎 フィードバックを記録しました');},'Bad response');
-  const br=mk('⑂ Branch',async()=>{await newConversation(true);toast('⑂ 新しい会話を分岐しました');},'Branch into a new conversation');
+  const br=mk('⑂ Branch',async()=>{const ok=await newConversation(true);if(ok)toast('⑂ 新しい会話を分岐しました');},'Branch into a new conversation');
   bar.appendChild(cp);bar.appendChild(good);bar.appendChild(bad);bar.appendChild(br);
   el.appendChild(bar);
 }
@@ -1030,13 +1030,18 @@ inp.addEventListener('keydown',e=>{
 inp.addEventListener('input',autoGrow);
 function autoGrow(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,180)+'px'}
 
-/* 新規会話 / 分岐（cloneFrom 指定時は元スレッドのメッセージをサーバ側でコピー） */
+/* 新規会話 / 分岐（cloneFrom 指定時は元スレッドのメッセージをサーバ側でコピー）。成功したら true。 */
 async function newConversation(branch){
-  const r=await fetch('/api/threads',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({mode, cloneFrom: branch?threadId:undefined})});
-  const d=await r.json();threadId=d.thread.id;rememberThread(threadId);
-  if(!branch){chatInner.querySelectorAll('.turn').forEach(n=>n.remove());addSystem('🆕 新しい会話を始めましょう。何でも話しかけてください。')}
-  refreshSide();
+  try{
+    const r=await fetch('/api/threads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode, cloneFrom: branch?threadId:undefined})});
+    const d=await r.json();
+    if(!r.ok||!d.thread||d.error){addSystem('⚠️ '+(d.error||('スレッド作成に失敗しました: '+r.status)));return false}
+    threadId=d.thread.id;rememberThread(threadId);
+    if(!branch){chatInner.querySelectorAll('.turn').forEach(n=>n.remove());addSystem('🆕 新しい会話を始めましょう。何でも話しかけてください。')}
+    refreshSide();
+    return true;
+  }catch(e){addSystem('⚠️ '+e);return false}
 }
 $('newBtn').addEventListener('click',()=>newConversation(false));
 
@@ -1053,10 +1058,13 @@ async function refreshSide(){
       if(MODEL_DISPLAY[m0])applyModel(m0);
     }
     // リロード後の復元: まだ会話が描画されていなければ最後のスレッドを開く
-    // （サーバの currentThreadId が無い場合も localStorage の記録を使う）
+    // （localStorage の記録を優先し、サーバの currentThreadId はフォールバック）
     if(!autoOpened && chatInner.querySelectorAll('.turn').length===0){
       const last = lastThreadId();
-      const target = d.currentThreadId || ((last && (d.threads||[]).some(t=>t.id===last)) ? last : null);
+      const threads = d.threads||[];
+      const serverCur = d.currentThreadId;
+      const target = (last && threads.some(t=>t.id===last)) ? last
+        : ((serverCur && threads.some(t=>t.id===serverCur)) ? serverCur : null);
       if(target){autoOpened=true;threadId=target;openThread(target)}
     }
   }catch(_){}
@@ -1111,7 +1119,7 @@ function renderTraj(){
     card.appendChild(s);
     run.steps.forEach((st,si)=>{
       const row=document.createElement('div');row.className='tool-call';row.style.marginTop='6px';
-      const tools=(st.toolResults||[]).map((tr,i)=>{const tc=(st.message&&st.message.toolCalls&&st.message.toolCalls[i])||{name:tr.name};return '• '+tc.name+' ('+(tr.ok?'ok':'error')+', '+tr.ms+'ms)'}).join('<br/>');
+      const tools=(st.toolResults||[]).map((tr,i)=>{const tc=(st.message&&st.message.toolCalls&&st.message.toolCalls[i])||{name:tr.name};return '• '+esc(tc.name||'')+' ('+(tr.ok?'ok':'error')+', '+tr.ms+'ms)'}).join('<br/>');
       row.innerHTML='<div class="tc-body" style="display:flex">'+
         '<span style="font-size:11px;color:var(--dim)">step '+(si+1)+' · '+st.ms+'ms'+(st.message&&st.message.reasoning?' · 💭 thought':'')+'</span>'+
         '<span style="font-size:11.5px;color:var(--ink2)">'+(tools||'<span style="color:var(--dim)">（最終回答）</span>')+'</span>'+

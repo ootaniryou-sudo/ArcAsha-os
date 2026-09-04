@@ -86,7 +86,7 @@ npm run assistant:test     # Unit-Tests für Gedächtnis + Extraktionsregeln (21
 
 - **Casual-Modus (Standard)**: Alltagsaufgaben in natürlicher Sprache (Beratung・Text・Zusammenfassung・Ideen).
   Selbstvorstellungen („Mein Name ist …“ / „ich mag/mag nicht …“) werden automatisch gemerkt
-- **Expertenmodus**: Umschalten oben rechts → Slash-Befehle wie `/help` `/memory` `/remember` `/forget` `/pin`
+- **Expertenmodus**: Wechsel per Slash-Befehl `/expert` / `/casual` (vom Assistant-Server verarbeitet) → Befehle wie `/help` `/memory` `/remember` `/forget` `/pin`
 - **AI Coding Agent (Workspace Write)**: Access mode unten links auf `Workspace Write` stellen und per Chat **echte Dateien bearbeiten** (SWE-Agent-Tool-Loop mit Streaming von Tool-Calls, „Thought for a while“ und Trajectory-Log)
 - **Mehrsprachige Endpunkte**: `/ja` `/en` `/zh` `/ko` wechseln die UI-Sprache (der 🌐-Chip oben tut dasselbe; `/` nutzt die gespeicherte Sprache)
 - **Einstellungen-Tab**: API-Key / Base-URL per Web setzen (überschreibt .env; gespeichert unter `~/.arcasha/assistant-settings.json`, Key maskiert), Modellauswahl mit eigener Modelleingabe („Sonstiges“)

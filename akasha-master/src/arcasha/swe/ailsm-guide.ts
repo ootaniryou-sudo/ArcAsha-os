@@ -2,7 +2,7 @@
  * AILSM Guide — LLM が AILSM を「読める・書ける」ための説明書
  *
  * AILSM（ArcAsha Inter Language for Small AI models）は ArcAsha の中心にある
- * 型付き中間言語（IR）で、registry.json（唯一の権威）が全 65 命令を定義する。
+ * 型付き中間言語（IR）で、registry.json（唯一の権威）が全 73 命令を定義する。
  * このモジュールは、その registry から LLM 向けの「説明書」を自動生成する。
  *
  * LLM は人間向けの仕様書を読まなくても、このガイドだけで

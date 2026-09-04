@@ -77,7 +77,9 @@ await settings.load();
 function activeFleet(): FleetExpert[] {
   const s = settings.get();
   // 設定の API キー or env キーがあれば実モデル接続として扱う（起動時に fleet がモックでも設定で接続できる）
-  const hasAnyKey = s.apiKey !== '' || process.env.DEEPSEEK_API_KEY !== '';
+  // 注: process.env.DEEPSEEK_API_KEY は未定義だと undefined !== '' が true になるため、
+  // truthiness（!!）で判定する（P0: モックモードが壊れるバグの修正）
+  const hasAnyKey = s.apiKey !== '' || !!process.env.DEEPSEEK_API_KEY;
   const fGeneral = fleet.find((e) => e.role === 'general');
   const fReasoning = fleet.find((e) => e.role === 'reasoning');
   const generalModel = hasAnyKey ? (s.model || 'deepseek-v4-flash') : (fGeneral?.model ?? 'mock');
@@ -174,7 +176,7 @@ async function answerThread(
   // 実モデル接続か: env キーに加えて設定タブの API キーでも実接続になる
   // （deepseek-v4 は既定 thinking 有効のため、通常は thinking を無効化して確実に content を返す）
   // ハイパー Thinking モードでは逆に thinking + reasoning_effort=max を使う。
-  const realModel = settings.get().apiKey !== '' || process.env.DEEPSEEK_API_KEY !== '' || fleet.some((e) => e.model !== 'mock');
+  const realModel = settings.get().apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || fleet.some((e) => e.model !== 'mock');
   const hyper = s.hyperThinking;
   const genT0 = Date.now();
   let reply = '';
@@ -210,8 +212,14 @@ async function answerThread(
     return { text: String((await hub.generate(node.nodeId, [system, '', userBody].join('\n'), maxTokens)) ?? '').trim(), reasoning: '' };
   };
 
-  // フォールバックチェーン: 担当 → 艦隊の残りノードを順に試す（参加モデル数の制御）
-  const chain = [expert, ...orchestration.filter((e) => e !== expert)];
+  // フォールバックチェーン: 担当 → 艦隊の残りノードを順に試す（参加モデル数の制御）。
+  // 同じモデル名のノードへの重複リトライは無意味なので、モデルごとに 1 回だけ試す。
+  const seenModels = new Set<string>();
+  const chain = [expert, ...orchestration.filter((e) => e !== expert)].filter((n) => {
+    if (seenModels.has(n.model)) return false;
+    seenModels.add(n.model);
+    return true;
+  });
   for (let i = 0; i < chain.length; i++) {
     const node = chain[i];
     try {
@@ -438,36 +446,41 @@ const server = http.createServer(async (req, res) => {
       const maxTokens = Number(body.max_tokens) > 0 ? Number(body.max_tokens) : DEFAULT_MAX_TOKENS;
       // API 用の一時スレッド（履歴を長期記憶に残さない・中断されても永続化されない）
       const tmp = memory.createThread({ mode: body.mode === 'expert' ? 'expert' : 'casual', ephemeral: true });
-      for (const m of messages) {
-        if (m.role === 'user' || m.role === 'assistant') {
-          memory.appendMessage(tmp.id, { role: m.role, content: String(m.content ?? '') });
+      try {
+        for (const m of messages) {
+          if (m.role === 'user' || m.role === 'assistant') {
+            memory.appendMessage(tmp.id, { role: m.role, content: String(m.content ?? '') });
+          }
         }
+        // system メッセージは破棄せず、先頭のものをシステムプロンプトとして使う
+        const sysMsg = messages.find((m) => m.role === 'system');
+        const r = await answerThread(tmp.id, {
+          maxTokens,
+          mode: tmp.mode,
+          model: reqModel, // /v1/models で公開したモデルを呼び分けられる
+          systemPrompt: sysMsg ? String(sysMsg.content) : undefined,
+        });
+        const usage = hub.lastApiUsage;
+        // last.content は null の可能性があるため安全に文字列化してから推定する
+        const pTok = usage?.promptTokens ?? Math.ceil(String(last.content ?? '').length / 4);
+        const cTok = usage?.completionTokens ?? Math.ceil(r.reply.length / 4);
+        sendJson(200, {
+          id: `chatcmpl-arcasha-${Date.now()}`,
+          object: 'chat.completion',
+          created: Math.floor(Date.now() / 1000),
+          model: r.model,
+          choices: [{ index: 0, message: { role: 'assistant', content: r.reply }, finish_reason: 'stop' }],
+          usage: {
+            prompt_tokens: pTok,
+            completion_tokens: cTok,
+            total_tokens: pTok + cTok, // フォールバック値同士で一貫させる
+          },
+          _arcasha: { ms: r.ms, model: r.model, kind: r.kind, expert: r.expert, trace: r.trace },
+        });
+      } finally {
+        // 失敗時も一時スレッドを必ず削除する（メモリに残らないように）
+        memory.deleteThread(tmp.id);
       }
-      // system メッセージは破棄せず、先頭のものをシステムプロンプトとして使う
-      const sysMsg = messages.find((m) => m.role === 'system');
-      const r = await answerThread(tmp.id, {
-        maxTokens,
-        mode: tmp.mode,
-        model: reqModel, // /v1/models で公開したモデルを呼び分けられる
-        systemPrompt: sysMsg ? String(sysMsg.content) : undefined,
-      });
-      memory.deleteThread(tmp.id);
-      const usage = hub.lastApiUsage;
-      const pTok = usage?.promptTokens ?? Math.ceil(last.content.length / 4);
-      const cTok = usage?.completionTokens ?? Math.ceil(r.reply.length / 4);
-      sendJson(200, {
-        id: `chatcmpl-arcasha-${Date.now()}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: r.model,
-        choices: [{ index: 0, message: { role: 'assistant', content: r.reply }, finish_reason: 'stop' }],
-        usage: {
-          prompt_tokens: pTok,
-          completion_tokens: cTok,
-          total_tokens: pTok + cTok, // フォールバック値同士で一貫させる
-        },
-        _arcasha: { ms: r.ms, model: r.model, kind: r.kind, expert: r.expert, trace: r.trace },
-      });
     } catch (e) {
       sendJson(500, { error: { message: String(e) } });
     }
@@ -531,6 +544,11 @@ const server = http.createServer(async (req, res) => {
   // ── Coding Agent（実ファイル編集・SSE ストリーミング） ──
   if (req.method === 'POST' && url.pathname === '/api/agent') {
     try {
+      // 状態を変更するエンドポイントなので、許可された Origin 以外は拒否する
+      if (origin && origin !== allowOrigin) {
+        sendJson(403, { error: `許可されていない Origin です: ${origin}` });
+        return;
+      }
       const body = JSON.parse(await readBody());
       const prompt = String(body.prompt ?? body.message ?? '').trim();
       if (!prompt) {
@@ -538,18 +556,24 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       // root は明示指定がない限り AGENT_WORKDIR（env / cwd）。外部ディレクトリは許可しない。
-      // プレフィックス一致ではなく path.relative の境界判定を使う（/work/repo-other を弾く）
+      // 語彙チェック + realpath 解決の両方で境界を検証する（/work/repo-other や
+      // root 内 symlink でワークスペース外の実体を指すケースを弾く）
       let root = AGENT_WORKDIR;
       if (typeof body.root === 'string' && body.root.trim() !== '') {
         root = path.resolve(body.root);
-        const rel = path.relative(AGENT_WORKDIR, root);
+        const [realBase, realRoot] = await Promise.all([
+          fs.realpath(AGENT_WORKDIR).catch(() => AGENT_WORKDIR),
+          fs.realpath(root).catch(() => root),
+        ]);
+        const rel = path.relative(realBase, realRoot);
         const inside = rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
         if (!inside) {
           sendJson(403, { error: `許可されていない作業ディレクトリです: ${root}` });
           return;
         }
       }
-      // 任意コマンド実行はサーバ設定（ARCASHA_AGENT_ALLOW_RUN）だけが決める。リクエストからは有効化できない。
+      // 任意コマンド実行はサーバ設定（ARCASHA_AGENT_ALLOW_RUN）だけが決める。
+      // リクエストからも CLI 用 env（ARCASHA_SWE_ALLOW_RUN）からも有効化できない。
       const allowRun = AGENT_ALLOW_RUN;
       // ループ数はサーバ側の上限（50）でキャップする
       const reqIter = Number(body.maxIterations);
@@ -557,6 +581,14 @@ const server = http.createServer(async (req, res) => {
         Number.isSafeInteger(reqIter) && reqIter >= 1 ? reqIter : 30,
         50,
       );
+
+      // クライアント切断を検知してエージェントを止める（AbortSignal）
+      const controller = new AbortController();
+      let aborted = false;
+      req.on('close', () => {
+        aborted = true;
+        controller.abort();
+      });
 
       // SSE ヘッダー
       res.writeHead(200, {
@@ -569,6 +601,7 @@ const server = http.createServer(async (req, res) => {
         'X-Accel-Buffering': 'no',
       });
       const sse = (event: string, data: unknown) => {
+        if (aborted) return; // 切断後は書き込まない
         res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
       };
 
@@ -583,8 +616,10 @@ const server = http.createServer(async (req, res) => {
           root,
           issue: prompt,
           allowRunCommand: allowRun,
+          honorEnvAllowRun: false, // サーバ経由では ARCASHA_SWE_ALLOW_RUN を無視（CLI 専用）
           maxIterations,
           chat: agentChat,
+          signal: controller.signal,
           onStep: (step, index) => {
             sse('step', {
               index,

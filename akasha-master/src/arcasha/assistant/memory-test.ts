@@ -114,6 +114,17 @@ async function main(): Promise<void> {
   // 同一メッセージ内の重複は 1 回だけ抽出
   const r9 = extractRememberAll('コーヒーが好きです。コーヒーが好きです', () => false);
   ok(r9.filter((x) => x.text === 'ユーザーはコーヒーが好き').length === 1, '同一メッセージ内の重複は 1 回だけ');
+  // 回帰: 「と」で終わる名前（まこと）が文字欠けしない
+  const r10 = extractRememberAll('私の名前はまことです', () => false);
+  ok(r10.some((x) => x.text === 'ユーザーの名前はまことさん'), '名前「まこと」が文字欠けしない');
+  // 回帰: 「私の名前は太郎と呼んでください」で「太郎と」が残らない
+  const r11 = extractRememberAll('私の名前は太郎と呼んでください', () => false);
+  ok(r11.some((x) => x.text === 'ユーザーの名前は太郎さん'), '「名前は〜と呼んで」で正しく名前だけ捕捉');
+  ok(!r11.some((x) => x.text.includes('太郎と')), '名前に「と」が残らない');
+  // カンマ区切りの複数好み
+  const r12 = extractRememberAll('猫が好き、犬が苦手', () => false);
+  ok(r12.some((x) => x.text === 'ユーザーは猫が好き'), 'カンマ区切り: 猫が好き');
+  ok(r12.some((x) => x.text === 'ユーザーは犬が苦手'), 'カンマ区切り: 犬が苦手');
 
   // 後片付け（書き込みチェーンの完了を待ってから削除）
   await new Promise((r) => setTimeout(r, 50));
