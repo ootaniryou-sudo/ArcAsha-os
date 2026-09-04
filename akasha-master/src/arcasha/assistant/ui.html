@@ -524,7 +524,7 @@ textarea::placeholder{color:var(--dim)}
               <div class="desc"><b>役割別</b>: General は既定 Flash、Reasoning は Pro/カスタムで役割分担し、空応答時にフォールバック。<br/><b>同一モデルで N 台</b>: 選んだモデル（例: DeepSeek-V4-Flash）を N 台並列同時に呼び、最初の有効応答を採用します。複数 API を登録すればプロバイダ違いの同一モデルも並列できます。</div>
             </div>
             <div class="set-row">
-              <label data-i18n="set.thinking">💭 思考（Thinking）に使用するトークン上限</label>
+              <label for="setThinking" data-i18n="set.thinking">💭 思考（Thinking）に使用するトークン上限</label>
               <div style="display:flex;align-items:center;gap:12px">
                 <input type="range" id="setThinking" min="512" max="32768" step="200" value="8000" />
                 <span class="count-val" id="setThinkingVal">8000</span>
@@ -1218,7 +1218,11 @@ async function deleteThread(id){
 }
 async function openThread(id){
   threadId=id;rememberThread(id);
-  const r=await fetch('/api/threads/'+id);const d=await r.json();
+  let r,d;
+  try{
+    r=await fetch('/api/threads/'+id);d=await r.json();
+  }catch(e){toast('⚠️ '+e);return}
+  if(!r.ok||!d||!d.thread){toast('⚠️ '+t('thread.fail'));refreshSide();return}
   const th=d.thread;mode=th.mode||'casual';
   chatInner.querySelectorAll('.turn').forEach(n=>n.remove());
   if(!th.messages.length)addSystem('（この会話にはまだメッセージがありません）');

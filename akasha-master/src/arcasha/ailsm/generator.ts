@@ -150,7 +150,23 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   // 定数畳み込み結果は SLOT_INPUT として伝達（オペコードは不要 — 値が確定済み）
   if (foldedValue) addSlot(goalSlots, Slot.INPUT, foldedValue);
 
-  const taskOp = TASK_OF_INTENT[intent] ?? Task.SOLVE;
+  // タスク動詞を選ぶ。code ドメインでは実行したアクションに応じて適切なタスクを選ぶ
+  // （READ/GREP → 検索タスク、EDIT → 修正タスク、RUN_COMMAND → 実行タスク）。
+  let taskOp: Task;
+  if (domain === 'code') {
+    const codeActs = actions.filter((a) => CODE_OPCODE_OF_ACTION[a as CanonicalAction] !== undefined);
+    if (codeActs.some((a) => a === 'ACTION_EDIT_FILE')) {
+      taskOp = Task.PATCH;
+    } else if (codeActs.some((a) => a === 'ACTION_READ_FILE' || a === 'ACTION_GREP')) {
+      taskOp = Task.SEARCH;
+    } else if (codeActs.some((a) => a === 'ACTION_RUN_COMMAND')) {
+      taskOp = Task.SOLVE;
+    } else {
+      taskOp = TASK_OF_INTENT[intent] ?? Task.PATCH;
+    }
+  } else {
+    taskOp = TASK_OF_INTENT[intent] ?? Task.SOLVE;
+  }
   instrs.push({ opcode: taskOp, slots: goalSlots });
   instrs.push({ opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: tid }] });
 

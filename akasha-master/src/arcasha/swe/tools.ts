@@ -174,6 +174,7 @@ interface SpawnOutcome {
 /**
  * 引数分離でコマンドを実行して出力を捕捉する（shell: false — インジェクション防止）。
  * git 系ツール・run_tests はこのヘルパーを使う。
+ * 各ストリーム（stdout / stderr）は MAX_OUTPUT_BYTES を超えた分を破棄する（メモリ保護）。
  */
 function captureSpawn(
   command: string,
@@ -186,14 +187,30 @@ function captureSpawn(
     let stdout = '';
     let stderr = '';
     let settled = false;
+    let stdoutCapped = false;
+    let stderrCapped = false;
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
       child.kill('SIGKILL');
       resolve({ code: null, stdout, stderr, timedOut: true });
     }, timeoutMs);
-    child.stdout?.on('data', (d: Buffer) => { stdout += d.toString('utf8'); });
-    child.stderr?.on('data', (d: Buffer) => { stderr += d.toString('utf8'); });
+    child.stdout?.on('data', (d: Buffer) => {
+      if (stdout.length < MAX_OUTPUT_BYTES) {
+        stdout += d.toString('utf8');
+        if (stdout.length > MAX_OUTPUT_BYTES) { stdout = stdout.slice(0, MAX_OUTPUT_BYTES); stdoutCapped = true; }
+      } else {
+        stdoutCapped = true;
+      }
+    });
+    child.stderr?.on('data', (d: Buffer) => {
+      if (stderr.length < MAX_OUTPUT_BYTES) {
+        stderr += d.toString('utf8');
+        if (stderr.length > MAX_OUTPUT_BYTES) { stderr = stderr.slice(0, MAX_OUTPUT_BYTES); stderrCapped = true; }
+      } else {
+        stderrCapped = true;
+      }
+    });
     child.on('error', (err) => {
       if (settled) return;
       settled = true;
@@ -204,7 +221,10 @@ function captureSpawn(
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve({ code, stdout, stderr, timedOut: false });
+      // 切り詰めた場合は末尾にマーカーを添える
+      const sOut = stdoutCapped ? `${stdout}\n…（stdout が長いため切り詰め）` : stdout;
+      const sErr = stderrCapped ? `${stderr}\n…（stderr が長いため切り詰め）` : stderr;
+      resolve({ code, stdout: sOut, stderr: sErr, timedOut: false });
     });
   });
 }
@@ -515,14 +535,17 @@ async function replaceAll(args: Record<string, unknown>, ctx: SweContext): Promi
     updated = content.split(oldStr).join(newStr);
     detail = `${count} 箇所置換`;
   } else {
-    // N 番目（1-indexed）のみ置換
+    // N 番目（1-indexed）のみ置換。全置換（split/join）と同じく非重複で数えるため、
+    // 検索開始位置は前回マッチの末尾（idx + oldStr.length）へ進める。
     const nth = Math.max(1, nthRaw);
     let idx = -1;
+    let searchFrom = 0;
     let found = 0;
     for (let i = 0; i < nth; i++) {
-      idx = content.indexOf(oldStr, idx + 1);
+      idx = content.indexOf(oldStr, searchFrom);
       if (idx === -1) break;
       found = i + 1;
+      searchFrom = idx + oldStr.length;
     }
     if (found < nth) {
       return { ok: false, output: `replace_all: ${nth} 番目の old_string が見つかりません（${p}）。実際の出現は ${found} 箇所です。`, ms: Date.now() - t0 };
@@ -683,6 +706,11 @@ async function gitDiffTool(args: Record<string, unknown>, ctx: SweContext): Prom
     if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
     // git は root の実体（realpath 解決後）基準で動くため、realRoot から相対を計算する
     const rel = path.relative(r.realRoot, r.real);
+    // path='.' や root 絶対パスは空 pathspec になり git が失敗する → pathspec を省略して全差分を返す
+    if (rel === '' || rel === '.') {
+      const out = await captureSpawn('git', ['diff', '--no-color'], ctx.root, 30_000);
+      return toToolResult('git diff', out, t0, '（変更なし — 作業ツリーに差分はありません）');
+    }
     const out = await captureSpawn('git', ['diff', '--no-color', '--', rel], ctx.root, 30_000);
     return toToolResult('git diff', out, t0, `（変更なし: ${p}）`);
   }
@@ -703,6 +731,21 @@ async function gitRevertTool(args: Record<string, unknown>, ctx: SweContext): Pr
   const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
   const rel = path.relative(r.realRoot, r.real);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
+    return { ok: false, output: `git_revert: パスはルート外です: ${p}`, ms: Date.now() - t0 };
+  }
+  // P1 安全策: エージェント起因でない事前のステージ済み変更（git add 済み）を破棄しないよう、
+  // 対象がステージ済みの変更を含む場合は拒否する（git restore はステージ済みも元に戻すため）。
+  const staged = await captureSpawn('git', ['diff', '--cached', '--name-only', '--', rel], ctx.root, 15_000);
+  if (staged.stdout.trim().length > 0) {
+    return {
+      ok: false,
+      output: `git_revert 中止: ${p} はステージ済み（git add 済み）の変更を含みます。` +
+        'git restore はステージ済みの変更も破棄するため、エージェント起因でない編集を失う恐れがあります。' +
+        'ステージを解除してから再度実行するか、手動で確認してください。',
+      ms: Date.now() - t0,
+    };
+  }
   const out = await captureSpawn('git', ['restore', '--', rel], ctx.root, 30_000);
   return toToolResult('git restore', out, t0, `変更を破棄しました: ${p}（最終コミットの状態に戻しました）`);
 }
@@ -714,9 +757,18 @@ async function gitRevertTool(args: Record<string, unknown>, ctx: SweContext): Pr
 async function runTestsTool(args: Record<string, unknown>, ctx: SweContext): Promise<SweToolResult> {
   const t0 = Date.now();
   const rawTarget = typeof args.target === 'string' ? args.target.trim() : '';
-  // パス指定は root 内に限定（pytest の node 指定「tests/test_x.py::test_y」も許可）
-  if (rawTarget !== '' && (rawTarget.startsWith('/') || rawTarget.includes('..'))) {
-    return { ok: false, output: 'run_tests: target は root 相対で指定してください（../ や絶対パスは不可）', ms: Date.now() - t0 };
+  // パス指定は root 内に限定（pytest の node 指定「tests/test_x.py::test_y」も許可）。
+  // 単語チェックに加え、symlink 迂回で root 外へ出ないよう :: より前のパスを realpath で検証する。
+  if (rawTarget !== '') {
+    if (rawTarget.startsWith('/') || rawTarget.includes('..')) {
+      return { ok: false, output: 'run_tests: target は root 相対で指定してください（../ や絶対パスは不可）', ms: Date.now() - t0 };
+    }
+    // pytest の node 指定（tests/test_x.py::test_y）からファイルパス部分を取り出す
+    const filePart = rawTarget.split('::')[0];
+    if (filePart !== '' && filePart !== '.') {
+      const rr = await resolveRealInRoot(ctx.root, filePart);
+      if (!rr.ok) return { ok: false, output: rr.error, ms: Date.now() - t0 };
+    }
   }
   const timeoutMs = typeof args.timeout_ms === 'number' && args.timeout_ms > 0
     ? Math.min(600_000, Math.floor(args.timeout_ms))
@@ -915,9 +967,21 @@ async function deleteDirTool(args: Record<string, unknown>, ctx: SweContext): Pr
   if (p === '' || p === '.' || p === '/') {
     return { ok: false, output: 'delete_dir: root 自体は削除できません。削除するディレクトリを root 相対で指定してください', ms: Date.now() - t0 };
   }
+  // 親遡及（..）や絶対パスは拒否（sub/.. 等で親ディレクトリを巻き込む削除を防ぐ）
+  if (p.includes('..') || path.isAbsolute(p)) {
+    return { ok: false, output: `delete_dir: 親遡及（..）や絶対パスを含むパスは削除できません: ${p}`, ms: Date.now() - t0 };
+  }
   const r = await resolveRealInRoot(ctx.root, p);
   if (!r.ok) return { ok: false, output: r.error, ms: Date.now() - t0 };
+  // P0: 解決後の実体が root そのもの（./ 、sub/..、root 絶対パス等）なら拒否する。
+  // 文字列チェックは解決前しか見ないため、realpath 解決後に root と一致しないか必ず検証する。
+  if (r.real === r.realRoot) {
+    return { ok: false, output: `delete_dir: 指定パスは root 自身に解決されるため削除できません: ${p}`, ms: Date.now() - t0 };
+  }
   const rel = path.relative(r.realRoot, r.real);
+  if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
+    return { ok: false, output: `delete_dir: パスはルート外です: ${p}`, ms: Date.now() - t0 };
+  }
   const segments = rel.replace(/\\/g, '/').split('/');
   // テストディレクトリ・重要ディレクトリは削除禁止
   if (segments.includes('tests') || segments.some((s) => IGNORE_DIRS.has(s))) {

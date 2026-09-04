@@ -27,9 +27,14 @@ export function tokenize(text: string): Token[] {
     if (ascii) {
       const s = ascii[0];
       if (/[+\-*/=^]/.test(s)) {
-        // ファイルパス（スラッシュ区切り + 拡張子、例: src/arcasha/tools.ts）は数式ではない。
-        // '/' を含むだけの式（例: x/y）は引き続き math として扱う。
-        if (/\/[^/]*\.[A-Za-z0-9]+$/.test(s)) {
+        // ファイルパス（スラッシュ区切り + 英字拡張子、例: src/arcasha/tools.ts）は数式ではない。
+        // ただし小数除算（2/3.14, x/2.0）を誤ってパス扱いしないよう、
+        // 「スラッシュの左にディレクトリ名（英字）があり、拡張子が英字で始まる」場合だけをパスとみなす。
+        // 例: src/main.ts → パス（左=src 英字, 拡張子 .ts 英字）
+        //     2/3.14    → math（左=2 数字, 拡張子 .14 数字）
+        //     x/2.0     → math（拡張子 .0 数字）
+        const pathLike = /.*[A-Za-z_]\/[^/]*\.[A-Za-z][A-Za-z0-9]*$/.test(s);
+        if (pathLike) {
           tokens.push({ type: 'word', value: s });
         } else {
           tokens.push({ type: 'math', value: s });

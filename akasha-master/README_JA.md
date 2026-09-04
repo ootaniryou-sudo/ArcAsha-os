@@ -80,7 +80,7 @@ npx tsx examples/quickstart.ts  # 5 分ツアー
 ```bash
 cd akasha-master
 npm run assistant          # http://localhost:4781 で起動
-npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニットテスト（21 tests）
+npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニットテスト（34 tests）
 ```
 
 - **AI Coding Agent（Workspace Write）**: コンポーザー左下の Access mode を
@@ -94,12 +94,15 @@ npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニット
     生成した AILSA 命令列を最終回答に含められる
 - **多言語エンドポイント**: `/ja` `/en` `/zh` `/ko` で Chat 画面の言語を切替
   （`/` は設定タブで保存した言語が既定）。バナーの 🌐 チップからも切替可能
-- **設定タブ**: 使用する API（キー / Base URL）を Web から入力可能（.env より優先）。
-  モデル選択は「その他」から自分でモデル名を入力できる。保存先は
+- **設定タブ**: 複数の API プロバイダ（名前 / モデル名 / Base URL / キー）を Web から登録可能
+  （DeepSeek / OpenAI 等を混在させ、モデル名の一致するプロバイダへ自動ルーティング）。保存先は
   `~/.arcasha/assistant-settings.json`（git 管理外・API キーはマスク表示）
 - **オーケストレーション制御**: 参加モデル数（1〜50）をスライダーで制御。
-  1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やして
-  フォールバックチェーンを拡張（空応答時に次のモデルへ委譲）
+  構成モードを切替可能:
+  - **役割別（既定）**: General=選択モデル ×1 + Reasoning ×(N-1) のフォールバックチェーン
+    （空応答時に次のモデルへ委譲）
+  - **同一モデルで N 台（uniform）**: 選択したモデルを N 台並列同時呼び出しし、
+    最初の有効応答を採用（実行時はプロバイダ+モデルのユニーク組み合わせのみ並列化）
 - **ハイパー Thinking モード**: `thinking` 有効 + `reasoning_effort=max` + 出力上限
   8000 トークン。深い推論向け（content が空でも推論内容を回答として採用）
 - **AILSM 出力ビューア**: Chat の各回答に「⚙ AILSM 出力」ボタンが付き、自然言語入力が

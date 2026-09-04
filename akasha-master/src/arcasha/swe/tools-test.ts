@@ -242,12 +242,23 @@ async function main(): Promise<void> {
     await fs.mkdir(path.join(root, 'src', 'obsolete'), { recursive: true });
     await fs.writeFile(path.join(root, 'src', 'obsolete', 'trash.txt'), 'x', 'utf8');
     const ddDenied = await getSweTool('delete_dir')!.run({ path: 'src/obsolete' }, ctx);
-    check('delete_dir は opt-in なしで拒否', !ddDenied.ok, ddDenied.output);
+    // P2: opt-in なしで「拒否」しつつ、ディレクトリが実際に残っていることも検証する
+    const ddStillExists = await fs.access(path.join(root, 'src', 'obsolete')).then(() => true).catch(() => false);
+    check('delete_dir は opt-in なしで拒否（ディレクトリは残る）', !ddDenied.ok && ddStillExists, ddDenied.output);
     const ddOk = await getSweTool('delete_dir')!.run({ path: 'src/obsolete' }, { root, allowRunCommand: true });
     const ddGone = await fs.access(path.join(root, 'src', 'obsolete')).then(() => false).catch(() => true);
     check('delete_dir が opt-in で削除', ddOk.ok && ddGone, ddOk.output);
     const ddRoot = await getSweTool('delete_dir')!.run({ path: '.' }, { root, allowRunCommand: true });
     check('delete_dir は root 自体を拒否', !ddRoot.ok, ddRoot.output);
+    const ddRootAbs = await getSweTool('delete_dir')!.run({ path: root }, { root, allowRunCommand: true });
+    const rootStillExists = await fs.access(root).then(() => true).catch(() => false);
+    check('delete_dir は root 絶対パスを拒否（root は残る）', !ddRootAbs.ok && rootStillExists, ddRootAbs.output);
+    // P0: 親遡及（..）を含むパスは拒否（sub/.. 等で親ディレクトリを巻き込む削除を防ぐ）
+    await fs.mkdir(path.join(root, 'src', 'sub'), { recursive: true });
+    const ddDotDot = await getSweTool('delete_dir')!.run({ path: 'src/sub/..' }, { root, allowRunCommand: true });
+    const rootStill2 = await fs.access(root).then(() => true).catch(() => false);
+    const srcStill = await fs.access(path.join(root, 'src')).then(() => true).catch(() => false);
+    check('delete_dir は親遡及（sub/..）を拒否（src は残る）', !ddDotDot.ok && rootStill2 && srcStill, ddDotDot.output);
     const ddGit = await getSweTool('delete_dir')!.run({ path: '.git' }, { root, allowRunCommand: true });
     check('delete_dir は .git を拒否', !ddGit.ok, ddGit.output);
 
