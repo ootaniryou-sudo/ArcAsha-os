@@ -63,6 +63,11 @@ export interface SweAgentOptions {
   allowRunCommand?: boolean;
   /** 追加のコンテキスト（既存テスト名・失敗出力など）。 */
   extraContext?: string;
+  /**
+   * 各ステップ完了時の進捗コールバック（SSE ストリーミング等で使う）。
+   * ループの各反復後、そのステップ（ツール結果含む）を渡す。
+   */
+  onStep?: (step: SweStep, index: number) => void;
 }
 
 export interface SweAgentDeps {
@@ -134,6 +139,7 @@ export async function runSweAgent(
         gotFinalAnswer = true;
         stopReason = finishReason;
         steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+        opts.onStep?.(steps[steps.length - 1], i);
         break;
       }
       // 不完全応答（空 content・'length' 打ち切り等）: 即 break せず続行を促す
@@ -144,6 +150,7 @@ export async function runSweAgent(
         gotFinalAnswer = false;
         stopReason = finishReason || 'empty_reply';
         steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+        opts.onStep?.(steps[steps.length - 1], i);
         break;
       }
       // 不完全応答（assistant ターン）を履歴に記録してから続行を促す
@@ -160,6 +167,7 @@ export async function runSweAgent(
           `修正が完了したなら、変更したファイル・理由・テスト結果を日本語で詳しく書いた最終回答を返してください。`,
       });
       steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+      opts.onStep?.(steps[steps.length - 1], i);
       continue;
     }
 
@@ -186,6 +194,7 @@ export async function runSweAgent(
     }
 
     steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+    opts.onStep?.(steps[steps.length - 1], i);
 
     // assistant メッセージ（tool_calls 付き）と tool 結果を履歴へ追加
     messages.push({

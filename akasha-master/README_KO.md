@@ -70,6 +70,28 @@ npx tsx examples/quickstart.ts  # 5분 투어
 
 ---
 
+## 💬 AI 어시스턴트(리치 Chat WebUI・장기 기억 포함)
+
+전문 지식 없이 일상 작업에 바로 쓸 수 있는 **AI 어시스턴트**(Hermes Agent / DeepSeek Web UI 스타일・제로 의존성).
+멀티 모델(`deepseek-v4-flash` / `deepseek-v4-pro`)을 작업 분류로 자동 라우팅하고, **장기 기억**(사용자 정보・취향・
+대화 스레드)을 JSON으로 영속화합니다(재시작 후에도 유지).
+
+```bash
+cd akasha-master
+npm run assistant          # http://localhost:4781 에서 실행
+npm run assistant:test     # 장기 기억 + 기억 추출 규칙 단위 테스트(21 tests)
+```
+
+- **캐주얼 모드(기본)**: 자연어로 일상 작업(상담・글쓰기・요약・아이디어 등).
+  자기소개(「제 이름은〜」「〜좋아함/싫어함」)는 자동으로 기억되어 이후 대화에서 활용
+- **전문가 모드**: 우측 상단 전환으로 `/help` `/memory` `/remember` `/forget` `/pin` 등 슬래시 명령 사용 가능
+- **OpenAI 호환 API**: `POST /v1/chat/completions`(baseURL = `http://localhost:4781/v1`)
+  를 Cursor 등 외부 도구에서 그대로 사용 가능. `/v1/models`로 모델 공개
+- **장기 기억 저장 위치**: `~/.arcasha/assistant-memory.json`(`ARCASHA_MEMORY_DIR`로 변경 가능)
+- 구현: `src/arcasha/assistant/`(server / long-term-memory / remember / ui.html)
+
+---
+
 ## 📁 리포지토리 구조
 
 ```

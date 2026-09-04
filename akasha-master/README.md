@@ -92,6 +92,47 @@ npx tsx examples/quickstart.ts   # 5-minute tour
 
 ---
 
+## 💬 AI Assistant（リッチな Chat WebUI・長期記憶つき）
+
+専門知識なしの一般ユーザーが日常タスクにすぐ使える **AI アシスタント**です
+（DeepSeek Web UI 風のリッチな画面・依存ゼロ）。複数モデル（`deepseek-v4-flash` /
+`deepseek-v4-pro`）をタスク分類で自動ルーティングし、**長期記憶**（ユーザーについて・
+好み・会話スレッド）を JSON に永続化します（再起動後も記憶は残ります）。
+
+```bash
+cd akasha-master
+npm run assistant          # http://localhost:4781 で起動
+npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニットテスト (21 tests)
+```
+
+- **AI Coding Agent（Workspace Write）**: コンポーザー左下の Access mode を
+  `Workspace Write` に切り替えると、Chat から指示するだけで **実ファイルを編集**します。
+  SWE エージェント（`src/arcasha/swe/`）のツールループをエンジンに使い、ツール呼び出し・
+  思考（Thought for a while）・Trajectory（実行ログ）をストリーミング表示
+- **多言語エンドポイント**: `/ja` `/en` `/zh` `/ko` で Chat 画面の言語を切替
+  （`/` は設定タブで保存した言語が既定）。バナーの 🌐 チップからも切替可能
+- **設定タブ**: 使用する API（キー / Base URL）を Web から入力可能（.env より優先）。
+  モデル選択は「その他」から自分でモデル名を入力できる。保存先は
+  `~/.arcasha/assistant-settings.json`（git 管理外・API キーはマスク表示）
+- **オーケストレーション制御**: 参加モデル数（1〜4）をスライダーで制御。
+  1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜4 = 推論ノードを増やして
+  フォールバックチェーンを拡張（空応答時に次のモデルへ委譲）
+- **ハイパー Thinking モード**: `thinking` 有効 + `reasoning_effort=max` + 出力上限
+  8000 トークン。深い推論向け（content が空でも推論内容を回答として採用）
+- **AILSM 出力ビューア**: Chat の各回答に「⚙ AILSM 出力」ボタンが付き、自然言語入力が
+  コンパイルされた **AILSA 命令列・検証結果・バイト列（hex）** を確認できます。
+  スレッドへ保存されるため、**既に終わった Chat を開いても表示可能**
+- **AILSM 指示語辞典タブ**: `registry.json`（唯一の権威）をカテゴリ別・検索付きで表示
+- **スラッシュコマンド**: `/help` `/memory` `/remember` `/forget` `/pin` `/new` 等
+- **OpenAI 互換 API**: `POST /v1/chat/completions`（baseURL = `http://localhost:4781/v1`）
+  を Cursor 等の外部ツールからそのまま利用可能。`/v1/models` で利用モデルを公開
+- **長期記憶の保存先**: `~/.arcasha/assistant-memory.json`（`ARCASHA_MEMORY_DIR` で変更可）
+- 実装: `src/arcasha/assistant/`（server / settings / long-term-memory / remember / ui.html）
+
+> 既存の AVM 可視化付きチャット（`npm run chat`・ポート 4780）はそのまま利用できます。
+
+---
+
 ## 📁 Repository Layout
 
 ```

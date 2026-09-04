@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ArcAsha Assistant</title>
+<style>
+/* ============ デザイントークン（DeepSeek 風ダーク） ============ */
+:root{
+  --bg:#13161d; --bg2:#171b23;
+  --panel:#1b202a; --panel2:#202634; --panel3:#283040;
+  --line:#262d3a; --line2:#333d50;
+  --ink:#e8edf6; --ink2:#a9b3c6; --mute:#7b8699; --dim:#586273;
+  --brand:#4d6bfe; --brand2:#7da2ff; --brand-soft:rgba(77,107,254,.16);
+  --send-fill:#3964fe; --send-fill-hover:#4a74fe;
+  --danger:#f06a6a; --good:#3ecf8e;
+  --shadow:0 8px 30px rgba(0,0,0,.4);
+  --font:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Noto Sans JP",sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.6;overflow:hidden}
+::selection{background:rgba(77,107,254,.35)}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#2c3545;border-radius:8px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#3c485d;background-clip:content-box}
+button{font-family:var(--font);cursor:pointer;border:none;background:none;color:inherit}
+textarea{font-family:var(--font)}
+
+/* ============ レイアウト ============ */
+.app{display:grid;grid-template-columns:264px minmax(0,1fr);height:100vh}
+
+/* ---------- サイドバー ---------- */
+.side{display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--line);overflow:hidden}
+.brand{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#4d6bfe,#7da2ff);color:#fff;
+  display:grid;place-items:center;font-weight:900;font-size:17px;flex:none}
+.brand .bt{line-height:1.15}
+.brand .bt b{font-size:15px;letter-spacing:.01em}
+.brand .bt small{display:block;color:var(--dim);font-size:10px;font-weight:500}
+.side-top{padding:12px}
+.new-btn{width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line2);
+  background:var(--brand-soft);color:var(--ink);font-weight:600;font-size:13px;display:flex;
+  align-items:center;justify-content:center;gap:8px;transition:.16s}
+.new-btn:hover{border-color:var(--brand)}
+.side-scroll{flex:1;overflow-y:auto;padding:0 10px 12px}
+.sec-h{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;padding:14px 8px 6px;font-weight:600}
+.thread{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:9px;cursor:pointer;color:var(--mute);
+  border:1px solid transparent;transition:.13s;margin-bottom:1px}
+.thread:hover{background:var(--panel2);color:var(--ink)}
+.thread.active{background:var(--brand-soft);border-color:rgba(77,107,254,.35);color:var(--brand2)}
+.thread .ic{flex:none;opacity:.85;font-size:12px}
+.thread .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.thread .mode-chip{flex:none;font-size:9px;padding:1px 7px;border-radius:20px;background:var(--panel3);color:var(--ink2)}
+.mem-item{font-size:12px;color:var(--ink2);padding:7px 9px;border-radius:9px;line-height:1.5;background:var(--panel);border:1px solid var(--line);margin-bottom:5px}
+.mem-item .cat{display:inline-block;font-size:9px;padding:1px 7px;border-radius:20px;margin-right:6px;font-weight:600}
+.mem-item .cat.user{background:rgba(77,107,254,.16);color:#9db6ff}
+.mem-item .cat.preference{background:rgba(62,207,142,.15);color:#7ce3b8}
+.mem-item .cat.task{background:rgba(245,183,96,.15);color:#f8cf8e}
+.mem-item .cat.other{background:var(--panel3);color:#c3ccd8}
+.empty{color:var(--dim);font-size:12px;padding:10px;text-align:center;line-height:1.7}
+.workdir{font-size:10.5px;color:var(--dim);padding:8px 10px 12px;border-top:1px solid var(--line);margin-top:8px;
+  line-height:1.6;word-break:break-all}
+.workdir b{color:var(--mute);font-weight:600}
+
+/* ---------- メイン ---------- */
+.main{display:flex;flex-direction:column;min-width:0;height:100vh}
+.banner{display:flex;align-items:center;gap:12px;padding:9px 18px;border-bottom:1px solid var(--line);
+  background:rgba(19,22,29,.8);backdrop-filter:blur(10px);z-index:5}
+.banner .tabs{display:flex;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px}
+.banner .tabs button{padding:6px 14px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--mute);transition:.14s}
+.banner .tabs button.on{background:var(--panel3);color:var(--ink);box-shadow:0 1px 6px rgba(0,0,0,.3)}
+.banner .spacer{flex:1}
+.banner .sysbtn{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);
+  border:1px solid var(--line);border-radius:8px;padding:5px 11px;transition:.14s}
+.banner .sysbtn:hover{background:var(--panel2);color:var(--ink)}
+
+/* チャット本文 */
+#msgs{flex:1;overflow-y:auto;scroll-behavior:smooth}
+.msgs-inner{max-width:760px;margin:0 auto;padding:26px 24px 12px;display:flex;flex-direction:column;gap:22px}
+.turn{display:flex;flex-direction:column;gap:8px;animation:rise .24s ease}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.user-row{display:flex;justify-content:flex-end}
+.user-bubble{max-width:80%;background:var(--panel2);border:1px solid var(--line2);color:var(--ink);
+  padding:11px 16px;border-radius:16px 16px 5px 16px;white-space:pre-wrap;word-break:break-word;font-size:14.5px}
+.ai-msg{display:flex;flex-direction:column;gap:8px;max-width:100%}
+.ai-msg .role-line{display:flex;align-items:center;gap:8px}
+.ai-avatar{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#4d6bfe,#7da2ff);color:#fff;
+  display:grid;place-items:center;font-size:11px;font-weight:900;flex:none}
+.ai-msg .who{font-size:12px;font-weight:700;color:var(--ink2);letter-spacing:.02em}
+.ai-msg .md-body{color:var(--ink);font-size:14.5px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.ai-msg .md-body pre{background:#10141c;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+  overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;margin:8px 0;white-space:pre}
+.ai-msg .md-body code{background:#151a24;padding:1.5px 6px;border-radius:5px;font-family:var(--mono);font-size:.9em}
+.ai-msg .md-body pre code{background:none;padding:0}
+.ai-msg .md-body h1,.ai-msg .md-body h2,.ai-msg .md-body h3{margin:12px 0 5px;line-height:1.4}
+.ai-msg .md-body h1{font-size:1.25em}.ai-msg .md-body h2{font-size:1.15em}.ai-msg .md-body h3{font-size:1.05em}
+.ai-msg .md-body ul,.ai-msg .md-body ol{padding-left:22px;margin:6px 0}
+.ai-msg .md-body a{color:var(--brand2)}
+.ai-msg .md-body table{border-collapse:collapse;margin:8px 0}
+.ai-msg .md-body th,.ai-msg .md-body td{border:1px solid var(--line2);padding:5px 10px;font-size:13px}
+
+/* ツール呼び出し（本家: "N tool calls" 折りたたみ） */
+.toolrow{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.toolrow .thead{display:flex;align-items:center;gap:9px;width:100%;padding:8px 12px;color:var(--ink2);
+  font-size:12.5px;font-weight:600;transition:.14s}
+.toolrow .thead:hover{background:var(--panel2)}
+.toolrow .thead .chev{margin-left:auto;transition:.18s;color:var(--dim)}
+.toolrow.open .thead .chev{transform:rotate(180deg)}
+.toolrow .tbody{display:none;border-top:1px solid var(--line);padding:8px 12px;flex-direction:column;gap:8px}
+.toolrow.open .tbody{display:flex}
+.tool-call{background:var(--panel2);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.tool-call .tc-head{display:flex;align-items:center;gap:8px;width:100%;padding:7px 11px;color:var(--ink2);font-size:12px;font-weight:600}
+.tool-call .tc-head .chev{margin-left:auto;transition:.18s;color:var(--dim);font-size:10px}
+.tool-call.open .tc-head .chev{transform:rotate(180deg)}
+.tool-call .tc-body{display:none;border-top:1px solid var(--line);padding:7px 11px;flex-direction:column;gap:6px}
+.tool-call.open .tc-body{display:flex}
+.tool-call .tc-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.tool-call .tc-args{font-family:var(--mono);font-size:11.5px;color:var(--mute);white-space:pre-wrap;word-break:break-all;line-height:1.5}
+.tool-call .tc-out{font-family:var(--mono);font-size:11px;color:var(--ink2);white-space:pre-wrap;word-break:break-all;
+  max-height:220px;overflow-y:auto;background:#0e1219;border:1px solid var(--line);border-radius:7px;padding:7px 9px;line-height:1.5}
+.tool-call .tc-ok{color:var(--good)}.tool-call .tc-err{color:var(--danger)}
+.thought-row{border:1px dashed var(--line2);border-radius:10px;background:rgba(77,107,254,.05);overflow:hidden}
+.thought-row .thead{display:flex;align-items:center;gap:8px;width:100%;padding:7px 12px;color:var(--dim);font-size:12px}
+.thought-row .thead .chev{margin-left:auto;transition:.18s}
+.thought-row.open .thead .chev{transform:rotate(180deg)}
+.thought-row .tbody{display:none;border-top:1px dashed var(--line2);padding:8px 12px;font-size:12.5px;color:var(--mute);
+  line-height:1.7;white-space:pre-wrap;max-height:260px;overflow-y:auto}
+.thought-row.open .tbody{display:block}
+.inject-row{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);padding:2px 2px}
+.inject-row .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:3px 9px;color:var(--ink2)}
+
+/* メッセージアクション（Copy / Good / Bad / Branch） */
+.msg-actions{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.act-btn{display:inline-flex;align-items:center;gap:5px;border:1px solid transparent;
+  color:var(--dim);font-size:11.5px;padding:4px 9px;border-radius:8px;transition:.14s}
+.act-btn:hover{background:var(--panel2);color:var(--ink2)}
+.act-btn.on-good{color:var(--good)}
+.act-btn.on-bad{color:var(--danger)}
+.meta-tags{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 9px;border-radius:20px;background:var(--panel2);color:var(--ink2);border:1px solid var(--line)}
+.tag.model{background:var(--brand-soft);color:var(--brand2);border-color:transparent}
+.tag.expert{background:rgba(77,107,254,.14);color:#9db6ff;border-color:transparent}
+.remember-banner{display:flex;align-items:center;gap:8px;background:rgba(62,207,142,.08);
+  border:1px solid rgba(62,207,142,.25);border-radius:10px;padding:7px 12px;font-size:12px;color:#8fe8c0;margin-top:2px}
+.cmd-hint{border:1px dashed var(--line2);border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--ink2);line-height:1.9}
+.cmd-hint b{color:var(--brand2)}
+.cmd-hint code{font-family:var(--mono);background:#151a24;padding:0 6px;border-radius:5px;font-size:11.5px;color:#9fd0ff}
+
+.typing{display:flex;align-items:center;gap:9px;color:var(--dim);font-size:12.5px;padding:6px 4px}
+.typing .dots{display:flex;gap:4px}
+.typing .d{width:7px;height:7px;border-radius:50%;background:var(--brand);animation:blink 1.3s infinite}
+.typing .d:nth-child(2){animation-delay:.18s}
+.typing .d:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,80%,100%{opacity:.15;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+/* コンポーザー（本家: カード + 下部ツールバー） */
+.composer-wrap{max-width:760px;margin:0 auto;width:100%;padding:8px 24px 14px}
+.composer{background:var(--panel);border:1px solid var(--line2);border-radius:16px;
+  box-shadow:0 10px 36px rgba(0,0,0,.4);transition:border-color .18s;overflow:hidden}
+.composer:focus-within{border-color:var(--brand)}
+.comp-input{display:flex;align-items:flex-end;gap:8px;padding:12px 12px 4px 16px}
+textarea{flex:1;background:transparent;border:none;color:var(--ink);font-size:14.5px;resize:none;outline:none;
+  min-height:44px;max-height:180px;line-height:1.6;padding:8px 0}
+textarea::placeholder{color:var(--dim)}
+.comp-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 10px 10px}
+.comp-row .left{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
+.comp-row .right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);border-radius:999px;
+  padding:5px 12px;font-size:12px;color:var(--ink2);background:transparent;transition:.14s;height:30px}
+.chip:hover{background:var(--panel2);color:var(--ink)}
+.chip .chev{font-size:9px;color:var(--dim)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--brand)}
+/* ドロップダウンメニュー */
+.menu{position:fixed;z-index:200;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.5);padding:6px;min-width:190px;animation:menuIn .14s ease}
+@keyframes menuIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.menu .mi{display:flex;align-items:center;gap:9px;width:100%;padding:8px 11px;border-radius:8px;font-size:13px;
+  color:var(--ink2);transition:.12s;text-align:left}
+.menu .mi:hover{background:var(--panel3);color:var(--ink)}
+.menu .mi.sel{color:var(--brand2);font-weight:600}
+.menu .mi .ck{margin-left:auto;color:var(--brand2)}
+.menu .mh{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:6px 11px 3px;font-weight:700}
+.menu .mdesc{font-size:11px;color:var(--dim);padding:0 11px 6px;line-height:1.5}
+
+/* 送信ボタン（本家: 34px 青丸 #3964FE） */
+.send-btn{flex:none;width:34px;height:34px;border-radius:999px;background:var(--send-fill);color:#fff;
+  display:grid;place-items:center;transition:.15s}
+.send-btn:hover:not(:disabled){background:var(--send-fill-hover)}
+.send-btn:disabled{opacity:.4;cursor:default}
+.send-btn svg{width:17px;height:17px}
+/* コンテキストメーター（本家: 28px 円環） */
+.ctxmeter{position:relative;width:28px;height:28px;flex:none}
+.ctxmeter button{position:absolute;inset:0;border-radius:999px;display:grid;place-items:center;transition:.14s}
+.ctxmeter button:hover{background:var(--panel2)}
+.ctxmeter svg{width:28px;height:28px;transform:rotate(-90deg)}
+.ctxmeter .track{fill:none;stroke:var(--line2);stroke-width:2}
+.ctxmeter .fill{fill:none;stroke:var(--brand2);stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset .3s}
+
+/* 統計行（本家: N turns · N steps LLM ... tok/s ...） */
+.stat-line{font-size:11px;color:var(--dim);text-align:center;padding:2px 16px 4px;line-height:1.7}
+.stat-line b{color:var(--mute);font-weight:600}
+
+/* Trajectory / 記憶タブ */
+#trajTab,#memTab{display:none;flex:1;overflow-y:auto}
+.mem-inner{max-width:760px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:14px}
+.mem-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.mem-card h3{font-size:13px;color:var(--ink2);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.mem-form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.mem-form input{flex:1;min-width:160px;background:#141922;border:1px solid var(--line2);border-radius:10px;
+  color:var(--ink);padding:9px 12px;font-size:13px;outline:none}
+.mem-form input:focus{border-color:var(--brand)}
+.mem-form button{padding:9px 16px;border-radius:10px;background:var(--brand);color:#fff;font-weight:700;font-size:13px}
+.fact-list,.know-list{display:flex;flex-direction:column;gap:6px}
+.krow{display:flex;align-items:flex-start;gap:10px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:10px;padding:9px 12px;font-size:13px}
+.krow .kdel{margin-left:auto;flex:none;color:var(--dim);font-size:12px;padding:2px 8px;border-radius:7px}
+.krow .kdel:hover{background:#2a1a1a;color:var(--danger)}
+.traj-inner{max-width:760px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:12px}
+.traj-step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.traj-step .ts-head{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink2);font-weight:600}
+.traj-step .ts-meta{font-size:10.5px;color:var(--dim);margin-top:3px}
+.traj-empty{color:var(--dim);font-size:13px;text-align:center;padding:40px 0;line-height:2}
+
+#toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(10px);opacity:0;
+  background:rgba(28,36,52,.97);border:1px solid var(--line2);color:var(--ink);padding:10px 20px;border-radius:12px;
+  font-size:13px;z-index:300;transition:.25s;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---------- AILSM ビューア（Chat 内メッセージ） ---------- */
+.ailsm-row{border:1px solid var(--line);border-radius:10px;background:rgba(77,107,254,.04);overflow:hidden}
+.ailsm-row .thead{display:flex;align-items:center;gap:8px;width:100%;padding:7px 12px;color:var(--brand2);font-size:12px;font-weight:600}
+.ailsm-row .thead .chev{margin-left:auto;transition:.18s;color:var(--dim)}
+.ailsm-row.open .thead .chev{transform:rotate(180deg)}
+.ailsm-row .tbody{display:none;border-top:1px solid var(--line);padding:9px 12px;flex-direction:column;gap:7px}
+.ailsm-row.open .tbody{display:flex}
+.ailsm-instr{display:inline-flex;align-items:center;gap:7px;background:#10141c;border:1px solid var(--line);
+  border-radius:7px;padding:3px 9px;font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.ailsm-instr b{color:var(--brand2)}
+.ailsm-instr .sl{color:var(--mute)}
+.ailsm-label{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.ailsm-hex{font-family:var(--mono);font-size:10.5px;color:var(--mute);word-break:break-all;line-height:1.6;
+  max-height:70px;overflow-y:auto;background:#0e1219;border:1px solid var(--line);border-radius:7px;padding:6px 9px}
+
+/* ---------- 設定タブ ---------- */
+#setTab,#dictTab{display:none;flex:1;overflow-y:auto}
+.set-inner{max-width:760px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:14px}
+.set-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.set-card h3{font-size:13px;color:var(--ink2);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.set-row{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.set-row label{font-size:12px;color:var(--ink2);font-weight:600}
+.set-row .desc{font-size:11px;color:var(--dim);line-height:1.6}
+.set-row input[type=text],.set-row input[type=password],.set-row select{background:#141922;border:1px solid var(--line2);
+  border-radius:10px;color:var(--ink);padding:9px 12px;font-size:13px;outline:none;width:100%}
+.set-row input:focus,.set-row select:focus{border-color:var(--brand)}
+.set-row select{cursor:pointer}
+.set-row input[type=range]{width:100%;accent-color:var(--brand)}
+.set-save{width:100%;padding:11px;border-radius:11px;background:var(--brand);color:#fff;font-weight:700;font-size:13.5px;transition:.15s}
+.set-save:hover{background:var(--send-fill-hover)}
+.set-save:disabled{opacity:.5;cursor:default}
+.toggle{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:var(--ink2);font-weight:600}
+.toggle input{display:none}
+.toggle .track{width:40px;height:22px;border-radius:999px;background:var(--panel3);border:1px solid var(--line2);position:relative;transition:.18s}
+.toggle .track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--mute);transition:.18s}
+.toggle input:checked + .track{background:var(--brand);border-color:var(--brand)}
+.toggle input:checked + .track::after{left:20px;background:#fff}
+.count-val{font-size:13px;color:var(--brand2);font-weight:700;margin-left:10px}
+.set-note{font-size:11.5px;color:var(--dim);line-height:1.7;border:1px dashed var(--line2);border-radius:10px;padding:9px 12px}
+
+/* ---------- AILSM 辞典 ---------- */
+.dict-inner{max-width:760px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:14px}
+.dict-search{background:#141922;border:1px solid var(--line2);border-radius:10px;color:var(--ink);
+  padding:10px 14px;font-size:13.5px;outline:none;width:100%}
+.dict-search:focus{border-color:var(--brand)}
+.dict-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.dict-card h3{font-size:13px;color:var(--brand2);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.dict-card h3 small{color:var(--dim);font-weight:500;font-size:10.5px}
+.dict-table{width:100%;border-collapse:collapse}
+.dict-table th{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);text-align:left;
+  padding:5px 10px;border-bottom:1px solid var(--line);font-weight:700}
+.dict-table td{padding:6px 10px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink2);vertical-align:top}
+.dict-table tr:last-child td{border-bottom:none}
+.dict-table td.n{font-family:var(--mono);color:var(--brand2);font-weight:700;white-space:nowrap}
+.dict-table td.o{font-family:var(--mono);color:var(--mute);white-space:nowrap}
+.dict-table td.d{color:var(--mute)}
+.dict-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.dict-head .ver{font-size:11px;color:var(--dim);font-family:var(--mono)}
+
+/* 言語チップ */
+.lang-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line2);border-radius:999px;
+  padding:4px 11px;font-size:11.5px;color:var(--ink2);transition:.14s;height:28px}
+.lang-chip:hover{background:var(--panel2);color:var(--ink)}
+
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .msgs-inner,.composer-wrap{padding-left:16px;padding-right:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ===== サイドバー ===== -->
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">A</div>
+      <div class="bt"><b>ArcAsha</b><small>AI Coding Agent</small></div>
+    </div>
+    <div class="side-top">
+      <button class="new-btn" id="newBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        <span data-i18n="side.new">New conversation</span>
+      </button>
+    </div>
+    <div class="side-scroll">
+      <div class="sec-h" data-i18n="side.conv">Conversations</div>
+      <div id="threadList"><div class="empty" data-i18n="side.noConv">No conversations yet</div></div>
+      <div class="sec-h" data-i18n="side.mem">Memory</div>
+      <div id="memPanel"><div class="empty">🧠 まだ記憶がありません<br>「私の名前は〜」「〜が好き」と話すと自動で覚えます</div></div>
+      <div class="workdir" id="workdirBox"></div>
+    </div>
+  </aside>
+
+  <!-- ===== メイン ===== -->
+  <main class="main">
+    <div class="banner">
+      <div class="tabs" id="tabs">
+        <button data-tab="chat" class="on" data-i18n="tab.chat">Chat</button>
+        <button data-tab="traj" data-i18n="tab.traj">Trajectory</button>
+        <button data-tab="mem" data-i18n="tab.mem">記憶</button>
+        <button data-tab="dict" data-i18n="tab.dict">AILSM辞典</button>
+        <button data-tab="set" data-i18n="tab.set">設定</button>
+      </div>
+      <div class="spacer"></div>
+      <button class="lang-chip" id="langBtn" title="Language">🌐 <span id="langLabel">JA</span> ▾</button>
+      <button class="sysbtn" id="sysbtn" title="System prompt">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3l8 4v5c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V7l8-4z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/><path d="M12 13v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span data-i18n="banner.sys">System prompt</span>
+      </button>
+    </div>
+
+    <!-- Chat タブ -->
+    <div id="msgs">
+      <div class="msgs-inner" id="chatInner">
+        <div class="ai-msg" id="welcome">
+          <div class="role-line"><span class="ai-avatar">A</span><span class="who">ArcAsha</span></div>
+          <div class="md-body" id="welcomeBody">こんにちは 👋 <b>ArcAsha</b> です。
+日常の相談・文章作成・調べもの・アイデア出しなど、なんでも話しかけてください。
+
+<b>Coding Agent</b> として使うには、左下の Access mode を <b>Workspace Write</b> に切り替えて「〜のファイルを修正して」と指示するだけ。実ファイルを編集します。</div>
+        </div>
+      </div>
+    </div>
+    <div id="chatInnerTyping" style="display:none"><div class="msgs-inner" style="padding-top:0"><div class="typing"><span class="dots"><span class="d"></span><span class="d"></span><span class="d"></span></span> ArcAsha is thinking…</div></div></div>
+
+    <!-- Trajectory タブ -->
+    <div id="trajTab">
+      <div class="traj-inner" id="trajInner">
+        <div class="traj-empty">No agent runs yet.<br/>Access mode「Workspace Write」でメッセージを送ると、エージェントの実行ログ（Trajectory）がここに表示されます。</div>
+      </div>
+    </div>
+
+    <!-- 記憶タブ -->
+    <div id="memTab">
+      <div class="mem-inner">
+        <div class="mem-card">
+          <h3>🧠 ユーザーについて（自動記憶）</h3>
+          <div class="fact-list" id="factList"></div>
+        </div>
+        <div class="mem-card">
+          <h3>📚 知識・メモを追加</h3>
+          <div class="mem-form">
+            <input id="knowTitle" placeholder="タイトル（例: 勤務先）" />
+            <input id="knowText" placeholder="内容（例: 株式会社サンプルで働いています）" />
+            <button id="knowAdd">追加</button>
+          </div>
+          <div class="know-list" id="knowList"></div>
+        </div>
+        <div class="mem-card">
+          <h3>⚙️ 記憶の管理</h3>
+          <p style="color:var(--mute);font-size:12.5px;line-height:1.8">
+            エキスパートモードで <code>/memory</code>（一覧）・<code>/forget &lt;id|all&gt;</code>（削除）を使えます。<br/>
+            保存先: <code id="memPath" style="color:var(--brand2)"></code>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AILSM 辞典タブ -->
+    <div id="dictTab">
+      <div class="dict-inner">
+        <div class="dict-head">
+          <h3 style="font-size:15px;color:var(--ink);display:flex;align-items:center;gap:8px">📖 AILSM 指示語辞典</h3>
+          <span class="ver" id="dictVer"></span>
+        </div>
+        <input class="dict-search" id="dictSearch" placeholder="🔍 指示語を検索（例: CALL / 積分 / syscall）…" />
+        <div id="dictBody"><div class="traj-empty">読込中…</div></div>
+      </div>
+    </div>
+
+    <!-- 設定タブ -->
+    <div id="setTab">
+      <div class="set-inner">
+        <div class="set-card">
+          <h3>🔑 API 接続</h3>
+          <div class="set-row">
+            <label data-i18n="set.apiKey">API キー（DeepSeek API）</label>
+            <input type="password" id="setApiKey" placeholder="sk-...（空欄なら .env の DEEPSEEK_API_KEY を使用）" autocomplete="off" />
+            <div class="desc" id="setApiKeyStatus" data-i18n="set.apiKeyDesc">Web から設定したキーが .env より優先されます。保存先はサーバの ~/.arcasha/assistant-settings.json（git 管理外）です。</div>
+          </div>
+          <div class="set-row">
+            <label data-i18n="set.apiBase">API ベース URL</label>
+            <input type="text" id="setApiBase" placeholder="https://api.deepseek.com（空欄なら既定）" />
+          </div>
+        </div>
+        <div class="set-card">
+          <h3>🧠 モデル</h3>
+          <div class="set-row">
+            <label data-i18n="set.model">既定モデル</label>
+            <select id="setModel">
+              <option value="deepseek-v4-flash">DeepSeek-V4-Flash（高速・汎用）</option>
+              <option value="deepseek-v4-pro">DeepSeek-V4-Pro（推論）</option>
+              <option value="__custom__">その他（モデル名を自分で入力）</option>
+            </select>
+          </div>
+          <div class="set-row" id="customModelRow" style="display:none">
+            <label data-i18n="set.customModel">カスタムモデル名</label>
+            <input type="text" id="setCustomModel" placeholder="例: deepseek-reasoner / my-model-name" />
+            <div class="desc" data-i18n="set.customModelDesc">オーケストレーションの推論ノードがこのモデル名で API を呼びます。</div>
+          </div>
+        </div>
+        <div class="set-card">
+          <h3>🎛 オーケストレーション</h3>
+          <div class="set-row">
+            <label data-i18n="set.orchestration">参加モデル数</label>
+            <div style="display:flex;align-items:center;gap:12px">
+              <input type="range" id="setCount" min="1" max="4" step="1" value="2" />
+              <span class="count-val" id="setCountVal">2</span>
+            </div>
+            <div class="desc" data-i18n="set.orchestrationDesc">1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜4 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。</div>
+          </div>
+          <div class="set-row">
+            <label class="toggle">
+              <input type="checkbox" id="setHyper" />
+              <span class="track"></span>
+              <span data-i18n="set.hyper">⚡ ハイパー Thinking モード</span>
+            </label>
+            <div class="desc" data-i18n="set.hyperDesc">thinking 有効 + reasoning_effort=max + 出力上限 8000 トークン。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。</div>
+          </div>
+        </div>
+        <div class="set-card">
+          <h3>🌐 言語</h3>
+          <div class="set-row">
+            <select id="setLanguage">
+              <option value="ja">日本語（/ja）</option>
+              <option value="en">English（/en）</option>
+              <option value="zh">中文（/zh）</option>
+              <option value="ko">한국어（/ko）</option>
+            </select>
+            <div class="desc" data-i18n="set.languageDesc">Chat 画面はエンドポイントでも切替できます: /ja /en /zh /ko。ここで保存した言語は / を開いたときの既定になります。</div>
+          </div>
+        </div>
+        <button class="set-save" id="setSave" data-i18n="set.save">💾 設定を保存</button>
+        <div class="set-note" id="setPathBox"></div>
+      </div>
+    </div>
+
+    <!-- コンポーザー -->
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="comp-input">
+          <textarea id="inp" rows="1" placeholder="Message or run a task... / commands, @ files or sessions"></textarea>
+        </div>
+        <div class="comp-row">
+          <div class="left">
+            <button class="chip" id="cmdsBtn" title="Commands">⚡ Commands <span class="chev">▼</span></button>
+            <button class="chip" id="accessBtn" title="Access mode, current: Read Only">🛡 <span id="accessLabel">Read Only</span> <span class="chev">▼</span></button>
+          </div>
+          <div class="right">
+            <button class="chip" id="modelBtn" title="Select model, current DeepSeek-V4-Flash"><span class="dot"></span><span id="modelLabel">DeepSeek-V4-Flash</span> <span class="chev">▼</span></button>
+            <div class="ctxmeter" id="ctxmeter" title="0% of context used">
+              <button aria-label="0% of context used">
+                <svg viewBox="0 0 28 28">
+                  <circle class="track" cx="14" cy="14" r="11"></circle>
+                  <circle class="fill" id="ctxFill" cx="14" cy="14" r="11" stroke-dasharray="69.1" stroke-dashoffset="69.1"></circle>
+                </svg>
+              </button>
+            </div>
+            <button class="send-btn" id="send" title="Send message" aria-label="Send message">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3.4 20.4l17.2-7.5c.9-.4.9-1.7 0-2.1L3.4 3.3c-.7-.3-1.5.2-1.5 1v5.2c0 .5.4 1 .9 1L15 12l-12.2 1.5c-.5.1-.9.5-.9 1v5.2c0 .8.8 1.3 1.5 1z" fill="currentColor"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="stat-line" id="statLine"></div>
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+<div id="menuRoot"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+// サーバが /ja /en /zh /ko のエンドポイントで置換するロケール（/ では設定の言語）
+const UI_LOCALE = "__LOCALE__";
+let busy=false, mode='casual', threadId=null, tab='chat';
+let model='deepseek-v4-flash';
+let accessMode='read'; // 'read' | 'write'（Workspace Write = Coding Agent）
+let stats={turns:0, steps:0, llmMs:0, ttftMs:0, inputTok:0, outputTok:0, cacheHit:0};
+let traj=[]; // エージェント実行ログ（Trajectory タブ用）
+let dictData=null; // AILSM 辞典キャッシュ
+let serverSettings=null; // サーバから取得した設定
+const msgsEl=$('msgs'), chatInner=$('chatInner'), inp=$('inp');
+const MODEL_DISPLAY={'deepseek-v4-flash':'DeepSeek-V4-Flash','deepseek-v4-pro':'DeepSeek-V4-Pro'};
+
+/* ===== 多言語対応（I18N） ===== */
+const I18N={
+  ja:{
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'記憶','tab.dict':'AILSM辞典','tab.set':'設定',
+    'banner.sys':'System prompt',
+    'side.new':'新しい会話','side.conv':'会話履歴','side.noConv':'会話がありません','side.mem':'長期記憶','side.workspace':'Workspace',
+    'composer.ph':'メッセージを入力、またはタスクを実行… / コマンド、@ ファイルやセッション',
+    'cmds':'⚡ Commands','send':'Send message',
+    'welcome':'こんにちは 👋 <b>ArcAsha</b> です。<br/>日常の相談・文章作成・調べもの・アイデア出しなど、なんでも話しかけてください。<br/><br/><b>Coding Agent</b> として使うには、左下の Access mode を <b>Workspace Write</b> に切り替えて「〜のファイルを修正して」と指示するだけ。実ファイルを編集します。<br/><br/>言語は URL の <b>/ja /en /zh /ko</b> で切替できます。',
+    'set.apiKey':'API キー（DeepSeek API）','set.apiKeyDesc':'Web から設定したキーが .env より優先されます。保存先はサーバの ~/.arcasha/assistant-settings.json（git 管理外）です。',
+    'set.apiBase':'API ベース URL','set.model':'既定モデル','set.customModel':'カスタムモデル名',
+    'set.customModelDesc':'オーケストレーションの推論ノードがこのモデル名で API を呼びます。',
+    'set.orchestration':'参加モデル数',
+    'set.orchestrationDesc':'1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜4 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。',
+    'set.hyper':'⚡ ハイパー Thinking モード',
+    'set.hyperDesc':'thinking 有効 + reasoning_effort=max + 出力上限 8000 トークン。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。',
+    'set.languageDesc':'Chat 画面はエンドポイントでも切替できます: /ja /en /zh /ko。ここで保存した言語は / を開いたときの既定になります。',
+    'set.save':'💾 設定を保存','set.saved':'✅ 設定を保存しました','set.fail':'⚠️ 保存に失敗: ',
+    'dict.search':'🔍 指示語を検索（例: CALL / 積分 / syscall）…','dict.title':'📖 AILSM 指示語辞典','dict.loading':'読込中…','dict.empty':'該当する指示語がありません',
+    'dict.name':'指示語','dict.op':'オペコード','dict.desc':'説明','dict.cat':'カテゴリ','dict.dialect':'方言',
+    'ailsm.view':'⚙ AILSM 出力を見る','ailsm.instructions':'AILSA 命令列','ailsm.verify':'検証','ailsm.bytes':'バイト列（hex）',
+    'ailsm.conf':'確信度','ailsm.fail':'AILSM コンパイル失敗','ailsm.notes':'最適化メモ',
+    'lang.aria':'Language',
+  },
+  en:{
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'Memory','tab.dict':'AILSM Dictionary','tab.set':'Settings',
+    'banner.sys':'System prompt',
+    'side.new':'New conversation','side.conv':'Conversations','side.noConv':'No conversations yet','side.mem':'Memory','side.workspace':'Workspace',
+    'composer.ph':'Message or run a task... / commands, @ files or sessions',
+    'cmds':'⚡ Commands','send':'Send message',
+    'welcome':'Hi 👋 I\'m <b>ArcAsha</b>.<br/>Ask me anything — daily questions, writing, research, ideas.<br/><br/>To use me as a <b>Coding Agent</b>, switch Access mode to <b>Workspace Write</b> and say "fix this file". I will edit real files.<br/><br/>Switch language via <b>/ja /en /zh /ko</b> endpoints.',
+    'set.apiKey':'API Key (DeepSeek API)','set.apiKeyDesc':'A key set here overrides .env. Saved to ~/.arcasha/assistant-settings.json on the server (outside git).',
+    'set.apiBase':'API Base URL','set.model':'Default model','set.customModel':'Custom model name',
+    'set.customModelDesc':'The reasoning nodes in orchestration call the API with this model name.',
+    'set.orchestration':'Models in orchestration',
+    'set.orchestrationDesc':'1 = Flash only / 2 = Flash + Pro (default) / 3–4 = extra reasoning nodes extend the fallback chain. Empty replies are delegated to the next model.',
+    'set.hyper':'⚡ Hyper Thinking mode',
+    'set.hyperDesc':'thinking enabled + reasoning_effort=max + 8000-token output budget. For deep reasoning (slower). If content is empty, reasoning is returned as the answer.',
+    'set.languageDesc':'The Chat UI can also switch by endpoint: /ja /en /zh /ko. The language saved here becomes the default for /.',
+    'set.save':'💾 Save settings','set.saved':'✅ Settings saved','set.fail':'⚠️ Save failed: ',
+    'dict.search':'🔍 Search instructions (e.g. CALL / integral / syscall)…','dict.title':'📖 AILSM Instruction Dictionary','dict.loading':'Loading…','dict.empty':'No instructions match',
+    'dict.name':'Name','dict.op':'Opcode','dict.desc':'Description','dict.cat':'Category','dict.dialect':'Dialect',
+    'ailsm.view':'⚙ View AILSM output','ailsm.instructions':'AILSA instructions','ailsm.verify':'Verification','ailsm.bytes':'Bytes (hex)',
+    'ailsm.conf':'Confidence','ailsm.fail':'AILSM compilation failed','ailsm.notes':'Optimizer notes',
+    'lang.aria':'Language',
+  },
+  zh:{
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'记忆','tab.dict':'AILSM词典','tab.set':'设置',
+    'banner.sys':'System prompt',
+    'side.new':'新对话','side.conv':'对话历史','side.noConv':'暂无对话','side.mem':'长期记忆','side.workspace':'Workspace',
+    'composer.ph':'输入消息或执行任务… / 命令、@ 文件或会话','cmds':'⚡ Commands','send':'Send message',
+    'welcome':'你好 👋 我是 <b>ArcAsha</b>。<br/>日常咨询、写作、查找资料、创意构思，什么都可以问我。<br/><br/>想把我当作 <b>Coding Agent</b> 使用时，请将 Access mode 切换为 <b>Workspace Write</b>，然后说「请修改这个文件」。我会直接编辑真实文件。<br/><br/>可通过 <b>/ja /en /zh /ko</b> 端点切换语言。',
+    'set.apiKey':'API 密钥（DeepSeek API）','set.apiKeyDesc':'在这里设置的密钥优先于 .env。保存于服务器 ~/.arcasha/assistant-settings.json（git 外）。',
+    'set.apiBase':'API Base URL','set.model':'默认模型','set.customModel':'自定义模型名',
+    'set.customModelDesc':'编排中的推理节点将使用该模型名调用 API。',
+    'set.orchestration':'参与模型数',
+    'set.orchestrationDesc':'1 = 仅 Flash / 2 = Flash + Pro（默认）/ 3〜4 = 增加推理节点扩展回退链。空响应时自动委托给下一个模型。',
+    'set.hyper':'⚡ 超级 Thinking 模式',
+    'set.hyperDesc':'thinking 开启 + reasoning_effort=max + 8000 token 输出预算。适合深度推理（速度较慢）。content 为空时返回推理内容作为回答。',
+    'set.languageDesc':'Chat 界面也可通过端点切换语言: /ja /en /zh /ko。此处保存的语言将成为 / 的默认值。',
+    'set.save':'💾 保存设置','set.saved':'✅ 设置已保存','set.fail':'⚠️ 保存失败: ',
+    'dict.search':'🔍 搜索指令（例: CALL / 积分 / syscall）…','dict.title':'📖 AILSM 指令词典','dict.loading':'加载中…','dict.empty':'没有匹配的指令',
+    'dict.name':'指令','dict.op':'操作码','dict.desc':'说明','dict.cat':'类别','dict.dialect':'方言',
+    'ailsm.view':'⚙ 查看 AILSM 输出','ailsm.instructions':'AILSA 指令序列','ailsm.verify':'验证','ailsm.bytes':'字节（hex）',
+    'ailsm.conf':'置信度','ailsm.fail':'AILSM 编译失败','ailsm.notes':'优化备注',
+    'lang.aria':'Language',
+  },
+  ko:{
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'기억','tab.dict':'AILSM사전','tab.set':'설정',
+    'banner.sys':'System prompt',
+    'side.new':'새 대화','side.conv':'대화 기록','side.noConv':'대화가 없습니다','side.mem':'장기 기억','side.workspace':'Workspace',
+    'composer.ph':'메시지를 입력하거나 작업을 실행하세요… / 명령, @ 파일 또는 세션','cmds':'⚡ Commands','send':'Send message',
+    'welcome':'안녕하세요 👋 <b>ArcAsha</b>입니다.<br/>일상 상담, 글쓰기, 조사, 아이디어 구상 등 무엇이든 말씀하세요.<br/><br/><b>Coding Agent</b>로 사용하려면 Access mode를 <b>Workspace Write</b>로 전환하고 "이 파일을 고쳐줘"라고 지시하세요. 실제 파일을 편집합니다.<br/><br/>언어는 <b>/ja /en /zh /ko</b> 엔드포인트로 전환할 수 있습니다.',
+    'set.apiKey':'API 키 (DeepSeek API)','set.apiKeyDesc':'여기서 설정한 키가 .env보다 우선합니다. 서버의 ~/.arcasha/assistant-settings.json에 저장됩니다 (git 밖).',
+    'set.apiBase':'API Base URL','set.model':'기본 모델','set.customModel':'커스텀 모델명',
+    'set.customModelDesc':'오케스트레이션의 추론 노드가 이 모델명으로 API를 호출합니다.',
+    'set.orchestration':'참여 모델 수',
+    'set.orchestrationDesc':'1 = Flash만 / 2 = Flash + Pro (기본) / 3〜4 = 추론 노드를 늘려 폴백 체인 확장. 빈 응답 시 다음 모델로 위임합니다.',
+    'set.hyper':'⚡ 하이퍼 Thinking 모드',
+    'set.hyperDesc':'thinking 활성화 + reasoning_effort=max + 8000 토큰 출력 예산. 깊은 추론용 (느림). content가 비어도 추론 내용을 답변으로 반환합니다.',
+    'set.languageDesc':'Chat 화면은 /ja /en /zh /ko 엔드포인트로도 전환할 수 있습니다. 여기서 저장한 언어가 /의 기본값이 됩니다.',
+    'set.save':'💾 설정 저장','set.saved':'✅ 설정을 저장했습니다','set.fail':'⚠️ 저장 실패: ',
+    'dict.search':'🔍 지시어 검색 (예: CALL / 적분 / syscall)…','dict.title':'📖 AILSM 지시어 사전','dict.loading':'로딩 중…','dict.empty':'일치하는 지시어가 없습니다',
+    'dict.name':'지시어','dict.op':'오퍼코드','dict.desc':'설명','dict.cat':'카테고리','dict.dialect':'방언',
+    'ailsm.view':'⚙ AILSM 출력 보기','ailsm.instructions':'AILSA 명령열','ailsm.verify':'검증','ailsm.bytes':'바이트 (hex)',
+    'ailsm.conf':'확신도','ailsm.fail':'AILSM 컴파일 실패','ailsm.notes':'최적화 메모',
+    'lang.aria':'Language',
+  },
+};
+let LOCALE = (UI_LOCALE && I18N[UI_LOCALE]) ? UI_LOCALE : 'ja';
+function t(key){return (I18N[LOCALE]&&I18N[LOCALE][key])||I18N.ja[key]||key}
+function applyLocale(){
+  document.documentElement.lang = {ja:'ja',en:'en',zh:'zh-CN',ko:'ko'}[LOCALE]||'ja';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.dataset.i18n;
+    if(k in I18N[LOCALE]) el.textContent=I18N[LOCALE][k];
+  });
+  inp.placeholder=t('composer.ph');
+  $('welcomeBody').innerHTML=t('welcome');
+  $('langLabel').textContent=LOCALE.toUpperCase();
+  $('dictSearch').placeholder=t('dict.search');
+  $('send').title=t('send');$('send').setAttribute('aria-label',t('send'));
+  $('cmdsBtn').title=t('cmds');
+  if(tab==='dict')renderDict();
+  if(tab==='set')loadSettings();
+}
+function switchLocale(l){
+  // 言語エンドポイントへ移動（サーバがロケールを注入して再読込する）
+  location.href='/'+l;
+}
+$('langBtn').addEventListener('click',()=>{
+  openMenu($('langBtn'),[
+    {heading:t('lang.aria')},
+    {label:'🇯🇵 日本語 /ja', sel:LOCALE==='ja', onclick:()=>switchLocale('ja')},
+    {label:'🇺🇸 English /en', sel:LOCALE==='en', onclick:()=>switchLocale('en')},
+    {label:'🇨🇳 中文 /zh', sel:LOCALE==='zh', onclick:()=>switchLocale('zh')},
+    {label:'🇰🇷 한국어 /ko', sel:LOCALE==='ko', onclick:()=>switchLocale('ko')},
+  ]);
+});
+
+/* ===== ユーティリティ ===== */
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600)}
+function fmtMs(ms){return ms>=1000?(ms/1000).toFixed(1)+'s':ms+'ms'}
+function fmtTok(n){return n>=1000?(n/1000).toFixed(1)+'K':String(n)}
+
+/* Markdown 簡易レンダリング */
+function md(src){
+  let s=esc(src);
+  const blocks=[];
+  s=s.replace(/```[\s\S]*?```/g,m=>{
+    const code=m.replace(/^```\w*\n?/,'').replace(/\n?```$/,'');
+    blocks.push('<pre><code>'+esc(code)+'</code></pre>');
+    return '\u0000'+(blocks.length-1)+'\u0000';
+  });
+  s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  s=s.replace(/^### (.*)$/gm,'<h3>$1</h3>');
+  s=s.replace(/^## (.*)$/gm,'<h2>$1</h2>');
+  s=s.replace(/^# (.*)$/gm,'<h1>$1</h1>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  s=s.replace(/^[-•] (.*)$/gm,'• $1');
+  s=s.replace(/^\d+\. (.*)$/gm,'• $1');
+  s=s.replace(/\u0000(\d+)\u0000/g,(_,i)=>blocks[+i]);
+  s=s.replace(/\n/g,'<br/>');
+  return s;
+}
+function copyText(text){
+  (navigator.clipboard? navigator.clipboard.writeText(text) : Promise.reject())
+    .then(()=>toast('📋 コピーしました'))
+    .catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();toast('📋 コピーしました');});
+}
+
+/* ===== ドロップダウンメニュー ===== */
+function closeMenu(){
+  const m=$('menuRoot');m.innerHTML='';
+  document.querySelectorAll('body > .menu').forEach(n=>n.remove());
+}
+function openMenu(anchor, items){
+  closeMenu();
+  const r=anchor.getBoundingClientRect();
+  const menu=document.createElement('div');menu.className='menu';
+  items.forEach(it=>{
+    if(it.heading){const h=document.createElement('div');h.className='mh';h.textContent=it.heading;menu.appendChild(h);return}
+    if(!it.label && it.desc){const d=document.createElement('div');d.className='mdesc';d.textContent=it.desc;menu.appendChild(d);return}
+    const b=document.createElement('button');b.className='mi'+(it.sel?' sel':'');
+    b.innerHTML='<span>'+(it.icon||'')+' '+esc(it.label||'')+'</span>'+(it.sel?'<span class="ck">✓</span>':'');
+    b.onclick=()=>{closeMenu();it.onclick&&it.onclick()};
+    menu.appendChild(b);
+    if(it.desc){const d=document.createElement('div');d.className='mdesc';d.textContent=it.desc;menu.appendChild(d)}
+  });
+  $('menuRoot').appendChild(menu);
+  const mw=menu.offsetWidth, mh=menu.offsetHeight;
+  let x=Math.min(r.left, window.innerWidth-mw-12); x=Math.max(12,x);
+  let y=r.bottom+6; if(y+mh>window.innerHeight-12)y=r.top-mh-6; if(y<12)y=12;
+  menu.style.left=x+'px';menu.style.top=y+'px';
+  document.addEventListener('mousedown',function h(e){if(!menu.contains(e.target)){closeMenu();document.removeEventListener('mousedown',h)}});
+  return menu;
+}
+
+/* ===== メッセージ描画 ===== */
+function makeAiActions(el, text){
+  const bar=document.createElement('div');bar.className='msg-actions';
+  const mk=(html,fn,title)=>{const b=document.createElement('button');b.className='act-btn';b.innerHTML=html;b.title=title||'';b.onclick=fn;return b;};
+  const cp=mk('📋 Copy',()=>copyText(text),'Copy');
+  const good=mk('👍 Good response',()=>{good.classList.toggle('on-good');toast('👍 フィードバックを記録しました');},'Good response');
+  const bad=mk('👎 Bad response',()=>{bad.classList.toggle('on-bad');toast('👎 フィードバックを記録しました');},'Bad response');
+  const br=mk('⑂ Branch',async()=>{await newConversation(true);toast('⑂ 新しい会話を分岐しました');},'Branch into a new conversation');
+  bar.appendChild(cp);bar.appendChild(good);bar.appendChild(bad);bar.appendChild(br);
+  el.appendChild(bar);
+}
+function addUser(text){
+  const turn=document.createElement('div');turn.className='turn';
+  turn.innerHTML='<div class="user-row"><div class="user-bubble">'+esc(text)+'</div></div>';
+  chatInner.appendChild(turn);scrollBottom();
+}
+function aiBox(who, avatar){
+  const turn=document.createElement('div');turn.className='turn';
+  const box=document.createElement('div');box.className='ai-msg';
+  box.innerHTML='<div class="role-line"><span class="ai-avatar">'+(avatar||'A')+'</span><span class="who">'+esc(who)+'</span></div>';
+  turn.appendChild(box);chatInner.appendChild(turn);scrollBottom();
+  return {turn, box};
+}
+/* ===== AILSM 出力ビューア（Chat 内・既存スレッドでも表示） ===== */
+function addAilsmRow(box, ailsm){
+  if(!ailsm)return;
+  const row=document.createElement('div');row.className='ailsm-row';
+  const ok=!!ailsm.ok;
+  row.innerHTML='<button class="thead">'+t('ailsm.view')+'</button><div class="tbody"></div>';
+  const tb=row.querySelector('.tbody');
+  if(!ok){
+    tb.innerHTML='<div class="ailsm-label" style="color:var(--danger)">'+t('ailsm.fail')+'</div><div class="ailsm-hex">'+esc(ailsm.error||'')+'</div>';
+  }else{
+    const instrs=(ailsm.instructions||[]).map(i=>{
+      const slots=(i.slots||[]).map(s=>'<span class="sl">'+esc(s.name)+'='+esc(String(s.value))+'</span>').join(' ');
+      return '<span class="ailsm-instr"><b>'+esc(i.name)+'</b>'+slots+'</span>';
+    }).join('');
+    const conf=typeof ailsm.confidence==='number'?Math.round(ailsm.confidence*100)+'%':'—';
+    const ver=ailsm.verification?(ailsm.verification.valid?'✅ valid':'❌ invalid')+' (issues: '+(ailsm.verification.issues??0)+')':'';
+    const notes=(ailsm.notes||[]).map(n=>'• '+esc(n)).join('<br/>');
+    tb.innerHTML=
+      '<div class="ailsm-label">'+t('ailsm.instructions')+'（'+ (ailsm.instructionCount||0) +' 命令 / '+t('ailsm.conf')+' '+conf+'）</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">'+instrs+'</div>'+
+      '<div class="ailsm-label">'+t('ailsm.verify')+' <span style="color:var(--mute)">'+ver+'</span></div>'+
+      '<div class="ailsm-label">'+t('ailsm.bytes')+'</div><div class="ailsm-hex">'+esc(ailsm.bytesHex||'')+'</div>'+
+      (notes?'<div class="ailsm-label">'+t('ailsm.notes')+'</div><div style="font-size:11px;color:var(--mute)">'+notes+'</div>':'');
+  }
+  row.querySelector('.thead').onclick=()=>{row.classList.toggle('open')};
+  box.appendChild(row);scrollBottom();
+}
+function addAi(text, meta, ailsm){
+  const {box}=aiBox('ArcAsha');
+  const body=document.createElement('div');body.className='md-body';body.innerHTML=md(text);
+  box.appendChild(body);
+  if(meta&&meta.length){
+    const mw=document.createElement('div');mw.className='msg-actions';
+    const tg=document.createElement('div');tg.className='meta-tags';
+    meta.forEach(t=>{const s=document.createElement('span');s.className='tag '+(t.cls||'');s.textContent=t.label;tg.appendChild(s)});
+    mw.appendChild(tg);box.appendChild(mw);
+  }
+  addAilsmRow(box, ailsm);
+  makeAiActions(box,text);
+  scrollBottom();return box;
+}
+function addSystem(text){
+  const {box}=aiBox('System');
+  const body=document.createElement('div');body.className='md-body';body.innerHTML=md(text);
+  box.appendChild(body);scrollBottom();
+}
+function addRemember(text){
+  const banner=document.createElement('div');banner.className='remember-banner';
+  banner.innerHTML='🧠 <b>覚えました:</b> '+esc(text);
+  chatInner.appendChild(banner);scrollBottom();
+}
+function scrollBottom(){const c=$('msgs');c.scrollTop=c.scrollHeight}
+function setTyping(on){$('chatInnerTyping').style.display=on?'block':'none';scrollBottom()}
+
+/* ===== ツール呼び出し・思考の折りたたみ（本家風） ===== */
+function chev(){return '<span class="chev">▼</span>'}
+function addThoughtRow(container, reasoning){
+  const row=document.createElement('div');row.className='thought-row';
+  row.innerHTML='<button class="thead">💭 Thought for a while'+chev()+'</button><div class="tbody"></div>';
+  row.querySelector('.tbody').textContent=reasoning;
+  row.querySelector('.thead').onclick=()=>{row.classList.toggle('open')};
+  container.appendChild(row);scrollBottom();
+}
+function addToolRow(container, toolCalls, toolResults){
+  const row=document.createElement('div');row.className='toolrow';
+  const n=toolCalls.length;
+  row.innerHTML='<button class="thead">🛠 <span>'+n+' tool call'+(n===1?'':'s')+'</span>'+chev()+'</button><div class="tbody"></div>';
+  const tb=row.querySelector('.tbody');
+  toolCalls.forEach((tc,i)=>{
+    const res=toolResults[i]||{name:tc.name,ok:false,output:'',ms:0};
+    const call=document.createElement('div');call.className='tool-call';
+    call.innerHTML='<button class="tc-head"><span>'+(res.ok?'✅':'❌')+' '+esc(tc.name)+'</span><span class="chev">▼</span></button>'+
+      '<div class="tc-body">'+
+      '<div class="tc-label">Arguments</div><div class="tc-args">'+esc(tc.argumentsJson||'{}')+'</div>'+
+      '<div class="tc-label">Result <span class="'+(res.ok?'tc-ok':'tc-err')+'">('+(res.ok?'ok':'error')+', '+res.ms+'ms)</span></div>'+
+      '<div class="tc-out">'+esc(res.output||'(no output)')+'</div>'+
+      '</div>';
+    call.querySelector('.tc-head').onclick=()=>{call.classList.toggle('open')};
+    tb.appendChild(call);
+  });
+  row.querySelector('.thead').onclick=()=>{row.classList.toggle('open')};
+  container.appendChild(row);scrollBottom();
+}
+function addInjectRow(container, label){
+  const row=document.createElement('div');row.className='inject-row';
+  row.innerHTML='<span class="chip">📄 Context injection <b>'+esc(label)+'</b></span>';
+  container.appendChild(row);scrollBottom();
+}
+
+/* ===== Coding Agent（/api/agent SSE） ===== */
+function handleAgentEvent(ev, p, state){
+  if(ev==='start'){
+    addInjectRow(state.box,'Workspace: '+p.root);
+    if(p.allowRunCommand) addInjectRow(state.box,'run_command: enabled');
+    return;
+  }
+  if(ev==='step'){
+    state.run.steps.push(p);
+    const msg=p.message||{};
+    if(msg.reasoning) addThoughtRow(state.box, msg.reasoning);
+    if(p.toolResults && p.toolResults.length) addToolRow(state.box, msg.toolCalls||[], p.toolResults);
+    return;
+  }
+  if(ev==='done'){
+    const body=document.createElement('div');body.className='md-body';body.innerHTML=md(p.finalAnswer||'(no answer)');
+    state.box.appendChild(body);
+    makeAiActions(state.box, p.finalAnswer||'');
+    // 実行時間表示（Ran for ...）
+    const mw=document.createElement('div');mw.className='msg-actions';
+    const tag=document.createElement('span');tag.className='tag';tag.textContent='⏱ Ran for '+fmtMs(p.totalMs||0);
+    mw.appendChild(tag);state.box.appendChild(mw);
+    // 統計・Trajectory
+    stats.steps=state.run.steps.length;
+    stats.llmMs=p.totalMs||0;
+    stats.ttftMs=state.run.steps[0]?state.run.steps[0].ms:0;
+    stats.inputTok=p.promptTokens||0;stats.outputTok=p.completionTokens||0;
+    state.run.finalAnswer=p.finalAnswer||'';state.run.totalMs=p.totalMs||0;
+    state.run.inputTok=p.promptTokens||0;state.run.outputTok=p.completionTokens||0;
+    state.run.stopReason=p.stopReason||'';
+    traj.push(state.run);
+    renderTraj();renderStats();
+    scrollBottom();
+    return;
+  }
+  if(ev==='error'){
+    const body=document.createElement('div');body.className='md-body';body.innerHTML='⚠️ '+esc(p.message||'error');
+    state.box.appendChild(body);scrollBottom();
+    return;
+  }
+}
+async function runAgent(text){
+  const {box}=aiBox('ArcAsha Agent','🤖');
+  const state={box, run:{prompt:text, steps:[], finalAnswer:'', ts:Date.now(), totalMs:0, inputTok:0, outputTok:0, stopReason:''}};
+  setTyping(true);
+  try{
+    const res=await fetch('/api/agent',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt:text, allowRunCommand:true})});
+    if(!res.ok||!res.body){const d=await res.json().catch(()=>({}));addSystem('⚠️ '+(d.error||('agent failed: '+res.status)));return}
+    const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
+    for(;;){
+      const {done,value}=await reader.read();
+      if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      let i;
+      while((i=buf.indexOf('\n\n'))>=0){
+        const chunk=buf.slice(0,i);buf=buf.slice(i+2);
+        let ev='message',data='';
+        for(const line of chunk.split('\n')){
+          if(line.startsWith('event: '))ev=line.slice(7).trim();
+          else if(line.startsWith('data: '))data+=line.slice(6);
+        }
+        if(!data)continue;
+        let payload;try{payload=JSON.parse(data)}catch(_){continue}
+        handleAgentEvent(ev,payload,state);
+      }
+    }
+  }catch(e){addSystem('⚠️ '+e)}
+  setTyping(false);
+}
+
+/* ===== タブ ===== */
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>{
+  tab=b.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  $('msgs').style.display=tab==='chat'?'block':'none';
+  $('chatInnerTyping').style.display='none';
+  $('trajTab').style.display=tab==='traj'?'block':'none';
+  $('memTab').style.display=tab==='mem'?'block':'none';
+  $('dictTab').style.display=tab==='dict'?'block':'none';
+  $('setTab').style.display=tab==='set'?'block':'none';
+  if(tab==='mem')refreshMemTab();
+  if(tab==='traj')renderTraj();
+  if(tab==='dict')renderDict();
+  if(tab==='set')loadSettings();
+}));
+
+/* ===== アクセスモード（Workspace Write / Read Only） ===== */
+function applyAccess(m){
+  accessMode=m;
+  $('accessLabel').textContent = m==='write'?'Workspace Write':'Read Only';
+  $('accessBtn').title='Access mode, current: '+(m==='write'?'Workspace Write':'Read Only');
+  $('accessBtn').style.borderColor = m==='write'?'var(--brand)':'';
+  $('accessBtn').style.color = m==='write'?'var(--brand2)':'';
+}
+$('accessBtn').addEventListener('click',()=>{
+  openMenu($('accessBtn'),[
+    {heading:'Access mode'},
+    {label:'🛡 Read Only', sel:accessMode==='read', desc:'通常チャット。ファイルは編集しません。', onclick:()=>applyAccess('read')},
+    {label:'✏️ Workspace Write', sel:accessMode==='write', desc:'Coding Agent。指示に従って実ファイルを編集します。', onclick:()=>applyAccess('write')},
+  ]);
+});
+
+/* ===== モデル選択 ===== */
+function applyModel(m){
+  model=m;
+  $('modelLabel').textContent=MODEL_DISPLAY[m]||m;
+  $('modelBtn').title='Select model, current '+(MODEL_DISPLAY[m]||m);
+}
+$('modelBtn').addEventListener('click',()=>{
+  openMenu($('modelBtn'),[
+    {heading:'Model'},
+    {label:'⚡ DeepSeek-V4-Flash', sel:model==='deepseek-v4-flash', desc:'高速・汎用（検索/会話）', onclick:()=>applyModel('deepseek-v4-flash')},
+    {label:'🧠 DeepSeek-V4-Pro', sel:model==='deepseek-v4-pro', desc:'推論・数学・コード', onclick:()=>applyModel('deepseek-v4-pro')},
+  ]);
+});
+
+/* ===== Commands メニュー ===== */
+$('cmdsBtn').addEventListener('click',()=>{
+  openMenu($('cmdsBtn'),[
+    {heading:'Commands'},
+    {label:'/help', onclick:()=>{inp.value='/help';inp.focus()}},
+    {label:'/memory', onclick:()=>{inp.value='/memory';inp.focus()}},
+    {label:'/remember …', onclick:()=>{inp.value='/remember ';inp.focus()}},
+    {label:'/forget …', onclick:()=>{inp.value='/forget ';inp.focus()}},
+    {label:'/pin', onclick:()=>{inp.value='/pin';inp.focus()}},
+    {label:'/new', onclick:()=>newConversation()},
+  ]);
+});
+
+/* ===== System prompt ===== */
+$('sysbtn').addEventListener('click',()=>{
+  openMenu($('sysbtn'),[
+    {heading:'System prompt'},
+    {desc:'ArcAsha（AI OS）のアシスタント。'+(mode==='expert'?'エキスパート（技術的・正確）':'カジュアル（やさしく日常タスク）')+'モード。長期記憶（facts / knowledge）と複数モデル艦隊（Flash/Pro 自動ルーティング）を活用。'},
+  ]);
+});
+
+/* ===== コンテキストメーター ===== */
+function setCtx(pct){
+  pct=Math.max(0,Math.min(99,pct));
+  const c=69.1;
+  $('ctxFill').style.strokeDashoffset=String(c*(1-pct/100));
+  $('ctxmeter').title=pct+'% of context used';
+  $('ctxmeter button').setAttribute('aria-label',pct+'% of context used');
+}
+function updateCtx(){
+  try{
+    // 現在スレッドの総文字数を概算（128k コンテキスト相当で % 化）
+    let chars=0;
+    const msgs=$('msgs').textContent||'';
+    chars=msgs.length;
+    setCtx(Math.round(chars/1200)); // 概算: 120k chars ≈ 100%
+  }catch(_){}
+}
+inp.addEventListener('input',()=>{autoGrow();updateCtx()});
+
+/* ===== 送信（Enter=改行, Cmd/Ctrl+Enter=送信, 送信ボタン） ===== */
+async function send(){
+  const text=inp.value.trim();
+  if(!text||busy)return;
+  addUser(text);inp.value='';autoGrow();
+  if(accessMode==='write'){
+    // Coding Agent
+    busy=true;$('send').disabled=true;
+    await runAgent(text);
+    busy=false;$('send').disabled=false;
+    inp.focus();refreshSide();
+    return;
+  }
+  busy=true;$('send').disabled=true;setTyping(true);
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text,threadId,mode,model})});
+    const d=await r.json();
+    if(d.error){addSystem('⚠️ '+d.error)}
+    else{
+      threadId=d.threadId||threadId;
+      if(d.mode)mode=d.mode;
+      const meta=[];
+      if(d.model)meta.push({label:d.model,cls:'model'});
+      if(d.expert)meta.push({label:d.expert,cls:'expert'});
+      if(typeof d.ms==='number')meta.push({label:fmtMs(d.ms),cls:''});
+      addAi(d.reply,meta,d.ailsm);
+      if(d.remembered){addRemember(d.remembered.text);refreshSide();}
+    }
+  }catch(e){addSystem('⚠️ '+e)}
+  busy=false;$('send').disabled=false;setTyping(false);
+  inp.focus();refreshSide();updateCtx();if(tab==='mem')refreshMemTab();
+}
+$('send').addEventListener('click',send);
+inp.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&!e.isComposing){
+    e.preventDefault();send();
+  }
+  /* Enter 単体 = 改行のみ（送信しない） */
+});
+inp.addEventListener('input',autoGrow);
+function autoGrow(){inp.style.height='auto';inp.style.height=Math.min(inp.scrollHeight,180)+'px'}
+
+/* 新規会話 */
+async function newConversation(branch){
+  const r=await fetch('/api/threads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})});
+  const d=await r.json();threadId=d.thread.id;
+  if(!branch){chatInner.querySelectorAll('.turn').forEach(n=>n.remove());addSystem('🆕 新しい会話を始めましょう。何でも話しかけてください。')}
+  refreshSide();
+}
+$('newBtn').addEventListener('click',()=>newConversation(false));
+
+/* ===== サイドバー ===== */
+async function refreshSide(){
+  try{
+    const r=await fetch('/api/state');const d=await r.json();
+    if(d.currentThreadId&&!threadId)threadId=d.currentThreadId;
+    if(d.memoryPath)$('memPath').textContent=d.memoryPath;
+    if(d.workdir)$('workdirBox').innerHTML='<b>Workspace</b><br/>'+esc(d.workdir);
+    renderThreads(d.threads||[]);
+    if(d.models&&d.models.length&&!MODEL_DISPLAY[model]){
+      const m0=d.models[0].id;
+      if(MODEL_DISPLAY[m0])applyModel(m0);
+    }
+  }catch(_){}
+  try{
+    const r2=await fetch('/api/memory');const d2=await r2.json();
+    const p=$('memPanel');let html='';
+    (d2.facts||[]).slice(0,8).forEach(f=>{html+='<div class="mem-item"><span class="cat '+esc(f.category)+'">'+esc(f.category)+'</span>'+esc(f.text)+'</div>'});
+    p.innerHTML=html||'<div class="empty">🧠 まだ記憶がありません</div>';
+  }catch(_){}
+}
+function renderThreads(threads){
+  const el=$('threadList');
+  el.innerHTML=threads.length?'':'<div class="empty">No conversations yet</div>';
+  threads.forEach(t=>{
+    const row=document.createElement('div');
+    row.className='thread'+(t.id===threadId?' active':'');
+    row.innerHTML='<span class="ic">'+(t.pinned?'📌':'💬')+'</span><span class="t"></span><span class="mode-chip">'+(t.mode==='expert'?'Expert':'Chat')+'</span>';
+    row.querySelector('.t').textContent=t.title;
+    row.title=t.title+' · '+t.messages.length+' messages';
+    row.addEventListener('click',()=>openThread(t.id));
+    el.appendChild(row);
+  });
+}
+async function openThread(id){
+  threadId=id;
+  const r=await fetch('/api/threads/'+id);const d=await r.json();
+  const t=d.thread;mode=t.mode||'casual';
+  chatInner.querySelectorAll('.turn').forEach(n=>n.remove());
+  if(!t.messages.length)addSystem('（この会話にはまだメッセージがありません）');
+  t.messages.forEach(m=>{
+    if(m.role==='user'){addUser(m.content)}
+    else{const meta=[];if(m.meta&&m.meta.model)meta.push({label:m.meta.model,cls:'model'});addAi(m.content,meta,m.meta&&m.meta.ailsm)}
+  });
+  updateCtx();refreshSide();
+}
+
+/* ===== Trajectory タブ ===== */
+function renderTraj(){
+  const el=$('trajInner');
+  if(!traj.length){el.innerHTML='<div class="traj-empty">No agent runs yet.</div>';return}
+  el.innerHTML='';
+  traj.slice().reverse().forEach((run,ri)=>{
+    const card=document.createElement('div');card.className='traj-step';
+    const h=document.createElement('div');h.className='ts-head';
+    h.innerHTML='🤖 Run #'+(traj.length-ri)+' <span style="color:var(--dim);font-weight:400;margin-left:auto">'+new Date(run.ts).toLocaleTimeString()+'</span>';
+    card.appendChild(h);
+    const p=document.createElement('div');p.className='ts-meta';
+    p.innerHTML='📝 '+esc(run.prompt.slice(0,120))+(run.prompt.length>120?'…':'');
+    card.appendChild(p);
+    const s=document.createElement('div');s.className='ts-meta';
+    s.innerHTML='steps: <b>'+run.steps.length+'</b> · LLM '+fmtMs(run.totalMs)+' · stop: '+esc(run.stopReason)+' · Input '+fmtTok(run.inputTok)+' tok · Output '+fmtTok(run.outputTok)+' tok';
+    card.appendChild(s);
+    run.steps.forEach((st,si)=>{
+      const row=document.createElement('div');row.className='tool-call';row.style.marginTop='6px';
+      const tools=(st.toolResults||[]).map((tr,i)=>{const tc=(st.message&&st.message.toolCalls&&st.message.toolCalls[i])||{name:tr.name};return '• '+tc.name+' ('+(tr.ok?'ok':'error')+', '+tr.ms+'ms)'}).join('<br/>');
+      row.innerHTML='<div class="tc-body" style="display:flex">'+
+        '<span style="font-size:11px;color:var(--dim)">step '+(si+1)+' · '+st.ms+'ms'+(st.message&&st.message.reasoning?' · 💭 thought':'')+'</span>'+
+        '<span style="font-size:11.5px;color:var(--ink2)">'+(tools||'<span style="color:var(--dim)">（最終回答）</span>')+'</span>'+
+        '</div>';
+      card.appendChild(row);
+    });
+    el.appendChild(card);
+  });
+}
+
+/* ===== 統計ライン（本家形式） ===== */
+function renderStats(){
+  const thru = stats.llmMs>0 ? Math.round(stats.outputTok/(stats.llmMs/1000)) : 0;
+  $('statLine').innerHTML =
+    '<b>'+stats.turns+'</b> turns · <b>'+stats.steps+'</b> steps'+
+    (stats.llmMs>0?' LLM <b>'+fmtMs(stats.llmMs)+'</b>':'')+
+    (stats.ttftMs>0?' TTFT avg <b>'+fmtMs(stats.ttftMs)+'</b>':'')+
+    (thru>0?' · <b>'+thru+'</b> tok/s':'')+
+    ' Cache hit <b>'+stats.cacheHit+'%</b>'+
+    ' Input <b>'+fmtTok(stats.inputTok)+'</b> tok · Output <b>'+fmtTok(stats.outputTok)+'</b> tok';
+}
+async function refreshStats(){
+  try{
+    const r=await fetch('/api/state');const d=await r.json();
+    const th=d.threads||[];
+    stats.turns=th.reduce((a,t)=>a+t.messages.length,0);
+    renderStats();
+  }catch(_){}
+}
+
+/* ===== 記憶タブ ===== */
+async function refreshMemTab(){
+  try{
+    const r=await fetch('/api/memory');const d=await r.json();
+    const fl=$('factList');
+    fl.innerHTML=(d.facts||[]).length?'':'<p style="color:var(--dim);font-size:12.5px">まだ自動記憶がありません。自己紹介するとここに追加されます。</p>';
+    (d.facts||[]).forEach(f=>{
+      const row=document.createElement('div');row.className='krow';
+      row.innerHTML='<span class="cat '+esc(f.category)+'" style="flex:none">'+esc(f.category)+'</span><span>'+esc(f.text)+'</span><button class="kdel" title="削除">✕</button>';
+      row.querySelector('.kdel').onclick=async()=>{await fetch('/api/facts/'+f.id,{method:'DELETE'});refreshMemTab();refreshSide();};
+      fl.appendChild(row);
+    });
+    const kl=$('knowList');
+    kl.innerHTML=(d.knowledge||[]).length?'':'<p style="color:var(--dim);font-size:12.5px">知識・メモはまだありません。</p>';
+    (d.knowledge||[]).forEach(k=>{
+      const row=document.createElement('div');row.className='krow';
+      row.innerHTML='<b style="flex:none">'+esc(k.title)+'</b><span>'+esc(k.text)+'</span><button class="kdel" title="削除">✕</button>';
+      row.querySelector('.kdel').onclick=async()=>{await fetch('/api/knowledge/'+k.id,{method:'DELETE'});refreshMemTab();refreshSide();};
+      kl.appendChild(row);
+    });
+  }catch(_){}
+}
+$('knowAdd').addEventListener('click',async()=>{
+  const title=$('knowTitle').value.trim(), text=$('knowText').value.trim();
+  if(!text){toast('内容を入力してください');return}
+  await fetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,text})});
+  $('knowTitle').value='';$('knowText').value='';
+  toast('📚 知識を追加しました');refreshMemTab();refreshSide();
+});
+['knowTitle','knowText'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){$('knowAdd').click()}}));
+
+/* ===== 設定タブ（API キー / モデル / オーケストレーション / Hyper Thinking / 言語） ===== */
+$('setCount').addEventListener('input',()=>{$('setCountVal').textContent=$('setCount').value});
+$('setModel').addEventListener('change',()=>{
+  $('customModelRow').style.display = $('setModel').value==='__custom__'?'flex':'none';
+});
+async function loadSettings(){
+  try{
+    const r=await fetch('/api/settings');const d=await r.json();
+    if(d.error){toast('⚠️ '+d.error);return}
+    serverSettings=d;
+    $('setApiKey').value = d.apiKey; // マスク済み
+    $('setApiKey').placeholder = d.hasApiKey ? '••••••••（設定済み — 変更する場合のみ入力）' : 'sk-...（空欄なら .env を使用）';
+    $('setApiBase').value=d.apiBase||'';
+    const modelVal = (d.availableModels||[]).some(m=>m.id===d.model&&m.id!=='__custom__') ? d.model : '__custom__';
+    $('setModel').value=modelVal;
+    $('setCustomModel').value=modelVal==='__custom__'?d.model:(d.customModel||'');
+    $('customModelRow').style.display = $('setModel').value==='__custom__'?'flex':'none';
+    $('setCount').value=d.orchestrationCount||2;
+    $('setCountVal').textContent=d.orchestrationCount||2;
+    $('setHyper').checked=!!d.hyperThinking;
+    $('setLanguage').value=d.language||'ja';
+    $('setPathBox').innerHTML='保存先: <code style="color:var(--brand2)">'+esc(d.path||'')+'</code>';
+  }catch(e){toast('⚠️ '+e)}
+}
+$('setSave').addEventListener('click',async()=>{
+  const btn=$('setSave');btn.disabled=true;
+  const modelSel=$('setModel').value;
+  const custom=$('setCustomModel').value.trim();
+  const body={
+    apiKey:$('setApiKey').value,        // 空なら変更なし（マスク値はサーバ側で無視）
+    apiBase:$('setApiBase').value.trim(),
+    customModel:custom,
+    orchestrationCount:Number($('setCount').value),
+    hyperThinking:$('setHyper').checked,
+    language:$('setLanguage').value,
+  };
+  if(modelSel==='__custom__'){ if(custom) body.model=custom; } else body.model=modelSel;
+  try{
+    const r=await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(d.error){toast('⚠️ '+d.error)}
+    else{
+      serverSettings=d;
+      toast(t('set.saved'));
+      $('setApiKey').value='';
+      await loadSettings();
+      if(d.model&&modelSel!=='__custom__')applyModel(d.model);
+      refreshSide();
+    }
+  }catch(e){toast(t('set.fail')+e)}
+  btn.disabled=false;
+});
+
+/* ===== AILSM 指示語辞典タブ（registry.json = 唯一の権威） ===== */
+async function renderDict(){
+  const el=$('dictBody');
+  if(!dictData){
+    el.innerHTML='<div class="traj-empty">'+t('dict.loading')+'</div>';
+    try{
+      const r=await fetch('/api/ailsm/dictionary');const d=await r.json();
+      if(d.error){el.innerHTML='<div class="traj-empty">⚠️ '+esc(d.error)+'</div>';return}
+      dictData=d;
+    }catch(e){el.innerHTML='<div class="traj-empty">⚠️ '+esc(e)+'</div>';return}
+  }
+  $('dictVer').textContent='registry v'+(dictData.version||'?');
+  const q=($('dictSearch').value||'').toLowerCase();
+  const cats=[['task','📋 タスク'],['domain','🌐 ドメイン'],['slot','🧩 スロット'],['control','🎛 制御'],['math','📐 数学'],['code','💻 コード'],['search','🔎 検索'],['reasoning','🧠 推論'],['syscall','⚙️ Syscall']];
+  let html='';
+  cats.forEach(([cid,cname])=>{
+    const rows=(dictData.instructions||[]).filter(e=>e.category===cid && (!q||e.name.toLowerCase().includes(q)||(e.description||'').toLowerCase().includes(q)||String(e.opcode)===q));
+    if(!rows.length)return;
+    html+='<div class="dict-card"><h3>'+cname+' <small>'+rows.length+' instructions</small></h3>'+
+      '<table class="dict-table"><tr><th>'+t('dict.name')+'</th><th>'+t('dict.op')+'</th><th>'+t('dict.desc')+'</th><th>'+t('dict.dialect')+'</th></tr>';
+    rows.forEach(e=>{
+      html+='<tr><td class="n">'+esc(e.name)+'</td><td class="o">0x'+e.opcode.toString(16).padStart(2,'0').toUpperCase()+' ('+e.opcode+')</td><td class="d">'+esc(e.description||'')+(e.valueType?' <span style="color:var(--dim)">['+esc(e.valueType)+']</span>':'')+(e.terminal?' <span style="color:var(--good)">[terminal]</span>':'')+'</td><td>'+esc(e.dialect)+'</td></tr>';
+    });
+    html+='</table></div>';
+  });
+  el.innerHTML=html||'<div class="traj-empty">'+t('dict.empty')+'</div>';
+}
+$('dictSearch').addEventListener('input',()=>renderDict());
+
+/* ===== 起動 ===== */
+refreshSide();refreshStats();applyAccess('read');applyModel('deepseek-v4-flash');renderStats();applyLocale();
+setInterval(()=>{if(!busy){refreshSide();refreshStats()}},8000);
+inp.focus();
+</script>
+</body>
+</html>

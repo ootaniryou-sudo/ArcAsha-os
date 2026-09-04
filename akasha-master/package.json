@@ -34,6 +34,8 @@
     "swe:tools-test": "tsx src/arcasha/swe/tools-test.ts",
     "swe:eval-test": "tsx src/arcasha/swe/eval-test.ts",
     "chat": "tsx src/arcasha/chat/chat-server.ts",
+    "assistant": "tsx src/arcasha/assistant/server.ts",
+    "assistant:test": "tsx src/arcasha/assistant/memory-test.ts",
     "arcasha": "tsx src/arcasha/cli.ts"
   },
   "engines": {
