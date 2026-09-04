@@ -435,10 +435,10 @@ textarea::placeholder{color:var(--dim)}
           <div class="set-row">
             <label data-i18n="set.orchestration">参加モデル数</label>
             <div style="display:flex;align-items:center;gap:12px">
-              <input type="range" id="setCount" min="1" max="4" step="1" value="2" />
+              <input type="range" id="setCount" min="1" max="50" step="1" value="2" />
               <span class="count-val" id="setCountVal">2</span>
             </div>
-            <div class="desc" data-i18n="set.orchestrationDesc">1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜4 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。</div>
+            <div class="desc" data-i18n="set.orchestrationDesc">1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。</div>
           </div>
           <div class="set-row">
             <label class="toggle">
@@ -543,7 +543,7 @@ const I18N={
     'set.apiBase':'API ベース URL','set.model':'既定モデル','set.customModel':'カスタムモデル名',
     'set.customModelDesc':'オーケストレーションの推論ノードがこのモデル名で API を呼びます。',
     'set.orchestration':'参加モデル数',
-    'set.orchestrationDesc':'1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜4 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。',
+    'set.orchestrationDesc':'1 = Flash のみ / 2 = Flash + Pro（既定）/ 3〜50 = 推論ノードを増やしてフォールバックチェーンを拡張。タスク分類で空応答時に次のモデルへ委譲します。',
     'set.hyper':'⚡ ハイパー Thinking モード',
     'set.hyperDesc':'thinking 有効 + reasoning_effort=max + 出力上限 8000 トークン。深い推論が必要な質問向け（応答は遅くなります）。content が空でも推論内容を回答として返します。',
     'set.languageDesc':'Chat 画面はエンドポイントでも切替できます: /ja /en /zh /ko。ここで保存した言語は / を開いたときの既定になります。',
@@ -565,7 +565,7 @@ const I18N={
     'set.apiBase':'API Base URL','set.model':'Default model','set.customModel':'Custom model name',
     'set.customModelDesc':'The reasoning nodes in orchestration call the API with this model name.',
     'set.orchestration':'Models in orchestration',
-    'set.orchestrationDesc':'1 = Flash only / 2 = Flash + Pro (default) / 3–4 = extra reasoning nodes extend the fallback chain. Empty replies are delegated to the next model.',
+    'set.orchestrationDesc':'1 = Flash only / 2 = Flash + Pro (default) / 3–50 = extra reasoning nodes extend the fallback chain. Empty replies are delegated to the next model.',
     'set.hyper':'⚡ Hyper Thinking mode',
     'set.hyperDesc':'thinking enabled + reasoning_effort=max + 8000-token output budget. For deep reasoning (slower). If content is empty, reasoning is returned as the answer.',
     'set.languageDesc':'The Chat UI can also switch by endpoint: /ja /en /zh /ko. The language saved here becomes the default for /.',
@@ -586,7 +586,7 @@ const I18N={
     'set.apiBase':'API Base URL','set.model':'默认模型','set.customModel':'自定义模型名',
     'set.customModelDesc':'编排中的推理节点将使用该模型名调用 API。',
     'set.orchestration':'参与模型数',
-    'set.orchestrationDesc':'1 = 仅 Flash / 2 = Flash + Pro（默认）/ 3〜4 = 增加推理节点扩展回退链。空响应时自动委托给下一个模型。',
+    'set.orchestrationDesc':'1 = 仅 Flash / 2 = Flash + Pro（默认）/ 3〜50 = 增加推理节点扩展回退链。空响应时自动委托给下一个模型。',
     'set.hyper':'⚡ 超级 Thinking 模式',
     'set.hyperDesc':'thinking 开启 + reasoning_effort=max + 8000 token 输出预算。适合深度推理（速度较慢）。content 为空时返回推理内容作为回答。',
     'set.languageDesc':'Chat 界面也可通过端点切换语言: /ja /en /zh /ko。此处保存的语言将成为 / 的默认值。',
@@ -607,7 +607,7 @@ const I18N={
     'set.apiBase':'API Base URL','set.model':'기본 모델','set.customModel':'커스텀 모델명',
     'set.customModelDesc':'오케스트레이션의 추론 노드가 이 모델명으로 API를 호출합니다.',
     'set.orchestration':'참여 모델 수',
-    'set.orchestrationDesc':'1 = Flash만 / 2 = Flash + Pro (기본) / 3〜4 = 추론 노드를 늘려 폴백 체인 확장. 빈 응답 시 다음 모델로 위임합니다.',
+    'set.orchestrationDesc':'1 = Flash만 / 2 = Flash + Pro (기본) / 3〜50 = 추론 노드를 늘려 폴백 체인 확장. 빈 응답 시 다음 모델로 위임합니다.',
     'set.hyper':'⚡ 하이퍼 Thinking 모드',
     'set.hyperDesc':'thinking 활성화 + reasoning_effort=max + 8000 토큰 출력 예산. 깊은 추론용 (느림). content가 비어도 추론 내용을 답변으로 반환합니다.',
     'set.languageDesc':'Chat 화면은 /ja /en /zh /ko 엔드포인트로도 전환할 수 있습니다. 여기서 저장한 언어가 /의 기본값이 됩니다.',

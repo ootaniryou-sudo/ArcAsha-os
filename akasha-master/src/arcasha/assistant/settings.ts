@@ -4,7 +4,7 @@
  * WebUI の「設定」タブから変更できる実行時設定を永続化する。
  * - API キー / API ベース URL（.env の代わりに Web から設定できる）
  * - 使用モデル（既存モデル or「その他」で自由入力したカスタムモデル）
- * - オーケストレーション参加モデル数（1〜4）
+ * - オーケストレーション参加モデル数（1〜50）
  * - ハイパー Thinking モード（thinking + reasoning_effort=max）
  * - UI 言語（ja / en / zh / ko）
  *
@@ -26,7 +26,7 @@ export interface AssistantSettings {
   model: string;
   /** 「その他」で入力したカスタムモデル名（推論ロールに使う。空 = 既定 Pro） */
   customModel: string;
-  /** オーケストレーションに参加できるモデル数（1〜4、既定 2） */
+  /** オーケストレーションに参加できるモデル数（1〜50、既定 2） */
   orchestrationCount: number;
   /** ハイパー Thinking モード（thinking enabled + reasoning_effort=max） */
   hyperThinking: boolean;
@@ -35,7 +35,7 @@ export interface AssistantSettings {
 }
 
 export const ORCHESTRATION_MIN = 1;
-export const ORCHESTRATION_MAX = 4;
+export const ORCHESTRATION_MAX = 50;
 
 export function defaultSettings(): AssistantSettings {
   return {

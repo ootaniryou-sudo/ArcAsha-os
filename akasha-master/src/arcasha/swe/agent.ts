@@ -15,6 +15,7 @@ import type { ChatOptions, SweAgentResult, SweContext, SweStep } from './types.j
 import type { ChatMessage } from './model.js';
 import { chatCompletion, toChatTools, chatDefaults } from './model.js';
 import { SWE_TOOLS, getSweTool } from './tools.js';
+import { buildAilsmQuickGuide } from './ailsm-guide.js';
 
 /** ツール名を引数へ渡すための定義（agent 用に description を補強した system を作る）。 */
 const TOOL_USAGE_GUIDE = SWE_TOOLS.map((t) => {
@@ -27,23 +28,31 @@ function buildSystemPrompt(): string {
     'あなたはソフトウェアエンジニアリングエージェントです。',
     '与えられたリポジトリで問題（issue）を解決してください。',
     '',
+    '【タスクの種類を見極めること】',
+    '- 修正が必要なタスク: バグ修正・機能追加・リファクタリング等 → 調査して実際にコードを修正する',
+    '- 修正が不要なタスク: 質問・調査報告・説明・読むだけの依頼 → ツールで必要最小限を確認したら、すぐに最終回答を返す（ファイルは変更しない）',
+    '',
     '作業手順:',
     '1. まずリポジトリの構造を把握する（list_dir / glob_search / read_file を使う）',
     '2. 問題に関連するコードを grep_search で探し、read_file で読む',
     '3. 原因の見当がついたら、すぐに write_file / edit_file で修正する（調査ばかりせず、早めに修正に着手すること）',
     '4. 修正後は run_command でテストを実行して確認する（例: python3 -m pytest で該当テストを実行）',
     '',
-    '重要:',
+    '重要（ツールループの収束ルール）:',
     '- ツールは必ず正しい引数で 1 度に 1 つずつ呼び出してください',
+    '- 同じツールを同じ引数で繰り返し呼ばないでください（結果は同じです。前に進めないなら結論を出してください）',
+    '- 調査（list_dir / read_file / grep_search / glob_search）は合計 10 回までにしてください。それ以上調べても結論が変わらないなら、わかった範囲で最終回答してください',
     '- ファイルパスはリポジトリルートからの相対パスで指定してください',
     '- Python の実行には「python」ではなく「python3」を使ってください',
-    '- 調査だけで終わらず、必ず write_file か edit_file で実際にコードを修正してください。修正せずに終了してはいけません',
+    '- 修正が必要なタスクでは、write_file か edit_file で実際にコードを修正してください',
     '- テストファイル（tests/ ディレクトリ、test_*.py、*_test.py、conftest.py）は編集・作成しないでください。テストは評価時に自動で適用されます。ソースコード（実装）のみを修正してください',
     '- 修正が完了したら、ツール呼び出しなしで最終回答（変更したファイルと理由、テスト結果）を日本語で返してください',
     '- 既存コードのスタイルを維持してください',
     '',
     '利用可能なツール:',
     TOOL_USAGE_GUIDE,
+    '',
+    buildAilsmQuickGuide(),
   ].join('\n');
 }
 
@@ -122,6 +131,19 @@ export async function runSweAgent(
 
   let emptyReplies = 0; // 不完全応答（空 content / 打ち切り）の連続回数
   for (let i = 0; i < maxIterations; i++) {
+    // 残りステップが少なくなったら収束を促す警告を注入する
+    const remaining = maxIterations - i;
+    if (remaining === 5) {
+      messages.push({
+        role: 'user',
+        content: '（システム: 残りステップはあと 5 回です。調査を打ち切り、わかった範囲で結論をまとめて最終回答を出してください。修正が必要ならこの時点で write_file / edit_file を実行してください。）',
+      });
+    } else if (remaining === 2) {
+      messages.push({
+        role: 'user',
+        content: '（システム: 残りステップはあと 2 回です。ツールを呼ばず、ここまでの結果を日本語で最終回答してください。）',
+      });
+    }
     const completion = await deps.chat(messages, tools, chatOpts);
     const { message, finishReason, usage } = completion;
 
@@ -159,12 +181,12 @@ export async function runSweAgent(
         content: message.content ?? '',
         reasoning_content: message.reasoning ?? null,
       });
-      // 続行を促す user メッセージを追加して再試行
+      // 続行を促す user メッセージを追加して再試行（終了を促す方向に緩和）
       messages.push({
         role: 'user',
-        content: `（システム: 直前の応答が不完全です。まだ解決作業が終わっていません。）\n` +
-          `修正が完了していない場合は、ツール（write_file / edit_file / run_command）を使って修正とテストを続けてください。\n` +
-          `修正が完了したなら、変更したファイル・理由・テスト結果を日本語で詳しく書いた最終回答を返してください。`,
+        content: `（システム: 直前の応答が不完全でした。）\n` +
+          `まだ修正が終わっていない場合は、1 回だけツール（write_file / edit_file / run_command）で続けてください。\n` +
+          `修正が不要なタスク（質問・調査報告）なら、これ以上ツールを呼ばず、わかったことを日本語で書いた最終回答を返してください。`,
       });
       steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
       opts.onStep?.(steps[steps.length - 1], i);

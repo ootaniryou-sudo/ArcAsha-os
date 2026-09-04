@@ -68,10 +68,10 @@ await settings.load();
 
 /**
  * オーケストレーションに参加するモデル艦隊を設定から構築する。
- * orchestrationCount = 参加モデル数（1〜4）。
+ * orchestrationCount = 参加モデル数（1〜50）。
  *   - 1: Flash（general）1 台
  *   - 2: Flash + Pro（既定）
- *   - 3/4: 推論ノードを増やしてフォールバックチェーンを長くする
+ *   - 3〜50: 推論ノードを増やしてフォールバックチェーンを長くする
  * customModel（「その他」で入力したモデル名）があれば推論ノードのモデルになる。
  */
 function activeFleet(): FleetExpert[] {

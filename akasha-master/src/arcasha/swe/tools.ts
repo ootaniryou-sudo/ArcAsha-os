@@ -18,6 +18,8 @@ import { spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { SweTool, SweContext, SweToolResult, SweToolParameter } from './types.js';
+import { compile as ailsmCompile } from '../ailsm/compiler.js';
+import { nameOf } from '../ailsa/vocab.js';
 
 /** 出力最大バイト数（LLM コンテキスト保護）。 */
 const MAX_OUTPUT_BYTES = 16_000;
@@ -265,6 +267,9 @@ async function grepSearch(args: Record<string, unknown>, ctx: SweContext): Promi
     const ls = text.split('\n');
     for (let i = 0; i < ls.length; i++) {
       if (hits.length >= maxMatches) return true;
+      // lastIndex を毎行リセットする: g / y フラグ付き正規表現は stateful なため、
+      // リセットしないと同じ行を飛ばしてマッチが欠落する（行ごとの検索を保証）。
+      regex.lastIndex = 0;
       if (regex.test(ls[i])) {
         hits.push({ rel: path.relative(ctx.root, abs), line: i + 1, text: ls[i].trim().slice(0, 200) });
       }
@@ -424,6 +429,46 @@ function runCommand(args: Record<string, unknown>, ctx: SweContext): Promise<Swe
 }
 
 /* ------------------------------------------------------------------ */
+/* ailsm_compile — 自然言語 → AILSM の検証ツール                        */
+/* ------------------------------------------------------------------ */
+
+async function ailsmCompileTool(args: Record<string, unknown>): Promise<SweToolResult> {
+  const t0 = Date.now();
+  const text = typeof args.text === 'string' ? args.text.trim() : '';
+  if (!text) {
+    return { ok: false, output: 'ailsm_compile: text が空です', ms: Date.now() - t0 };
+  }
+  try {
+    const r = ailsmCompile(text);
+    const lines: string[] = [];
+    lines.push(`AILSM コンパイル成功（確信度 ${(r.confidence * 100).toFixed(0)}%）`);
+    lines.push('');
+    lines.push('【AILSA 命令列】（「命令 [スロット="値"]」の並び）:');
+    for (const i of r.instructions) {
+      const slots = (i.slots ?? [])
+        .map((s) => `[${nameOf(s.slot)}="${String(s.value)}"]`)
+        .join('');
+      lines.push(`  ${nameOf(i.opcode)} ${slots}`.trimEnd());
+    }
+    lines.push('');
+    lines.push(`検証: ${r.verification.valid ? '✅ 有効な命令列です' : '❌ 検証に失敗しました: ' + r.verification.issues.map((i) => i.message).join('; ')}`);
+    if (r.notes.length > 0) {
+      lines.push('');
+      lines.push('最適化メモ:');
+      for (const n of r.notes) lines.push(`  - ${n}`);
+    }
+    return { ok: true, output: truncate(lines.join('\n')), ms: Date.now() - t0 };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      output: `AILSM コンパイル失敗: ${msg}\nヒント: 文が曖昧すぎるか、AILSM が解釈できない指示です。より具体的に（何をする・入力は何か）を明示して書き直してください。`,
+      ms: Date.now() - t0,
+    };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* ツール定義一覧                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -458,6 +503,9 @@ const TOOL_PARAMS: Record<string, SweToolParameter[]> = {
   run_command: [
     param({ name: 'command', type: 'string', description: '実行するシェルコマンド（root を cwd に実行）', required: true }),
     param({ name: 'timeout_ms', type: 'integer', description: 'タイムアウト（ms）' }),
+  ],
+  ailsm_compile: [
+    param({ name: 'text', type: 'string', description: 'AILSM に変換したい自然言語の指示（日本語で OK）', required: true }),
   ],
 };
 
@@ -504,6 +552,12 @@ export const SWE_TOOLS: SweTool[] = [
     description: 'シェルコマンドをリポジトリ root をカレントディレクトリとして実行する。テスト実行（pytest 等）やビルドに使う。※安全のため opt-in（allowRunCommand=true / env ARCASHA_SWE_ALLOW_RUN=1 / CLI --allow-run-command）でのみ有効。',
     parameters: TOOL_PARAMS.run_command,
     run: runCommand,
+  },
+  {
+    name: 'ailsm_compile',
+    description: '自然言語の指示を AILSM（ArcAsha の型付き中間言語）にコンパイルし、生成された AILSA 命令列（オペコード名 + スロット）と検証結果を返す。自分の理解が正しいかを検証するのに使う。ファイルは変更しない。',
+    parameters: TOOL_PARAMS.ailsm_compile,
+    run: ailsmCompileTool,
   },
 ];
 

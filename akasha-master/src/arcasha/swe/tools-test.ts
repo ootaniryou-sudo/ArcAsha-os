@@ -10,6 +10,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { getSweTool } from './tools.js';
+import { buildAilsmGuide, buildAilsmQuickGuide } from './ailsm-guide.js';
 
 let failures = 0;
 function check(name: string, cond: boolean, detail = ''): void {
@@ -110,6 +111,21 @@ async function main(): Promise<void> {
 
     // 未知ツールは undefined
     check('未知ツールは undefined', getSweTool('nope') === undefined);
+
+    // ailsm_compile（自然言語 → AILSM の検証ツール）
+    const ac = await getSweTool('ailsm_compile')!.run({ text: 'x+2=5を解いて' }, ctx);
+    check('ailsm_compile が命令列を返す', ac.ok && ac.output.includes('CALL') && ac.output.includes('EQ') && ac.output.includes('検証'), ac.output.slice(0, 200));
+    const acEmpty = await getSweTool('ailsm_compile')!.run({ text: '' }, ctx);
+    check('ailsm_compile は空入力で拒否', !acEmpty.ok, acEmpty.output);
+    const acBad = await getSweTool('ailsm_compile')!.run({ text: 'ふがふがぴよ' }, ctx);
+    check('ailsm_compile は解釈不能でヒント付きエラー', !acBad.ok && acBad.output.includes('ヒント'), acBad.output.slice(0, 200));
+
+    // AILSM ガイド（LLM 用説明書の自動生成）
+    const guide = buildAilsmGuide();
+    check('AILSM ガイドに全カテゴリを含む', ['TASK', 'CONTROL', 'MATH', 'CODE', 'SEARCH', 'REASONING', 'SYSCALL'].every((c) => guide.includes(c)), '');
+    check('AILSM ガイドに書き方の例を含む', guide.includes('x+2=5') && guide.includes('TASK_SUMMARIZE'), '');
+    const quick = buildAilsmQuickGuide();
+    check('AILSM クイックガイドは短い', quick.length < 1200 && quick.includes('ailsm_compile'), `len=${quick.length}`);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
