@@ -90,12 +90,24 @@ async function main(): Promise<void> {
     check('run_command 実行（opt-in + 引数分離 + exit 0）', cmdAllowed.ok && cmdAllowed.output.includes('42'), cmdAllowed.output);
 
     // シェルメタ文字はリテラル引数として扱われる（インジェクション防止）
-    // $HOME が展開されず、; や | がコマンド区切りにならないことを確認
-    const cmdHome = await getSweTool('run_command')!.run(
-      { command: 'python3', args: ['-c', 'import os,sys; print(os.environ.get("HOME") is None and "no-expand" or "expanded")'] },
+    // $HOME / ; / | / > を args として実際に渡し、展開・解釈されずそのまま出力されることを検証
+    const shellMetaArgs = ['$HOME', ';', '|', '>', '$(id)', '`whoami`'];
+    const cmdMeta = await getSweTool('run_command')!.run(
+      {
+        command: 'python3',
+        args: ['-c', 'import sys; print("|".join(sys.argv[1:]))', ...shellMetaArgs],
+      },
       { root, allowRunCommand: true },
     );
-    check('run_command 引数がリテラル（$HOME 展開されない）', cmdHome.ok, cmdHome.output);
+    const metaOut = cmdMeta.output;
+    check(
+      'run_command のシェルメタ文字がリテラル（$HOME/;/|/> が展開・解釈されない）',
+      cmdMeta.ok && shellMetaArgs.every((a) => metaOut.includes(a)),
+      cmdMeta.output,
+    );
+    // リダイレクト（>）がファイルを作らないこと（リテラル引数として扱われた）
+    const noRedirectFile = await fs.stat(path.join(root, 'evil-out.txt')).then(() => false).catch(() => true);
+    check('run_command の > がリダイレクトでなくファイルを作らない', noRedirectFile, '');
 
     // シェル機能が必要なら bash -c を明示する
     const cmdBash = await getSweTool('run_command')!.run(
