@@ -755,11 +755,15 @@ const server = http.createServer(async (req, res) => {
         const agentBase = settings.get().apiBase || prov.apiBase || '';
         if (agentKey) agentChat.apiKey = agentKey;
         if (agentBase) agentChat.baseUrl = agentBase;
+        // 安全モード: 実ワークスペース編集をブランチ + commit + PR に載せる。
+        // env ARCASHA_AGENT_SAFE_MODE=1 で有効化（SWE-bench 評価は直接編集のまま）。
+        const safeMode = process.env.ARCASHA_AGENT_SAFE_MODE === '1';
         const result = await runSweAgent({
           root,
           issue: prompt,
           allowRunCommand: allowRun,
           honorEnvAllowRun: false, // サーバ経由では ARCASHA_SWE_ALLOW_RUN を無視（CLI 専用）
+          safeMode,
           maxIterations,
           chat: agentChat,
           signal: controller.signal,
@@ -1049,7 +1053,7 @@ const server = http.createServer(async (req, res) => {
         knowledge: memory.listKnowledge().length,
         path: memory.memoryPath(),
       },
-      agent: { workdir: AGENT_WORKDIR, allowRunCommand: AGENT_ALLOW_RUN },
+      agent: { workdir: AGENT_WORKDIR, allowRunCommand: AGENT_ALLOW_RUN, safeMode: process.env.ARCASHA_AGENT_SAFE_MODE === '1', auditDir: process.env.ARCASHA_AUDIT_DIR ?? undefined },
       recentCalls: [...callLog].reverse(),
     });
     return;

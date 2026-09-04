@@ -92,6 +92,13 @@ npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニット
   - **AILSM 統合**: エージェントの system prompt に AILSM 要約ガイドを注入。
     `ailsm_compile` ツールで自然言語 → AILSM 命令列の変換・検証ができ、
     生成した AILSA 命令列を最終回答に含められる
+- **エージェント安全化**（`src/arcasha/swe/audit.ts` / `pr-workflow.ts` / `sandbox.ts`）:
+  - **監査ログ**: 全ツール呼び出し・モデル応答を **append-only JSONL + HMAC 署名**で
+    `~/.arcasha/agent-audit/` に保存（git 外・改ざん検知可能）
+  - **safe-mode**: env `ARCASHA_AGENT_SAFE_MODE=1` で有効。Coding Agent の編集を
+    **作業ブランチ（arcasha/agent/<ts>）へ commit + push** し、人間のレビューと CI を
+    待ってからマージする（main へ直接入れない）。SWE-bench 評価はサンドボックス内で直接編集のまま
+  - **サンドボックス**: `ARCASHA_SANDBOX` で run_command の隔離実行を切替（既定 direct = shell:false 引数分離）
 - **多言語エンドポイント**: `/ja` `/en` `/zh` `/ko` で Chat 画面の言語を切替
   （`/` は設定タブで保存した言語が既定）。バナーの 🌐 チップからも切替可能
 - **設定タブ**: 複数の API プロバイダ（名前 / モデル名 / Base URL / キー）を Web から登録可能

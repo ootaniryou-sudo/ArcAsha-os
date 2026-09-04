@@ -144,7 +144,14 @@
   - `roles`（既定）: General=選択モデル ×1 + Reasoning=Pro/カスタム ×(N-1) の**役割別フォールバック**（タスク分類で空応答時に次のモデルへ委譲）。
   - `uniform`: 選択モデルで **N 台を並列同時呼び出し**。実行時は（プロバイダ, モデル）のユニーク組み合わせだけ `Promise.allSettled` で並列に投げ、最初の有効応答を採用（同一 API への無駄な多重リクエストは統合）。UI の監視画面は「deepseek-v4-flash ×15」のように設定どおりの構成を表示。
 - **複数 API プロバイダ登録（providers）**: 各エントリが `{ name, apiBase, apiKey, model }` を持ち、**モデル名の一致するプロバイダへ自動ルーティング**。DeepSeek / OpenAI / Anthropic 等を混在させて 1 つのオーケストレーションに参加させられる。旧 `apiKey/apiBase` とは双方向同期（後方互換）。
-- **実証**: uniform で「Flash ×15」構成・並列実行（重複統合 1 ノード + 採用 trace）を実 API で確認。golden 38 / selftest / tools-test / memory 34 passed 全パス。
+- **実証**: uniform で「Flash ×15」構成・並列実行（重複統合 1 ノード + 採用 trace）を実 API で確認。golden 43 / selftest / tools-test / audit-test / sandbox-test / memory 34 passed 全パス。
+
+## 14. Agent 安全化 — 監査ログ（署名付き証跡）・safe-mode（PR 隔離）・サンドボックス
+
+- **監査ログ（audit.ts）**: 全ツール呼び出し・モデル応答を **append-only JSONL + HMAC-SHA256 署名**で `~/.arcasha/agent-audit/` に保存（git 外）。応答本文は sha256 ハッシュのみ保存し機密を出さない。`verifyAuditLine` で改ざん検知が可能。
+- **safe-mode（pr-workflow.ts）**: 実ワークスペース編集を **作業ブランチ（arcasha/agent/<ts>）へ commit + push** に載せる。SWE-bench 評価（一時サンドボックス）は直接編集のまま維持し、`/api/agent`（Coding Agent）は `ARCASHA_AGENT_SAFE_MODE=1` で有効化。人間のレビューと CI を待ってマージする。
+- **サンドボックスインタフェース（sandbox.ts）**: run_command を隔離実行する共通インタフェース。DirectSandboxRunner は shell:false（引数分離）でシェルインジェクションを防止。将来 Docker / Firecracker コンテナへ委譲するプラグイン点を用意。
+- **実証**: audit-test（署名検証・改ざん検知）/ sandbox-test（引数分離・タイムアウト）ALL PASS。
 
 ---
 
@@ -166,6 +173,7 @@
 | 12 | **Akasha Wire Protocol** | JSON 禁止の 48B バイナリ + ゼロコピー WebGPU | — |
 | 13 | **IR ネイティブ / NL を生成しない AI** | 文法制約付き生成 + 蒸留 | —（ロードマップ） |
 | 14 | **Assistant オーケストレーション設定** | roles（役割別フォールバック）/ uniform（同一モデル N 並列）+ 複数 API プロバイダ混在 | uniform で Flash×N 並列を実 API 確認 |
+| 15 | **Agent 安全化（監査・PR・サンドボックス）** | 署名付き監査ログ + safe-mode（ブランチ隔離）+ サンドボックス IF | audit/sandbox test ALL PASS |
 
 > **全体を貫く主張**: ArcAsha の独自性は「AI を強くする研究」ではなく「**AI Runtime を設計する研究**」にある。
 > 蓄積されるのは LLM の重みではなく **OS の運用知識（チーム編成・推論経路・Executive 判断・Lesson）** であり、モデルを再学習しなくても OS 全体は経験とともに賢くなる。

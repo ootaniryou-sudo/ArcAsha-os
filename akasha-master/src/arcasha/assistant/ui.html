@@ -1343,6 +1343,7 @@ async function renderMon(){
       '<div class="mon-card"><h3>🤖 '+t('mon.agent')+'</h3>'+
         '<div class="mon-stat">'+
           '<span class="mon-chip">run_command <b>'+(d.agent.allowRunCommand?'ON':'OFF')+'</b></span>'+
+          '<span class="mon-chip">safe-mode <b>'+(d.agent.safeMode?'ON':'OFF')+'</b></span>'+
           '<span class="mon-chip" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">'+esc(d.agent.workdir)+'</span></span>'+
         '</div></div>'+
       '<div class="mon-card"><h3>☁️ '+t('mon.hub')+'</h3>'+
