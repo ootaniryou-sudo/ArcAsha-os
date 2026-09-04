@@ -70,6 +70,10 @@ export interface ChatResponseMessage {
 export interface ChatUsage {
   promptTokens: number;
   completionTokens: number;
+  /** DeepSeek 等のプロンプトキャッシュでヒットした入力トークン数（prompt_cache_hit_tokens）。 */
+  cacheReadTokens?: number;
+  /** キャッシュ書き込みトークン数（DeepSeek は現状報告しない）。 */
+  cacheWriteTokens?: number;
 }
 
 /** ツールループの 1 ステップ結果。 */

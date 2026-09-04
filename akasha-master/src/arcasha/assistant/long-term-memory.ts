@@ -27,6 +27,8 @@ export interface StoredMessage {
     /** この応答で消費したトークン（実測。API が usage を返す場合） */
     promptTokens?: number;
     completionTokens?: number;
+    /** プロンプトキャッシュヒット（KV キャッシュ最適化の可視化） */
+    cacheReadTokens?: number;
   };
   ts: string;
 }

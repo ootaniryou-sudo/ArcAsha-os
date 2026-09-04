@@ -90,6 +90,7 @@ textarea{font-family:var(--font)}
 .ai-msg .role-line{display:flex;align-items:center;gap:8px}
 .ai-avatar{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#4d6bfe,#7da2ff);color:#fff;
   display:grid;place-items:center;font-size:11px;font-weight:900;flex:none}
+.ai-avatar-img{width:22px;height:22px;border-radius:7px;object-fit:cover;flex:none;display:block}
 .ai-msg .who{font-size:12px;font-weight:700;color:var(--ink2);letter-spacing:.02em}
 .ai-msg .md-body{color:var(--ink);font-size:14.5px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
 .ai-msg .md-body pre{background:#10141c;border:1px solid var(--line);border-radius:10px;padding:11px 13px;
@@ -140,6 +141,17 @@ textarea{font-family:var(--font)}
 .act-btn:hover{background:var(--panel2);color:var(--ink2)}
 .act-btn.on-good{color:var(--good)}
 .act-btn.on-bad{color:var(--danger)}
+/* フィードバック理由入力ポップオーバー */
+.fb-pop{position:fixed;z-index:400;width:320px;background:var(--panel2);border:1px solid var(--line2);
+  border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5);padding:12px;display:flex;flex-direction:column;gap:8px;animation:menuIn .14s ease}
+.fb-pop .fb-title{font-size:12px;color:var(--ink2);font-weight:600}
+.fb-pop .fb-input{background:#0d1117;border:1px solid var(--line2);border-radius:8px;color:var(--ink);
+  padding:8px 10px;font-size:12.5px;outline:none;resize:vertical;min-height:44px;font-family:inherit}
+.fb-pop .fb-input:focus{border-color:var(--brand)}
+.fb-pop .fb-btns{display:flex;gap:6px;justify-content:flex-end}
+.fb-pop .fb-ok{background:var(--brand);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.fb-pop .fb-sk{background:transparent;border:1px solid var(--line2);color:var(--mute);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+.fb-pop .fb-sk:hover{background:var(--panel3)}
 .meta-tags{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
 .tag{font-size:10px;padding:2px 9px;border-radius:20px;background:var(--panel2);color:var(--ink2);border:1px solid var(--line)}
 .tag.model{background:var(--brand-soft);color:var(--brand2);border-color:transparent}
@@ -397,7 +409,7 @@ textarea::placeholder{color:var(--dim)}
     <div id="msgs">
       <div class="msgs-inner" id="chatInner">
         <div class="ai-msg" id="welcome">
-          <div class="role-line"><span class="ai-avatar">A</span><span class="who">ArcAsha</span></div>
+          <div class="role-line"><img class="ai-avatar-img" src="/logo.png" alt="ArcAsha" onerror="this.outerHTML='&lt;span class=&quot;ai-avatar&quot;&gt;A&lt;/span&gt;'"><span class="who">ArcAsha</span></div>
           <div class="md-body" id="welcomeBody">こんにちは 👋 <b>ArcAsha</b> です。
 日常の相談・文章作成・調べもの・アイデア出しなど、なんでも話しかけてください。
 
@@ -812,12 +824,53 @@ function openMenu(anchor, items){
 }
 
 /* ===== メッセージ描画 ===== */
-function makeAiActions(el, text){
+/** フィードバック（👍/👎 + 理由）をサーバへ保存する（AI 最適化用）。 */
+async function sendFeedback(rating, info){
+  try{
+    const r=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      rating, threadId, messageId:info&&info.messageId||null,
+      reason:info&&info.reason||'', model:info&&info.model||'', mode,
+      prompt:info&&info.prompt||'', response:info&&info.response||'',
+      promptTokens:info&&info.promptTokens, completionTokens:info&&info.completionTokens, cacheReadTokens:info&&info.cacheReadTokens,
+    })});
+    const d=await r.json();
+    if(d.error){toast('⚠️ '+d.error);return false}
+    return true;
+  }catch(e){toast('⚠️ '+e);return false}
+}
+/** 理由入力ポップオーバーを表示してフィードバックを送る。 */
+function askFeedback(rating, info, btn){
+  // 前回のポップオーバーを除去
+  document.querySelectorAll('.fb-pop').forEach(n=>n.remove());
+  const pop=document.createElement('div');pop.className='fb-pop';
+  const label=rating==='good'?'👍 よかった理由':'👎 改善してほしい理由';
+  pop.innerHTML='<div class="fb-title">'+label+'（AI の最適化に使います・任意）</div>'+
+    '<textarea class="fb-input" rows="2" placeholder="例: 簡潔で分かりやすかった / ここが間違っていた…"></textarea>'+
+    '<div class="fb-btns"><button class="fb-ok">送信</button><button class="fb-sk">スキップ</button></div>';
+  const send=async()=>{
+    const reason=pop.querySelector('.fb-input').value.trim();
+    const ok=await sendFeedback(rating,{...info,reason});
+    btn.classList.add(rating==='good'?'on-good':'on-bad');
+    pop.remove();
+    toast(ok?(rating==='good'?'👍 フィードバックを記録しました':'👎 フィードバックを記録しました'):'⚠️ 送信失敗');
+  };
+  pop.querySelector('.fb-ok').onclick=send;
+  pop.querySelector('.fb-sk').onclick=async()=>{await sendFeedback(rating,{...info,reason:''});btn.classList.add(rating==='good'?'on-good':'on-bad');pop.remove();toast(rating==='good'?'👍 記録しました':'👎 記録しました');};
+  // ボタンの下に表示
+  const rect=btn.getBoundingClientRect();
+  pop.style.left=Math.min(rect.left,window.innerWidth-340)+'px';
+  pop.style.top=(rect.bottom+6)+'px';
+  document.body.appendChild(pop);
+  pop.querySelector('.fb-input').focus();
+  // 外側クリックで閉じる
+  setTimeout(()=>document.addEventListener('mousedown',function h(e){if(!pop.contains(e.target)&&e.target!==btn){pop.remove();document.removeEventListener('mousedown',h)}}),0);
+}
+function makeAiActions(el, text, info){
   const bar=document.createElement('div');bar.className='msg-actions';
   const mk=(html,fn,title)=>{const b=document.createElement('button');b.className='act-btn';b.innerHTML=html;b.title=title||'';b.onclick=fn;return b;};
   const cp=mk('📋 Copy',()=>copyText(text),'Copy');
-  const good=mk('👍 Good response',()=>{good.classList.toggle('on-good');toast('👍 フィードバックを記録しました');},'Good response');
-  const bad=mk('👎 Bad response',()=>{bad.classList.toggle('on-bad');toast('👎 フィードバックを記録しました');},'Bad response');
+  const good=mk('👍 Good response',()=>{askFeedback('good',info||{},good)},'Good response');
+  const bad=mk('👎 Bad response',()=>{askFeedback('bad',info||{},bad)},'Bad response');
   const br=mk('⑂ Branch',async()=>{const ok=await newConversation(true);if(ok)toast('⑂ 新しい会話を分岐しました');},'Branch into a new conversation');
   bar.appendChild(cp);bar.appendChild(good);bar.appendChild(bad);bar.appendChild(br);
   el.appendChild(bar);
@@ -830,7 +883,11 @@ function addUser(text){
 function aiBox(who, avatar){
   const turn=document.createElement('div');turn.className='turn';
   const box=document.createElement('div');box.className='ai-msg';
-  box.innerHTML='<div class="role-line"><span class="ai-avatar">'+(avatar||'A')+'</span><span class="who">'+esc(who)+'</span></div>';
+  // avatar がロゴ画像指定（'img'）なら <img>、それ以外は文字アバター
+  const av = avatar==='img'
+    ? '<img class="ai-avatar-img" src="/logo.png" alt="ArcAsha" onerror="this.outerHTML=\'<span class=&quot;ai-avatar&quot;>A</span>\'">'
+    : '<span class="ai-avatar">'+(avatar||'A')+'</span>';
+  box.innerHTML='<div class="role-line">'+av+'<span class="who">'+esc(who)+'</span></div>';
   turn.appendChild(box);chatInner.appendChild(turn);scrollBottom();
   return {turn, box};
 }
@@ -861,8 +918,8 @@ function addAilsmRow(box, ailsm){
   row.querySelector('.thead').onclick=()=>{row.classList.toggle('open')};
   box.appendChild(row);scrollBottom();
 }
-function addAi(text, meta, ailsm){
-  const {box}=aiBox('ArcAsha');
+function addAi(text, meta, ailsm, info){
+  const {box}=aiBox('ArcAsha','img');
   const body=document.createElement('div');body.className='md-body';body.innerHTML=md(text);
   box.appendChild(body);
   if(meta&&meta.length){
@@ -872,7 +929,7 @@ function addAi(text, meta, ailsm){
     mw.appendChild(tg);box.appendChild(mw);
   }
   addAilsmRow(box, ailsm);
-  makeAiActions(box,text);
+  makeAiActions(box,text,info||{});
   scrollBottom();return box;
 }
 function addSystem(text){
@@ -940,12 +997,13 @@ function handleAgentEvent(ev, p, state){
   if(ev==='done'){
     const body=document.createElement('div');body.className='md-body';body.innerHTML=md(p.finalAnswer||'(no answer)');
     state.box.appendChild(body);
-    makeAiActions(state.box, p.finalAnswer||'');
-    // 実行時間 + 消費トークン表示（Ran for ... · ⚡ N tok）
+    makeAiActions(state.box, p.finalAnswer||'', {messageId:null,prompt:state.prompt||'',response:p.finalAnswer||'',model:p.model||'',promptTokens:p.promptTokens,completionTokens:p.completionTokens,cacheReadTokens:p.cacheReadTokens});
+    // 実行時間 + 消費トークン表示（Ran for ... · ⚡ N tok）+ キャッシュヒット率
     const mw=document.createElement('div');mw.className='msg-actions';
     const tag=document.createElement('span');tag.className='tag';
+    const cacheTxt=(typeof p.cacheReadTokens==='number'&&p.cacheReadTokens>0&&p.promptTokens)?(' · 🧠 cache '+Math.round(p.cacheReadTokens/(p.promptTokens+p.cacheReadTokens)*100)+'%'):'';
     tag.textContent='⏱ Ran for '+fmtMs(p.totalMs||0)+
-      (p.promptTokens||p.completionTokens?' · ⚡ '+fmtTok((p.promptTokens||0)+(p.completionTokens||0))+' '+t('tok')+'（in '+fmtTok(p.promptTokens||0)+' / out '+fmtTok(p.completionTokens||0)+'）':'');
+      (p.promptTokens||p.completionTokens?' · ⚡ '+fmtTok((p.promptTokens||0)+(p.completionTokens||0))+' '+t('tok')+'（in '+fmtTok(p.promptTokens||0)+' / out '+fmtTok(p.completionTokens||0)+'）':'')+cacheTxt;
     mw.appendChild(tag);state.box.appendChild(mw);
     // 統計・Trajectory
     stats.steps=state.run.steps.length;
@@ -967,8 +1025,8 @@ function handleAgentEvent(ev, p, state){
   }
 }
 async function runAgent(text){
-  const {box}=aiBox('ArcAsha Agent','🤖');
-  const state={box, run:{prompt:text, steps:[], finalAnswer:'', ts:Date.now(), totalMs:0, inputTok:0, outputTok:0, stopReason:''}};
+  const {box}=aiBox('ArcAsha Agent','img');
+  const state={box,prompt:text, run:{prompt:text, steps:[], finalAnswer:'', ts:Date.now(), totalMs:0, inputTok:0, outputTok:0, stopReason:''}};
   setTyping(true);
   try{
     // 任意コマンド実行可否はサーバ設定（ARCASHA_AGENT_ALLOW_RUN）だけが決める
@@ -1120,8 +1178,13 @@ async function send(){
       const timeParts=[];
       if(typeof d.ms==='number')timeParts.push(fmtMs(d.ms));
       if(typeof d.totalTokens==='number')timeParts.push('⚡ '+fmtTok(d.totalTokens)+' '+t('tok')+(typeof d.promptTokens==='number'?'（in '+fmtTok(d.promptTokens)+' / out '+fmtTok(d.completionTokens||0)+'）':''));
+      // プロンプトキャッシュヒット率（KV キャッシュ最適化の可視化）
+      if(typeof d.cacheReadTokens==='number'&&d.cacheReadTokens>0&&typeof d.promptTokens==='number'){
+        const denom=d.promptTokens+d.cacheReadTokens;
+        if(denom>0)timeParts.push('🧠 cache '+Math.round(d.cacheReadTokens/denom*100)+'%');
+      }
       if(timeParts.length)meta.push({label:timeParts.join(' · '),cls:''});
-      addAi(d.reply,meta,d.ailsm);
+      addAi(d.reply,meta,d.ailsm,{messageId:null,prompt:text,response:d.reply,model:d.model,expert:d.expert,promptTokens:d.promptTokens,completionTokens:d.completionTokens,cacheReadTokens:d.cacheReadTokens});
       if(d.remembered){addRemember(d.remembered.text);refreshSide();}
     }
   }catch(e){addSystem('⚠️ '+e)}
@@ -1237,6 +1300,8 @@ async function openThread(id){
       const pt=m.meta&&typeof m.meta.promptTokens==='number'?m.meta.promptTokens:0;
       const ct=m.meta&&typeof m.meta.completionTokens==='number'?m.meta.completionTokens:0;
       if(pt>0||ct>0)timeParts.push('⚡ '+fmtTok(pt+ct)+' '+t('tok')+'（in '+fmtTok(pt)+' / out '+fmtTok(ct)+'）');
+      const cr=m.meta&&typeof m.meta.cacheReadTokens==='number'?m.meta.cacheReadTokens:0;
+      if(cr>0&&pt>0)timeParts.push('🧠 cache '+Math.round(cr/(pt+cr)*100)+'%');
       if(timeParts.length)meta.push({label:timeParts.join(' · '),cls:''});
       addAi(m.content,meta,m.meta&&m.meta.ailsm);
     }
@@ -1308,6 +1373,7 @@ async function renderMon(){
     const callsHtml=(d.recentCalls||[]).slice(0,12).map(c=>
       '<div class="mon-call"><span class="st '+esc(c.status)+'">'+esc(c.status)+'</span>'+
       '<span class="md">'+esc(c.kind)+' · '+esc(c.model)+'</span>'+
+      ((c.cacheReadTokens||0)>0?'<span style="color:var(--brand);font-size:10px;flex:none">🧠 '+fmtTok(c.cacheReadTokens)+' cached</span>':'')+
       (c.detail?'<span style="color:var(--dim);font-size:10px">'+esc(c.detail)+'</span>':'')+
       '<span class="tm">'+esc(c.expert)+' · '+fmtMs(c.ms)+'</span></div>').join('')
       ||'<div class="mon-empty">'+t('mon.empty')+'</div>';
@@ -1325,6 +1391,20 @@ async function renderMon(){
           '<span class="mon-chip">Hyper Thinking <b>'+(s.hyperThinking?'ON':'OFF')+'</b></span>'+
         '</div>'+fleetHtml+'</div>'+
       '<div class="mon-card"><h3>🔑 API プロバイダ <span class="sub">'+((((d.settings||{}).providers)||[]).length)+' registered</span></h3>'+provHtml+'</div>'+
+      '<div class="mon-card"><h3>🧠 KV キャッシュ <span class="sub">prompt cache</span></h3>'+
+        '<div class="mon-stat">'+
+          '<span class="mon-chip">hit rate <b>'+(d.cache&&d.cache.hitRate!=null?d.cache.hitRate+'%':'—')+'</b></span>'+
+          '<span class="mon-chip">cached <b>'+fmtTok((d.cache&&d.cache.cacheReadTokens)||0)+'</b></span>'+
+          '<span class="mon-chip">prompt <b>'+fmtTok((d.cache&&d.cache.promptTokens)||0)+'</b></span>'+
+        '</div>'+
+        '<div class="desc" style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">直近 100 コールのプロンプトキャッシュヒット率（DeepSeek 自動キャッシュ）。同一スレッドの連続ターンで高くなります。</div></div>'+
+      '<div class="mon-card"><h3>👍 フィードバック <span class="sub">AI 最適化用</span></h3>'+
+        '<div class="mon-stat">'+
+          '<span class="mon-chip">👍 good <b style="color:var(--good)">'+((d.feedback&&d.feedback.good)||0)+'</b></span>'+
+          '<span class="mon-chip">👎 bad <b style="color:var(--danger)">'+((d.feedback&&d.feedback.bad)||0)+'</b></span>'+
+          '<span class="mon-chip">total <b>'+((d.feedback&&d.feedback.total)||0)+'</b></span>'+
+        '</div>'+
+        '<div class="desc" style="font-size:10.5px;color:var(--dim);margin-top:6px;line-height:1.6">Chat の 👍/👎 と理由が保存されます（~/.arcasha/assistant-feedback.jsonl）。</div></div>'+
       '<div class="mon-card"><h3>📞 '+t('mon.calls')+' <span class="sub">'+(d.recentCalls||[]).length+' recent</span></h3>'+callsHtml+'</div>'+
       '<div class="mon-card"><h3>🧠 '+t('mon.avm')+'</h3>'+
         '<div class="mon-stat" style="margin-bottom:8px">'+

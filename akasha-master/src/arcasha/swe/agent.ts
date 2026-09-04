@@ -18,6 +18,7 @@ import { SWE_TOOLS, getSweTool } from './tools.js';
 import { buildAilsmQuickGuide } from './ailsm-guide.js';
 import { createAuditLogger, sha256 } from './audit.js';
 import type { AuditLogger } from './audit.js';
+import { cacheHitRate } from './cache-stats.js';
 import { ensureBranch, commitAll, pushAndDiff, branchName, isGitRepo } from './pr-workflow.js';
 
 /** ツール名を引数へ渡すための定義（agent 用に description を補強した system を作る）。 */
@@ -218,7 +219,12 @@ export async function runSweAgent(
       promptTokens: usage?.promptTokens ?? 0,
       completionTokens: usage?.completionTokens ?? 0,
       responseHash: message.content ? sha256(message.content) : undefined,
-      meta: { finishReason, toolCallCount: message.toolCalls.length },
+      meta: {
+        finishReason,
+        toolCallCount: message.toolCalls.length,
+        cacheReadTokens: usage?.cacheReadTokens ?? 0,
+        cacheHitRate: cacheHitRate(usage ?? { promptTokens: 0, completionTokens: 0 }),
+      },
     });
 
     // トークン集計（usage が空の呼び出しも加算は 0 で安全）

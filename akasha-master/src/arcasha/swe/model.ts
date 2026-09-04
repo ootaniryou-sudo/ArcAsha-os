@@ -117,7 +117,13 @@ export async function chatCompletion(
       };
       finish_reason?: string;
     }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      // DeepSeek のプロンプトキャッシュ
+      prompt_cache_hit_tokens?: number;
+      prompt_cache_miss_tokens?: number;
+    };
   };
 
   const msg = data.choices?.[0]?.message;
@@ -143,6 +149,11 @@ export async function chatCompletion(
     usage: {
       promptTokens: data.usage?.prompt_tokens ?? 0,
       completionTokens: data.usage?.completion_tokens ?? 0,
+      // DeepSeek のプロンプトキャッシュ: prompt_cache_hit_tokens を捕捉（キャッシュヒット率の可視化・最適化）
+      cacheReadTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
+      cacheWriteTokens: data.usage?.prompt_cache_miss_tokens !== undefined && data.usage?.prompt_tokens !== undefined
+        ? Math.max(0, data.usage.prompt_tokens - (data.usage.prompt_cache_hit_tokens ?? 0) - (data.usage.prompt_cache_miss_tokens ?? data.usage.prompt_tokens))
+        : undefined,
     },
     finishReason,
     ms: Date.now() - t0,
