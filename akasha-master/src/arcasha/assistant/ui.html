@@ -53,6 +53,9 @@ textarea{font-family:var(--font)}
 .thread .ic{flex:none;opacity:.85;font-size:12px}
 .thread .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
 .thread .mode-chip{flex:none;font-size:9px;padding:1px 7px;border-radius:20px;background:var(--panel3);color:var(--ink2)}
+.thread .thread-del{flex:none;opacity:0;color:var(--dim);font-size:11px;padding:2px 6px;border-radius:6px;transition:.12s}
+.thread .thread-del:hover{background:#2a1a1a;color:var(--danger)}
+.thread:hover .thread-del{opacity:.9}
 .mem-item{font-size:12px;color:var(--ink2);padding:7px 9px;border-radius:9px;line-height:1.5;background:var(--panel);border:1px solid var(--line);margin-bottom:5px}
 .mem-item .cat{display:inline-block;font-size:9px;padding:1px 7px;border-radius:20px;margin-right:6px;font-weight:600}
 .mem-item .cat.user{background:rgba(77,107,254,.16);color:#9db6ff}
@@ -292,6 +295,39 @@ textarea::placeholder{color:var(--dim)}
   padding:4px 11px;font-size:11.5px;color:var(--ink2);transition:.14s;height:28px}
 .lang-chip:hover{background:var(--panel2);color:var(--ink)}
 
+/* ---------- オーケストレーション監視センター ---------- */
+#monTab{display:none;flex:1;overflow-y:auto}
+.mon-inner{max-width:980px;margin:0 auto;padding:22px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.mon-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;min-width:0}
+.mon-card h3{font-size:12.5px;color:var(--ink2);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.mon-card h3 .sub{margin-left:auto;font-size:10.5px;color:var(--dim);font-weight:500}
+.mon-stat{display:flex;flex-wrap:wrap;gap:8px}
+.mon-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:8px;padding:5px 10px;font-size:11.5px;color:var(--ink2)}
+.mon-chip b{color:var(--brand2);font-weight:700;font-size:13px}
+.mon-node{display:flex;align-items:center;gap:9px;padding:7px 10px;border:1px solid var(--line);
+  border-radius:9px;background:var(--panel2);margin-bottom:6px}
+.mon-node .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.mon-node .dot.gen{background:var(--brand2);box-shadow:0 0 6px var(--brand)}
+.mon-node .dot.rea{background:#b78bff;box-shadow:0 0 6px #b78bff}
+.mon-node .nm{font-family:var(--mono);font-size:11.5px;color:var(--ink);word-break:break-all;flex:1}
+.mon-node .rl{font-size:9.5px;padding:1px 8px;border-radius:20px;background:var(--brand-soft);color:var(--brand2);font-weight:700}
+.mon-node .rl.rea{background:rgba(183,139,255,.15);color:#c9aaff}
+.mon-call{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--mute);padding:5px 8px;
+  border-bottom:1px solid var(--line);line-height:1.5}
+.mon-call:last-child{border-bottom:none}
+.mon-call .st{font-weight:700;font-size:10px;padding:0 7px;border-radius:10px;flex:none}
+.mon-call .st.ok{background:rgba(62,207,142,.14);color:var(--good)}
+.mon-call .st.err{background:rgba(240,106,106,.14);color:var(--danger)}
+.mon-call .st.aborted{background:rgba(245,183,96,.14);color:#f8cf8e}
+.mon-call .md{font-family:var(--mono);color:var(--ink2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mon-call .tm{margin-left:auto;color:var(--dim);flex:none;white-space:nowrap}
+.mon-event{font-size:11px;color:var(--mute);padding:4px 8px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:baseline}
+.mon-event:last-child{border-bottom:none}
+.mon-event .ek{flex:none;font-size:9.5px;padding:0 7px;border-radius:8px;background:var(--panel3);color:var(--ink2)}
+.mon-event .ed{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mon-empty{color:var(--dim);font-size:12px;padding:12px 0;text-align:center}
+
 @media(max-width:900px){
   .app{grid-template-columns:1fr}
   .side{display:none}
@@ -330,6 +366,7 @@ textarea::placeholder{color:var(--dim)}
         <button data-tab="traj" data-i18n="tab.traj">Trajectory</button>
         <button data-tab="mem" data-i18n="tab.mem">記憶</button>
         <button data-tab="dict" data-i18n="tab.dict">AILSM辞典</button>
+        <button data-tab="mon" data-i18n="tab.mon">監視</button>
         <button data-tab="set" data-i18n="tab.set">設定</button>
       </div>
       <div class="spacer"></div>
@@ -396,6 +433,13 @@ textarea::placeholder{color:var(--dim)}
         </div>
         <input class="dict-search" id="dictSearch" placeholder="🔍 指示語を検索（例: CALL / 積分 / syscall）…" />
         <div id="dictBody"><div class="traj-empty">読込中…</div></div>
+      </div>
+    </div>
+
+    <!-- 監視センタータブ -->
+    <div id="monTab">
+      <div class="mon-inner" id="monInner">
+        <div class="traj-empty">読込中…</div>
       </div>
     </div>
 
@@ -533,7 +577,9 @@ if (UI_API_TOKEN) {
 /* ===== 多言語対応（I18N） ===== */
 const I18N={
   ja:{
-    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'記憶','tab.dict':'AILSM辞典','tab.set':'設定',
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'記憶','tab.dict':'AILSM辞典','tab.mon':'監視','tab.set':'設定',
+    'thread.del':'この会話を削除','thread.confirm':'この会話を削除しますか？（元に戻せません）','thread.fail':'削除に失敗しました','thread.deleted':'会話を削除しました',
+    'mon.uptime':'稼働時間','mon.fleet':'オーケストレーション艦隊','mon.calls':'最近のモデル呼び出し','mon.avm':'AVM（仮想記憶）','mon.memory':'長期記憶','mon.agent':'Coding Agent','mon.hub':'ExpertHub 登録','mon.registered':'登録ノード','mon.nodes':'参加ノード','mon.count':'設定数','mon.empty':'まだありません',
     'banner.sys':'System prompt',
     'side.new':'新しい会話','side.conv':'会話履歴','side.noConv':'会話がありません','side.mem':'長期記憶','side.workspace':'Workspace',
     'composer.ph':'メッセージを入力、またはタスクを実行… / コマンド、@ ファイルやセッション',
@@ -555,7 +601,9 @@ const I18N={
     'lang.aria':'Language',
   },
   en:{
-    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'Memory','tab.dict':'AILSM Dictionary','tab.set':'Settings',
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'Memory','tab.dict':'AILSM Dictionary','tab.mon':'Monitor','tab.set':'Settings',
+    'thread.del':'Delete this conversation','thread.confirm':'Delete this conversation? This cannot be undone.','thread.fail':'Delete failed','thread.deleted':'Conversation deleted',
+    'mon.uptime':'uptime','mon.fleet':'Orchestration fleet','mon.calls':'Recent model calls','mon.avm':'AVM (virtual memory)','mon.memory':'Long-term memory','mon.agent':'Coding Agent','mon.hub':'ExpertHub registered','mon.registered':'registered nodes','mon.nodes':'participating nodes','mon.count':'configured','mon.empty':'Nothing yet',
     'banner.sys':'System prompt',
     'side.new':'New conversation','side.conv':'Conversations','side.noConv':'No conversations yet','side.mem':'Memory','side.workspace':'Workspace',
     'composer.ph':'Message or run a task... / commands, @ files or sessions',
@@ -577,7 +625,9 @@ const I18N={
     'lang.aria':'Language',
   },
   zh:{
-    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'记忆','tab.dict':'AILSM词典','tab.set':'设置',
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'记忆','tab.dict':'AILSM词典','tab.mon':'监控','tab.set':'设置',
+    'thread.del':'删除此对话','thread.confirm':'确定要删除此对话吗？（无法恢复）','thread.fail':'删除失败','thread.deleted':'对话已删除',
+    'mon.uptime':'运行时间','mon.fleet':'编排舰队','mon.calls':'最近模型调用','mon.avm':'AVM（虚拟内存）','mon.memory':'长期记忆','mon.agent':'Coding Agent','mon.hub':'ExpertHub 注册','mon.registered':'注册节点','mon.nodes':'参与节点','mon.count':'配置数','mon.empty':'暂无',
     'banner.sys':'System prompt',
     'side.new':'新对话','side.conv':'对话历史','side.noConv':'暂无对话','side.mem':'长期记忆','side.workspace':'Workspace',
     'composer.ph':'输入消息或执行任务… / 命令、@ 文件或会话','cmds':'⚡ Commands','send':'Send message',
@@ -598,7 +648,9 @@ const I18N={
     'lang.aria':'Language',
   },
   ko:{
-    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'기억','tab.dict':'AILSM사전','tab.set':'설정',
+    'tab.chat':'Chat','tab.traj':'Trajectory','tab.mem':'기억','tab.dict':'AILSM사전','tab.mon':'모니터','tab.set':'설정',
+    'thread.del':'이 대화 삭제','thread.confirm':'이 대화를 삭제할까요? (되돌릴 수 없습니다)','thread.fail':'삭제 실패','thread.deleted':'대화를 삭제했습니다',
+    'mon.uptime':'가동 시간','mon.fleet':'오케스트레이션 함대','mon.calls':'최근 모델 호출','mon.avm':'AVM (가상 메모리)','mon.memory':'장기 기억','mon.agent':'Coding Agent','mon.hub':'ExpertHub 등록','mon.registered':'등록 노드','mon.nodes':'참여 노드','mon.count':'설정 수','mon.empty':'아직 없음',
     'banner.sys':'System prompt',
     'side.new':'새 대화','side.conv':'대화 기록','side.noConv':'대화가 없습니다','side.mem':'장기 기억','side.workspace':'Workspace',
     'composer.ph':'메시지를 입력하거나 작업을 실행하세요… / 명령, @ 파일 또는 세션','cmds':'⚡ Commands','send':'Send message',
@@ -909,10 +961,12 @@ document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',
   $('trajTab').style.display=tab==='traj'?'block':'none';
   $('memTab').style.display=tab==='mem'?'block':'none';
   $('dictTab').style.display=tab==='dict'?'block':'none';
+  $('monTab').style.display=tab==='mon'?'block':'none';
   $('setTab').style.display=tab==='set'?'block':'none';
   if(tab==='mem')refreshMemTab();
   if(tab==='traj')renderTraj();
   if(tab==='dict')renderDict();
+  if(tab==='mon')renderMon();
   if(tab==='set')loadSettings();
 }));
 
@@ -1078,15 +1132,35 @@ async function refreshSide(){
 function renderThreads(threads){
   const el=$('threadList');
   el.innerHTML=threads.length?'':'<div class="empty">No conversations yet</div>';
-  threads.forEach(t=>{
+  // 注: forEach の引数を th にする（t は翻訳関数 t() と衝突するため）
+  threads.forEach(th=>{
     const row=document.createElement('div');
-    row.className='thread'+(t.id===threadId?' active':'');
-    row.innerHTML='<span class="ic">'+(t.pinned?'📌':'💬')+'</span><span class="t"></span><span class="mode-chip">'+(t.mode==='expert'?'Expert':'Chat')+'</span>';
-    row.querySelector('.t').textContent=t.title;
-    row.title=t.title+' · '+t.messages.length+' messages';
-    row.addEventListener('click',()=>openThread(t.id));
+    row.className='thread'+(th.id===threadId?' active':'');
+    row.innerHTML='<span class="ic">'+(th.pinned?'📌':'💬')+'</span><span class="t"></span><span class="mode-chip">'+(th.mode==='expert'?'Expert':'Chat')+'</span>';
+    row.querySelector('.t').textContent=th.title;
+    row.title=th.title+' · '+th.messages.length+' messages';
+    row.addEventListener('click',()=>openThread(th.id));
+    // 削除ボタン（ホバーで表示）
+    const del=document.createElement('button');del.className='thread-del';del.textContent='✕';
+    del.title=t('thread.del');
+    del.addEventListener('click',(e)=>{e.stopPropagation();deleteThread(th.id)});
+    row.appendChild(del);
     el.appendChild(row);
   });
+}
+async function deleteThread(id){
+  if(!confirm(t('thread.confirm')))return;
+  try{
+    const r=await fetch('/api/threads/'+id,{method:'DELETE'});
+    if(!r.ok){toast('⚠️ '+t('thread.fail'));return}
+    if(threadId===id){
+      threadId=null;rememberThread('');
+      chatInner.querySelectorAll('.turn').forEach(n=>n.remove());
+      addSystem('🗑 '+t('thread.deleted'));
+    }
+    toast('🗑 '+t('thread.deleted'));
+    refreshSide();
+  }catch(e){toast('⚠️ '+e)}
 }
 async function openThread(id){
   threadId=id;rememberThread(id);
@@ -1128,6 +1202,74 @@ function renderTraj(){
     });
     el.appendChild(card);
   });
+}
+
+/* ===== オーケストレーション監視センター ===== */
+function fmtUptime(ms){
+  const s=Math.floor(ms/1000);
+  if(s<60)return s+'s';
+  if(s<3600)return Math.floor(s/60)+'m '+ (s%60)+'s';
+  return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m';
+}
+async function renderMon(){
+  const el=$('monInner');
+  try{
+    const r=await fetch('/api/orchestration');const d=await r.json();
+    if(d.error){el.innerHTML='<div class="traj-empty">⚠️ '+esc(d.error)+'</div>';return}
+    const s=d.settings||{};
+    // 同一モデルのノードは集約して表示（×N）
+    const fleetGroups=new Map();
+    (d.fleet||[]).forEach(n=>{const k=n.role+'|'+n.model;fleetGroups.set(k,(fleetGroups.get(k)||0)+1)});
+    const fleetHtml=[...fleetGroups.entries()].map(([k,n])=>{
+      const [role,model]=k.split('|');
+      return '<div class="mon-node"><span class="dot '+(role==='reasoning'?'rea':'gen')+'"></span>'+
+        '<span class="nm">'+esc(model)+(n>1?' <span style="color:var(--dim)">×'+n+'</span>':'')+'</span>'+
+        '<span class="rl '+(role==='reasoning'?'rea':'')+'">'+esc(role)+'</span></div>';
+    }).join('')||'<div class="mon-empty">'+t('mon.empty')+'</div>';
+    const callsHtml=(d.recentCalls||[]).slice(0,12).map(c=>
+      '<div class="mon-call"><span class="st '+esc(c.status)+'">'+esc(c.status)+'</span>'+
+      '<span class="md">'+esc(c.kind)+' · '+esc(c.model)+'</span>'+
+      (c.detail?'<span style="color:var(--dim);font-size:10px">'+esc(c.detail)+'</span>':'')+
+      '<span class="tm">'+esc(c.expert)+' · '+fmtMs(c.ms)+'</span></div>').join('')
+      ||'<div class="mon-empty">'+t('mon.empty')+'</div>';
+    const avm=d.avm||{stats:{},events:[]};
+    const evHtml=(avm.events||[]).slice(0,12).map(e=>
+      '<div class="mon-event"><span class="ek">'+esc(e.kind)+'</span><span class="ed">'+esc(e.detail||'')+'</span><span style="color:var(--dim);flex:none">'+new Date(e.ts).toLocaleTimeString()+'</span></div>').join('')
+      ||'<div class="mon-empty">'+t('mon.empty')+'</div>';
+    const st=avm.stats||{};
+    el.innerHTML=
+      '<div class="mon-card"><h3>🎛 '+t('mon.fleet')+' <span class="sub">'+t('mon.uptime')+' '+fmtUptime(d.uptimeMs||0)+'</span></h3>'+
+        '<div class="mon-stat" style="margin-bottom:10px">'+
+          '<span class="mon-chip">'+t('mon.nodes')+' <b>'+(d.fleet||[]).length+'</b></span>'+
+          '<span class="mon-chip">'+t('mon.count')+' <b>'+esc(s.orchestrationCount??'-')+'</b></span>'+
+          '<span class="mon-chip">Hyper Thinking <b>'+(s.hyperThinking?'ON':'OFF')+'</b></span>'+
+        '</div>'+fleetHtml+'</div>'+
+      '<div class="mon-card"><h3>📞 '+t('mon.calls')+' <span class="sub">'+(d.recentCalls||[]).length+' recent</span></h3>'+callsHtml+'</div>'+
+      '<div class="mon-card"><h3>🧠 '+t('mon.avm')+'</h3>'+
+        '<div class="mon-stat" style="margin-bottom:8px">'+
+          '<span class="mon-chip">reads <b>'+st.reads+'</b></span>'+
+          '<span class="mon-chip">writes <b>'+st.writes+'</b></span>'+
+          '<span class="mon-chip">model.calls <b>'+st.modelCalls+'</b></span>'+
+          '<span class="mon-chip">cache.hits <b>'+st.cacheHits+'</b></span>'+
+          '<span class="mon-chip">hot/warm/cold <b>'+((st.tierCounts||{}).hot??0)+'/'+((st.tierCounts||{}).warm??0)+'/'+((st.tierCounts||{}).cold??0)+'</b></span>'+
+        '</div>'+evHtml+'</div>'+
+      '<div class="mon-card"><h3>🗄 '+t('mon.memory')+'</h3>'+
+        '<div class="mon-stat">'+
+          '<span class="mon-chip">threads <b>'+d.memory.threads+'</b></span>'+
+          '<span class="mon-chip">facts <b>'+d.memory.facts+'</b></span>'+
+          '<span class="mon-chip">knowledge <b>'+d.memory.knowledge+'</b></span>'+
+        '</div></div>'+
+      '<div class="mon-card"><h3>🤖 '+t('mon.agent')+'</h3>'+
+        '<div class="mon-stat">'+
+          '<span class="mon-chip">run_command <b>'+(d.agent.allowRunCommand?'ON':'OFF')+'</b></span>'+
+          '<span class="mon-chip" style="max-width:100%"><span style="overflow:hidden;text-overflow:ellipsis">'+esc(d.agent.workdir)+'</span></span>'+
+        '</div></div>'+
+      '<div class="mon-card"><h3>☁️ '+t('mon.hub')+'</h3>'+
+        '<div class="mon-stat" style="margin-bottom:8px">'+
+          '<span class="mon-chip">'+t('mon.registered')+' <b>'+((d.hub||{}).experts||[]).length+'</b></span>'+
+        '</div>'+
+        (((d.hub||{}).experts||[]).map(e=>'<div class="mon-node"><span class="dot gen"></span><span class="nm">'+esc(e.modelId)+'</span><span class="rl">'+esc(e.family)+'</span></div>').join(''))+'</div>';
+  }catch(e){el.innerHTML='<div class="traj-empty">⚠️ '+esc(e)+'</div>'}
 }
 
 /* ===== 統計ライン（本家形式） ===== */
@@ -1265,7 +1407,10 @@ $('dictSearch').addEventListener('input',()=>renderDict());
 
 /* ===== 起動 ===== */
 refreshSide();refreshStats();applyAccess('read');applyModel('deepseek-v4-flash');renderStats();applyLocale();
-setInterval(()=>{if(!busy){refreshSide();refreshStats()}},8000);
+setInterval(()=>{
+  if(!busy){refreshSide();refreshStats()}
+  if(tab==='mon')renderMon(); // 監視センターは表示中だけ自動更新
+},3000);
 inp.focus();
 </script>
 </body>

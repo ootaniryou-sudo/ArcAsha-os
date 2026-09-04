@@ -52,6 +52,7 @@ for (let i = 0; i < args.length; i++) {
 }
 const DEFAULT_MAX_TOKENS = 1500;
 const HYPER_MAX_TOKENS = 8000; // ハイパー Thinking 時は推論枠を広げる
+const serverStart = Date.now(); // 監視センターの稼働時間表示用
 const apiToken = process.env.ARCASHA_API_TOKEN ?? '';
 // Coding Agent（実ファイル編集）の作業ディレクトリ。env で上書き可能。
 const AGENT_WORKDIR = path.resolve(process.env.ARCASHA_WORKDIR ?? process.cwd());
@@ -65,6 +66,24 @@ const memory = new LongTermMemory();
 const settings = new SettingsStore();
 await memory.load();
 await settings.load();
+
+// ─── オーケストレーション呼び出しログ（監視センター用のリングバッファ） ───
+interface CallLogEntry {
+  ts: number;
+  kind: 'chat' | 'agent' | 'api';
+  model: string;
+  expert: string;
+  ms: number;
+  status: 'ok' | 'error' | 'aborted';
+  promptTokens?: number;
+  completionTokens?: number;
+  detail?: string;
+}
+const callLog: CallLogEntry[] = [];
+function logCall(e: Omit<CallLogEntry, 'ts'>): void {
+  callLog.push({ ...e, ts: Date.now() });
+  if (callLog.length > 100) callLog.shift();
+}
 
 /**
  * オーケストレーションに参加するモデル艦隊を設定から構築する。
@@ -246,6 +265,15 @@ async function answerThread(
   const genMs = Date.now() - genT0;
   ws.recordModelCall(usedExpert.model, genMs, `${usedExpert.nodeId} へ ${hyper ? HYPER_MAX_TOKENS : maxTokens} tokens 上限で生成${hyper ? '（hyper thinking）' : ''}`);
   trace.push(`model.call ${usedExpert.model} (${genMs}ms)${hyper ? ' [hyper]' : ''}`);
+  logCall({
+    kind: 'chat',
+    model: usedExpert.model,
+    expert: usedExpert.label,
+    ms: genMs,
+    status: reply.startsWith('⚠️') ? 'error' : 'ok',
+    promptTokens: hub.lastApiUsage?.promptTokens ?? undefined,
+    completionTokens: hub.lastApiUsage?.completionTokens ?? undefined,
+  });
 
   // 3) 自己紹介・好みをルール抽出 → 長期記憶へ保存
   const rememberedList = extractRememberAll(query, (key) => memory.listFacts().some((f) => f.text.includes(key)));
@@ -642,6 +670,16 @@ const server = http.createServer(async (req, res) => {
           stopReason: result.stopReason,
           root,
         });
+        logCall({
+          kind: 'agent',
+          model: settings.get().customModel || process.env.DEEPSEEK_PRO_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
+          expert: 'Coding Agent',
+          ms: result.totalMs,
+          status: result.ok ? 'ok' : (result.stopReason === 'aborted' ? 'aborted' : 'error'),
+          promptTokens: result.promptTokens,
+          completionTokens: result.completionTokens,
+          detail: `${result.toolCalls} tool calls / ${result.modelCalls} model calls`,
+        });
       } catch (e) {
         sse('error', { message: String(e) });
       }
@@ -833,6 +871,44 @@ const server = http.createServer(async (req, res) => {
   // ── AVM 可視化・状態 ──
   if (req.method === 'GET' && url.pathname === '/api/avm') {
     sendJson(200, ws.snapshot(40));
+    return;
+  }
+  // ── オーケストレーション監視センター ──
+  if (req.method === 'GET' && url.pathname === '/api/orchestration') {
+    const s = settings.get();
+    const avm = ws.snapshot(40);
+    sendJson(200, {
+      ok: true,
+      now: Date.now(),
+      uptimeMs: Date.now() - serverStart,
+      fleet: activeFleet().map((e) => ({ nodeId: e.nodeId, role: e.role, model: e.model, label: e.label })),
+      settings: {
+        orchestrationCount: s.orchestrationCount,
+        hyperThinking: s.hyperThinking,
+        model: s.model,
+        customModel: s.customModel,
+        apiBase: s.apiBase || '(default)',
+        hasApiKey: s.apiKey !== '',
+        language: s.language,
+      },
+      hub: {
+        experts: hub.experts.map((e) => ({ nodeId: e.nodeId, modelId: e.modelId, family: e.family, paramsM: e.paramsM })),
+        lastApiUsage: hub.lastApiUsage,
+      },
+      avm: {
+        stats: avm.stats,
+        events: avm.events.slice(-20).reverse(),
+        contexts: avm.contexts.slice(0, 10),
+      },
+      memory: {
+        threads: memory.listThreads().length,
+        facts: memory.listFacts().length,
+        knowledge: memory.listKnowledge().length,
+        path: memory.memoryPath(),
+      },
+      agent: { workdir: AGENT_WORKDIR, allowRunCommand: AGENT_ALLOW_RUN },
+      recentCalls: [...callLog].reverse(),
+    });
     return;
   }
   if (req.method === 'GET' && url.pathname === '/api/state') {
