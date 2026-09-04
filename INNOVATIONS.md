@@ -45,6 +45,13 @@
 - **データプレーン** = 開いたスロット（コード・数式・テキストなどの成果物）
 - モデルは IR を「理解しない」。**OS 側のドライバ（`RemoteDriver`）が IR と自然言語を橋渡し**（USB コントローラの比喩）するため、任意のバックエンド（MLX / OpenAI / Anthropic / WebGPU）を接続できる。
 
+### SWE Agent Toolset（エージェント用ツール群・8 → 20 種）
+
+- モデルは「読む・検索する・編集する・実行する」を **JSON 引数の関数呼び出し**で行う。ツール実装（OS 側）が realpath 境界・テストファイル保護・タイムアウト・出力制限を 100% 決定論で保証する（モデルはファイルシステムの安全を任されない）。
+- **ツール拡張（v1.4）**: 編集の精密化（`replace_all` = 全置換 / occurrence=N 番目、`insert_line` / `append_line`）、git 連携（`git_status` / `git_diff` / `git_revert` = ファイル単位のロールバック）、テスト実行（`run_tests` = pytest ラッパー。シェル文字列を組まず引数分離で安全）、検索強化（`grep_context` = grep -C 相当 / `find_symbol` = 言語別の定義行検索）、ファイル操作（`move_file` / `delete_file` / `delete_dir`）。
+- **安全設計**: 全パスは root 配下に realpath 解決（symlink 迂回は拒否）、テストファイル（SWE-bench の gold patch が当たる場所）への書き込み・削除・revert は禁止、任意コマンドと `delete_dir` は opt-in。
+- **実証**: SWE-bench（sympy 3問）を解く最小構成を維持したまま、Claude Code 級の編集・検証・ロールバックを追加。golden 38 + tools-test 全パス + memory 34 passed で回帰保証。
+
 ## 3. AVM — AI Virtual Memory（コンテキストの仮想記憶化）
 
 - 既存 LLM の「コンテキスト窓を 200K/1M トークンへ拡大」に対し、**必要なコンテキストだけをデマンドページングで供給**する「AI 仮想記憶」。

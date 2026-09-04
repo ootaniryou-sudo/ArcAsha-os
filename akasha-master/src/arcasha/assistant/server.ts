@@ -455,6 +455,30 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── ロゴ画像（ArcAsha_logo.png — リポジトリルート / cwd を探索して配信） ──
+  if (req.method === 'GET' && (url.pathname === '/logo.png' || url.pathname === '/arcasha-logo.png')) {
+    const logoCandidates = [
+      path.resolve(__dirname, '../../../../ArcAsha_logo.png'),
+      path.resolve(process.cwd(), 'ArcAsha_logo.png'),
+      path.resolve(process.cwd(), '../ArcAsha_logo.png'),
+    ];
+    for (const logoPath of logoCandidates) {
+      try {
+        const buf = await fs.readFile(logoPath);
+        res.writeHead(200, {
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, max-age=3600',
+        });
+        res.end(buf);
+        return;
+      } catch {
+        /* 次の候補へ */
+      }
+    }
+    sendJson(404, { error: 'logo not found (ArcAsha_logo.png をリポジトリルートに置いてください)' });
+    return;
+  }
+
   // ── WebUI（/ /ja /en /zh /ko — 言語別エンドポイント） ──
   const langMatch = url.pathname.toLowerCase().match(/^\/(ja|en|zh|ko)$/);
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html' || langMatch)) {

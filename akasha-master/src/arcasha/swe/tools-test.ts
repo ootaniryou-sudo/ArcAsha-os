@@ -4,8 +4,12 @@
  *   npm run swe:tools-test
  *
  * 一時ディレクトリにサンプルリポジトリを作り、list_dir / read_file / grep_search /
- * glob_search / write_file / edit_file / run_command が期待通り動くか確認する。
+ * glob_search / write_file / edit_file / run_command に加え、編集強化（replace_all /
+ * insert_line / append_line）、git 連携（git_status / git_diff / git_revert）、
+ * テスト実行（run_tests）、検索強化（grep_context / find_symbol）、ファイル操作
+ * （move_file / delete_file / delete_dir）が期待通り動くか確認する。
  */
+import { execFileSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -19,6 +23,17 @@ function check(name: string, cond: boolean, detail = ''): void {
   } else {
     failures++;
     console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+  }
+}
+
+/** git コマンドの簡易実行（テスト内ヘルパー）。 */
+function gitExec(root: string, args: string[]): { ok: boolean; out: string } {
+  try {
+    const out = execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    return { ok: true, out };
+  } catch (e) {
+    const err = e as Error & { stdout?: string; stderr?: string };
+    return { ok: false, out: err.stderr ?? err.stdout ?? String(e) };
   }
 }
 
@@ -108,6 +123,133 @@ async function main(): Promise<void> {
     } finally {
       await fs.rm(secretDir, { recursive: true, force: true }).catch(() => undefined);
     }
+
+    // ── v1.4: 編集強化（replace_all / insert_line / append_line） ──
+    const NEW_TOOLS = ['replace_all', 'insert_line', 'append_line', 'git_diff', 'git_status', 'git_revert', 'run_tests', 'grep_context', 'find_symbol', 'move_file', 'delete_file', 'delete_dir'];
+    check(`新ツール ${NEW_TOOLS.length} 種が登録済み`, NEW_TOOLS.every((n) => getSweTool(n) !== undefined), '');
+
+    // replace_all（全箇所）
+    await fs.writeFile(path.join(root, 'src', 'fruits.txt'), 'apple orange apple\napple\n', 'utf8');
+    const ra = await getSweTool('replace_all')!.run({ path: 'src/fruits.txt', old_string: 'apple', new_string: 'banana' }, ctx);
+    const raContent = await fs.readFile(path.join(root, 'src', 'fruits.txt'), 'utf8');
+    check('replace_all が全 3 箇所を置換', ra.ok && ra.output.includes('3 箇所') && raContent === 'banana orange banana\nbanana\n', ra.output);
+
+    // replace_all（occurrence = N 番目のみ = replace_nth 相当）
+    await fs.writeFile(path.join(root, 'src', 'fruits2.txt'), 'x y x y\n', 'utf8');
+    const ran = await getSweTool('replace_all')!.run({ path: 'src/fruits2.txt', old_string: 'x', new_string: 'z', occurrence: 2 }, ctx);
+    const ranContent = await fs.readFile(path.join(root, 'src', 'fruits2.txt'), 'utf8');
+    check('replace_all occurrence=2 は 2 番目のみ置換', ran.ok && ran.output.includes('2 番目') && ranContent === 'x y z y\n', ran.output);
+    const raNotFound = await getSweTool('replace_all')!.run({ path: 'src/fruits2.txt', old_string: 'zzz', new_string: 'q' }, ctx);
+    check('replace_all 不一致はエラー', !raNotFound.ok, raNotFound.output);
+
+    // insert_line（指定行の前に挿入）
+    await fs.writeFile(path.join(root, 'src', 'seq.txt'), 'one\ntwo\nthree\n', 'utf8');
+    const il = await getSweTool('insert_line')!.run({ path: 'src/seq.txt', line_number: 2, content: 'inserted' }, ctx);
+    const ilContent = await fs.readFile(path.join(root, 'src', 'seq.txt'), 'utf8');
+    check('insert_line が 2 行目に挿入', il.ok && ilContent === 'one\ninserted\ntwo\nthree\n', il.output);
+    // insert_line（末尾 = 最終行+1）
+    const ilEnd = await getSweTool('insert_line')!.run({ path: 'src/seq.txt', line_number: 5, content: 'four' }, ctx);
+    const ilEndContent = await fs.readFile(path.join(root, 'src', 'seq.txt'), 'utf8');
+    check('insert_line は末尾（最終行+1）にも挿入可', ilEnd.ok && ilEndContent === 'one\ninserted\ntwo\nthree\nfour\n', ilEnd.output);
+    const ilBad = await getSweTool('insert_line')!.run({ path: 'src/seq.txt', line_number: 99, content: 'x' }, ctx);
+    check('insert_line は行数超過を拒否', !ilBad.ok, ilBad.output);
+
+    // append_line
+    const al = await getSweTool('append_line')!.run({ path: 'src/seq.txt', content: 'five' }, ctx);
+    const alContent = await fs.readFile(path.join(root, 'src', 'seq.txt'), 'utf8');
+    check('append_line が末尾に追記', al.ok && alContent === 'one\ninserted\ntwo\nthree\nfour\nfive\n', al.output);
+
+    // read_file の行数ヘッダー
+    const rHdr = await getSweTool('read_file')!.run({ path: 'src/seq.txt' }, ctx);
+    check('read_file が全行数ヘッダーを表示', rHdr.ok && rHdr.output.includes('全 7 行'), rHdr.output.slice(0, 60));
+
+    // ── v1.4: 検索強化（grep_context / find_symbol） ──
+    const gc = await getSweTool('grep_context')!.run({ pattern: 'def mul', path: 'src/math.py', context_lines: 1 }, ctx);
+    check('grep_context が前後行付きで表示', gc.ok && gc.output.includes('def mul') && gc.output.includes('前後 1 行') && gc.output.includes('return a * b'), gc.output.slice(0, 200));
+    const fsym = await getSweTool('find_symbol')!.run({ symbol: 'add', path: 'src' }, ctx);
+    check('find_symbol が add の定義行を発見', fsym.ok && fsym.output.includes('src/math.py:1'), fsym.output);
+    const fsymAll = await getSweTool('find_symbol')!.run({ path: 'src/math.py' }, ctx);
+    check('find_symbol が全定義を列挙', fsymAll.ok && fsymAll.output.includes('def add') && fsymAll.output.includes('def mul'), fsymAll.output);
+
+    // ── v1.4: git 連携（git init → status / diff / revert） ──
+    // ここまでの内容（math.py は edit_file テストで変更済み）をコミットしておく
+    gitExec(root, ['init', '-q']);
+    gitExec(root, ['add', '-A']);
+    const commitRes = gitExec(root, ['-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-qm', 'initial']);
+    const gitAvailable = commitRes.ok;
+    if (gitAvailable) {
+      const gsClean = await getSweTool('git_status')!.run({}, ctx);
+      check('git_status が clean を表示', gsClean.ok && gsClean.output.includes('clean'), gsClean.output);
+      // insert_line で変更を加える → git_status / git_diff に現れる
+      const il2 = await getSweTool('insert_line')!.run({ path: 'src/math.py', line_number: 2, content: '    # git 差分テスト' }, ctx);
+      check('insert_line で変更を加えられる', il2.ok, il2.output);
+      const gs = await getSweTool('git_status')!.run({}, ctx);
+      check('git_status が変更ファイルを表示', gs.ok && gs.output.includes('src/math.py'), gs.output);
+      const gd = await getSweTool('git_diff')!.run({}, ctx);
+      check('git_diff が差分を表示', gd.ok && gd.output.includes('+    # git 差分テスト') && gd.output.includes('src/math.py'), gd.output.slice(0, 300));
+      const gdPath = await getSweTool('git_diff')!.run({ path: 'src/math.py' }, ctx);
+      check('git_diff は path 指定で絞れる', gdPath.ok && gdPath.output.includes('git 差分テスト'), gdPath.output.slice(0, 150));
+      // git_revert で変更を破棄
+      const gr = await getSweTool('git_revert')!.run({ path: 'src/math.py' }, ctx);
+      const reverted = await fs.readFile(path.join(root, 'src', 'math.py'), 'utf8');
+      check('git_revert が変更を破棄', gr.ok && !reverted.includes('git 差分テスト') && reverted.includes('return a * b + 1'), gr.output);
+      const gsClean2 = await getSweTool('git_status')!.run({}, ctx);
+      check('git_revert 後は clean', gsClean2.ok && gsClean2.output.includes('clean'), gsClean2.output);
+      // テストファイルの revert は拒否
+      const grTest = await getSweTool('git_revert')!.run({ path: 'tests/test_math.py' }, ctx);
+      check('git_revert はテストファイルを拒否', !grTest.ok, grTest.output);
+    } else {
+      console.log('  - git が使えないため git 系テストはスキップ');
+    }
+
+    // ── v1.4: run_tests（pytest） ──
+    let hasPytest = false;
+    try {
+      execFileSync('python3', ['-m', 'pytest', '--version'], { stdio: 'ignore' });
+      hasPytest = true;
+    } catch { /* pytest なし */ }
+    if (hasPytest) {
+      // run_tests 用に「標準ライブラリと衝突しない」モジュールを用意する。
+      // （src/math.py は stdlib の math と衝突するため pytest の import で失敗する）
+      await fs.writeFile(
+        path.join(root, 'tests', 'conftest.py'),
+        'import os\nimport sys\n\nsys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))\n',
+        'utf8',
+      );
+      await fs.writeFile(path.join(root, 'src', 'counter.py'), 'class Counter:\n    def __init__(self):\n        self.n = 0\n\n    def inc(self):\n        self.n += 1\n        return self.n\n', 'utf8');
+      await fs.writeFile(path.join(root, 'tests', 'test_counter.py'), 'from counter import Counter\n\n\ndef test_counter():\n    assert Counter().inc() == 1\n', 'utf8');
+      const rt = await getSweTool('run_tests')!.run({ target: 'tests/test_counter.py' }, ctx);
+      check('run_tests が pytest を実行して成功', rt.ok && rt.output.includes('passed'), rt.output.slice(0, 300));
+      const rtBad = await getSweTool('run_tests')!.run({ target: '../escape' }, ctx);
+      check('run_tests は root 外 target を拒否', !rtBad.ok, rtBad.output);
+    } else {
+      console.log('  - pytest が無いため run_tests の成功系はスキップ');
+    }
+
+    // ── v1.4: ファイル操作（move_file / delete_file / delete_dir） ──
+    const mv = await getSweTool('move_file')!.run({ from: 'src/new.py', to: 'src/moved.py' }, ctx);
+    const movedExists = await fs.access(path.join(root, 'src', 'moved.py')).then(() => true).catch(() => false);
+    const newGone = await fs.access(path.join(root, 'src', 'new.py')).then(() => false).catch(() => true);
+    check('move_file が移動', mv.ok && movedExists && newGone, mv.output);
+    const mvOverwrite = await getSweTool('move_file')!.run({ from: 'src/math.py', to: 'src/moved.py' }, ctx);
+    check('move_file は上書き先を拒否', !mvOverwrite.ok, mvOverwrite.output);
+    const df = await getSweTool('delete_file')!.run({ path: 'src/moved.py' }, ctx);
+    const dfGone = await fs.access(path.join(root, 'src', 'moved.py')).then(() => false).catch(() => true);
+    check('delete_file が削除', df.ok && dfGone, df.output);
+    const dfTest = await getSweTool('delete_file')!.run({ path: 'tests/test_math.py' }, ctx);
+    check('delete_file はテストファイルを拒否', !dfTest.ok, dfTest.output);
+    // delete_dir（opt-in なし拒否 → opt-in あり成功）
+    await fs.mkdir(path.join(root, 'src', 'obsolete'), { recursive: true });
+    await fs.writeFile(path.join(root, 'src', 'obsolete', 'trash.txt'), 'x', 'utf8');
+    const ddDenied = await getSweTool('delete_dir')!.run({ path: 'src/obsolete' }, ctx);
+    check('delete_dir は opt-in なしで拒否', !ddDenied.ok, ddDenied.output);
+    const ddOk = await getSweTool('delete_dir')!.run({ path: 'src/obsolete' }, { root, allowRunCommand: true });
+    const ddGone = await fs.access(path.join(root, 'src', 'obsolete')).then(() => false).catch(() => true);
+    check('delete_dir が opt-in で削除', ddOk.ok && ddGone, ddOk.output);
+    const ddRoot = await getSweTool('delete_dir')!.run({ path: '.' }, { root, allowRunCommand: true });
+    check('delete_dir は root 自体を拒否', !ddRoot.ok, ddRoot.output);
+    const ddGit = await getSweTool('delete_dir')!.run({ path: '.git' }, { root, allowRunCommand: true });
+    check('delete_dir は .git を拒否', !ddGit.ok, ddGit.output);
 
     // 未知ツールは undefined
     check('未知ツールは undefined', getSweTool('nope') === undefined);
