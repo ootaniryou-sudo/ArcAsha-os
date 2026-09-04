@@ -155,13 +155,21 @@ export async function runSweAgent(
 
   // 安全モード: 実ワークスペース編集をブランチへ隔離する（SWE-bench 評価は false のまま）。
   // ループ前に作業ブランチを確保し、ループ終了時に commit + push する。
+  // ensureBranch が失敗した場合は safeBranch を null のままにし、共有ブランチへの
+  // commit / push を実行しない（ブランチ隔離保証に反するため）。
   let safeBranch: string | null = null;
   if (opts.safeMode) {
     const gitOk = await isGitRepo(root);
     if (gitOk) {
-      safeBranch = branchName();
-      const br = await ensureBranch(root, safeBranch);
+      const candidate = branchName();
+      const br = await ensureBranch(root, candidate);
       await audit.emit({ kind: 'system', agentRunId, name: 'branch', meta: { message: br.message } });
+      if (br.ok) {
+        safeBranch = candidate;
+      } else {
+        await audit.emit({ kind: 'system', agentRunId, name: 'branch-failed', meta: { message: br.message } });
+        console.error(`⚠️ safe-mode: ブランチ確保に失敗したため commit/push をスキップします: ${br.message}`);
+      }
     } else {
       await audit.emit({ kind: 'system', agentRunId, name: 'branch', meta: { message: 'git リポジトリでないため safe-mode をスキップ（直接編集）' } });
     }

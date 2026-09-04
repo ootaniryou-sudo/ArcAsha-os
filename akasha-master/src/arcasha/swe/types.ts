@@ -14,10 +14,12 @@
 export interface SweToolParameter {
   name: string;
   /** JSON Schema 型（function calling は string へ変換される）。 */
-  type: 'string' | 'integer' | 'boolean';
+  type: 'string' | 'integer' | 'boolean' | 'array';
   description: string;
   /** enum があれば指定（任意・type に応じた値型）。 */
   enum?: Array<string | number | boolean>;
+  /** type='array' のときの要素型（任意。省略時は string）。 */
+  items?: 'string' | 'integer' | 'boolean';
   /** 必須かどうか（true のとき OpenAI 互換 schema の required 配列へ入る）。 */
   required?: boolean;
 }

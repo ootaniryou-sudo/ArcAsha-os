@@ -89,6 +89,13 @@ async function main(): Promise<void> {
     const cmdAllowed = await getSweTool('run_command')!.run({ command: 'python3 -c "print(6*7)"' }, { root, allowRunCommand: true });
     check('run_command 実行（opt-in + exit 0）', cmdAllowed.ok && cmdAllowed.output.includes('42'), cmdAllowed.output);
 
+    // run_command の引数分離実行（args 指定 → シェルを介さず安全実行）
+    const cmdArgs = await getSweTool('run_command')!.run(
+      { command: 'python3', args: ['-c', 'import subprocess; print("safe-42")'] },
+      { root, allowRunCommand: true },
+    );
+    check('run_command 引数分離実行（args 指定）', cmdArgs.ok && cmdArgs.output.includes('safe-42'), cmdArgs.output);
+
     // 安全策: root 外パスは拒否
     const outside = await getSweTool('read_file')!.run({ path: '/etc/hostname' }, ctx);
     check('root 外パスは拒否', !outside.ok, outside.output);

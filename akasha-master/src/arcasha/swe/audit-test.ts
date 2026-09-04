@@ -6,7 +6,7 @@
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createAuditLogger, verifyAuditLine, sha256 } from './audit.js';
+import { createAuditLogger, verifyAuditLine, verifyAuditChain, sha256 } from './audit.js';
 
 let failures = 0;
 function check(name: string, cond: boolean, detail = ''): void {
@@ -44,6 +44,23 @@ async function main(): Promise<void> {
   const tampered = JSON.parse(JSON.stringify(parsed[0]));
   tampered.entry.args = { path: 'src/evil.py' };
   check('改ざんエントリは署名検証に失敗', !verifyAuditLine(tampered, secret), '');
+
+  // ハッシュ連鎖: 全体検証が通る
+  check('ハッシュ連鎖が全体で検証できる', verifyAuditChain(parsed, secret) === null, String(verifyAuditChain(parsed, secret)));
+
+  // 行の削除検知: 先頭行を消すと連鎖が壊れる
+  const deleted = parsed.slice(1);
+  check('行削除を検知できる', verifyAuditChain(deleted, secret) !== null, '');
+
+  // 行の並べ替え検知: 順序を入れ替えると連鎖が壊れる
+  const reordered = [parsed[0], parsed[2], parsed[1]];
+  check('行並べ替えを検知できる', verifyAuditChain(reordered, secret) !== null, '');
+
+  // 行の挿入検知: 途中に偽行を挟むと連鎖が壊れる
+  const fake = JSON.parse(JSON.stringify(parsed[1]));
+  fake.entry.name = 'fake-injected';
+  const injected = [parsed[0], fake, parsed[1], parsed[2]];
+  check('行挿入を検知できる', verifyAuditChain(injected, secret) !== null, '');
 
   // ハッシュ
   check('sha256 が 64 文字 hex', sha256('hello').length === 64, sha256('hello'));

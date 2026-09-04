@@ -168,7 +168,7 @@ export async function chatCompletion(
 export function toChatTools(tools: Array<{
   name: string;
   description: string;
-  parameters: Array<{ name: string; type: string; description: string; enum?: Array<string | number | boolean>; required?: boolean }>;
+  parameters: Array<{ name: string; type: string; description: string; enum?: Array<string | number | boolean>; items?: string; required?: boolean }>;
 }>): ChatToolDef[] {
   return tools.map((t) => {
     const properties: Record<string, unknown> = {};
@@ -176,6 +176,7 @@ export function toChatTools(tools: Array<{
     for (const p of t.parameters) {
       const prop: Record<string, unknown> = { type: p.type, description: p.description };
       if (p.enum) prop.enum = p.enum;
+      if (p.type === 'array') prop.items = { type: p.items ?? 'string' };
       properties[p.name] = prop;
       if (p.required === true) required.push(p.name);
     }

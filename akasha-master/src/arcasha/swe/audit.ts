@@ -61,6 +61,11 @@ export interface AuditLine {
   signature: string;
   /** この行の ID（改ざん防止・追跡用）。 */
   id: string;
+  /**
+   * 直前の行のハッシュ（ハッシュ連鎖）。先頭行は空文字。
+   * 署名対象に含めることで、行の削除・並べ替え・挿入を検知できる。
+   */
+  prevHash: string;
 }
 
 /** 監査ロガー。 */
@@ -112,8 +117,18 @@ export function sha256(s: string): string {
 }
 
 /**
+ * 監査行の「連鎖ハッシュ」を計算する。次の行の prevHash に使う。
+ * 署名・prevHash・id を含めることで、行の内容・順序・連鎖の両方を固定する。
+ */
+function lineHash(line: AuditLine): string {
+  return sha256(`${line.prevHash}\n${line.signature}\n${line.id}`);
+}
+
+/**
  * 監査ロガーを生成する。
  * 書き込みは append-only（既存内容を保持したまま末尾へ追記）。HMAC 署名を付す。
+ * 各行は「直前の行のハッシュ（prevHash）」を含めて署名する（ハッシュ連鎖）。
+ * これにより、行の削除・並べ替え・挿入を検知できる（個別署名だけでは検知不能）。
  */
 export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
   const dir = opts.dir ?? defaultAuditDir();
@@ -121,9 +136,11 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
   const secret = opts.secret ?? process.env.ARCASHA_AUDIT_SECRET ?? randomUUID();
   const file = path.join(dir, `agent-audit-${new Date().toISOString().slice(0, 10)}.jsonl`);
   let writeChain: Promise<void> = Promise.resolve();
+  // 最後に書き込んだ行の連鎖ハッシュ（並行 emit でも順序を保証するため writeChain 内で更新）
+  let lastHash = '';
 
-  function sign(entry: AuditEntry): string {
-    return createHmac('sha256', secret).update(canonicalize(entry)).digest('hex');
+  function sign(entry: AuditEntry, prevHash: string): string {
+    return createHmac('sha256', secret).update(`${canonicalize(entry)}\nprevHash=${prevHash}`).digest('hex');
   }
 
   return {
@@ -131,21 +148,32 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
     file: () => file,
     async emit(entry: Omit<AuditEntry, 'ts'>): Promise<AuditLine> {
       const full: AuditEntry = { ...entry, ts: new Date().toISOString() };
-      const signature = sign(full);
-      const line: AuditLine = { entry: full, signature, id: randomUUID() };
-      const json = JSON.stringify(line);
+      // 初回はファイル末尾の既存行から連鎖を再開する（既存ログへの追記を維持）
+      let line: AuditLine | null = null;
       writeChain = writeChain.then(async () => {
         try {
+          if (lastHash === '' && (await fs.stat(file).catch(() => null))) {
+            const raw = await fs.readFile(file, 'utf8');
+            const rows = raw.split('\n').filter((l) => l.trim() !== '');
+            if (rows.length > 0) {
+              const prev = JSON.parse(rows[rows.length - 1]) as AuditLine;
+              lastHash = lineHash(prev);
+            }
+          }
+          const prevHash = lastHash;
+          const signature = sign(full, prevHash);
+          line = { entry: full, signature, id: randomUUID(), prevHash };
           await fs.mkdir(dir, { recursive: true, mode: 0o700 });
           // 追記モード（append-only）・0600 で保存
-          await fs.appendFile(file, json + '\n', { encoding: 'utf8', mode: 0o600 });
+          await fs.appendFile(file, JSON.stringify(line) + '\n', { encoding: 'utf8', mode: 0o600 });
+          lastHash = lineHash(line);
         } catch (e) {
           // 監査ログ失敗はエージェントを止めない（ログに出すだけ）
           console.error(`⚠️ 監査ログ書込失敗: ${String(e).slice(0, 160)}`);
         }
       });
       await writeChain;
-      return line;
+      return line ?? { entry: full, signature: '', id: '', prevHash: '' };
     },
     async readAll(): Promise<AuditLine[]> {
       try {
@@ -158,8 +186,32 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
   };
 }
 
-/** 監査行の署名を検証する（改ざん検知）。 */
-export function verifyAuditLine(line: AuditLine, secret: string): boolean {
-  const expected = createHmac('sha256', secret).update(canonicalize(line.entry)).digest('hex');
-  return expected === line.signature;
+/**
+ * 監査行の署名を検証する（改ざん検知）。
+ * 単一の署名に加え、prevHash が期待値（前の行の連鎖ハッシュ）と一致するかも検証する。
+ * prevHash を渡さない場合は署名のみ検証する（後方互換）。
+ */
+export function verifyAuditLine(line: AuditLine, secret: string, expectedPrevHash?: string): boolean {
+  const expected = createHmac('sha256', secret).update(`${canonicalize(line.entry)}\nprevHash=${line.prevHash}`).digest('hex');
+  if (expected !== line.signature) return false;
+  // ハッシュ連鎖が正しいか（前の行のハッシュと一致するか）
+  if (expectedPrevHash !== undefined && line.prevHash !== expectedPrevHash) return false;
+  return true;
+}
+
+/**
+ * 監査ログ全体の整合性（ハッシュ連鎖）を検証する。
+ * 行の削除・並べ替え・挿入・改ざんを検知する。ログ全体を読み、先頭から順に
+ * 連鎖が途切れていないか確認する。
+ * @returns 検証 OK なら null、問題があればその説明を返す。
+ */
+export function verifyAuditChain(lines: AuditLine[], secret: string): string | null {
+  let prevHash = '';
+  for (const line of lines) {
+    if (!verifyAuditLine(line, secret, prevHash)) {
+      return `行「${line.entry.name}」で連鎖が壊れています（prevHash 不一致または署名不一致）`;
+    }
+    prevHash = lineHash(line);
+  }
+  return null;
 }
