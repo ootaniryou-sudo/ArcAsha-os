@@ -33,7 +33,7 @@ import { runSweAgent } from '../swe/agent.js';
 import { extractRememberAll } from './remember.js';
 import { SettingsStore, maskSecret } from './settings.js';
 import { createFeedbackStore } from './feedback.js';
-import type { FleetExpert } from '../plugin/model-fleet.js';
+import type { FleetExpert, TaskKind } from '../plugin/model-fleet.js';
 import { compile as ailsmCompile } from '../ailsm/compiler.js';
 import { nameOf, loadRegistry } from '../ailsa/vocab.js';
 
@@ -54,9 +54,15 @@ for (let i = 0; i < args.length; i++) {
 const DEFAULT_MAX_TOKENS = 1500;
 const serverStart = Date.now(); // 監視センターの稼働時間表示用
 const apiToken = process.env.ARCASHA_API_TOKEN ?? '';
-// Coding Agent（実ファイル編集）の作業ディレクトリ。env で上書き可能。
-const AGENT_WORKDIR = path.resolve(process.env.ARCASHA_WORKDIR ?? process.cwd());
+// Coding Agent（実ファイル編集）の作業ディレクトリ。env が既定で、設定タブの
+// 「ワークスペース」で上書きできる（空なら env / cwd）。
+const ENV_AGENT_WORKDIR = path.resolve(process.env.ARCASHA_WORKDIR ?? process.cwd());
 const AGENT_ALLOW_RUN = process.env.ARCASHA_AGENT_ALLOW_RUN === '1';
+/** 現在の作業ワークスペース（設定の workdir 優先、無ければ env/cwd）。 */
+function agentWorkdir(): string {
+  const w = settings.get().workdir;
+  return w ? path.resolve(w) : ENV_AGENT_WORKDIR;
+}
 
 // ─── KV キャッシュ最適化（deepseek-harness の知見を適合） ─────────────
 // プロンプトキャッシュは「リクエスト先頭からの完全一致プレフィックス」にのみヒットする。
@@ -161,14 +167,43 @@ function logCall(e: Omit<CallLogEntry, 'ts'>): void {
  *     General は model（既定 Flash）、Reasoning は customModel / Pro。
  *   - 'uniform'      : 選択した既定モデル（model）で N 台を揃える。
  *     例: model=deepseek-v4-flash なら General:Flash × N（同時並列の土台）。
+ *   - 'custom'       : 設定の customNodes（手動ノード構成）をそのまま使う。
+ *     各ノードに役割名・モデル・プロバイダ・得意タスク（expertise）を自由に指定できる。
  *
  * 各ノードは providers のうちモデル名が一致するプロバイダ（無ければ既定）で呼ぶ。
  */
 function activeFleet(): FleetExpert[] {
   const s = settings.get();
+  const def = settings.defaultProvider();
+
+  // custom モード: 手動ノード構成を使う（空なら roles 相当にフォールバック）
+  if (s.fleetMode === 'custom' && s.customNodes.length > 0) {
+    const hasAnyKey = s.apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || s.providers.some((p) => p.apiKey !== '');
+    const providerFor = (model: string, providerId?: string): string | undefined => {
+      if (providerId && settings.providerById(providerId)) return providerId;
+      const hit = s.providers.find((p) => p.model === model && p.apiKey !== '');
+      return hit?.id ?? def.id;
+    };
+    // role がタスク種別名（code/math/reasoning/search/general）なら expertise として扱い、
+    // その種別のタスクを優先的にこのノードへ振り分ける。
+    const kindOfRole = (role: string): TaskKind | undefined => {
+      const r = role.toLowerCase();
+      return r === 'code' || r === 'math' || r === 'reasoning' || r === 'search' || r === 'general'
+        ? (r as TaskKind)
+        : undefined;
+    };
+    return s.customNodes.map((n) => ({
+      nodeId: n.id,
+      model: hasAnyKey ? n.model : 'mock',
+      role: (n.role === 'reasoning' ? 'reasoning' : 'general') as 'general' | 'reasoning',
+      label: n.label || n.role || n.id,
+      providerId: providerFor(n.model, n.providerId),
+      expertise: n.expertise ?? kindOfRole(n.role),
+    }));
+  }
+
   const fGeneral = fleet.find((e) => e.role === 'general');
   const fReasoning = fleet.find((e) => e.role === 'reasoning');
-  const def = settings.defaultProvider();
   // 設定の API キー or env キー or いずれかの provider キーがあれば実モデル接続として扱う
   const hasAnyKey = s.apiKey !== '' || !!process.env.DEEPSEEK_API_KEY || s.providers.some((p) => p.apiKey !== '');
   const generalModel = hasAnyKey ? (s.model || 'deepseek-v4-flash') : (fGeneral?.model ?? 'mock');
@@ -795,14 +830,15 @@ const server = http.createServer(async (req, res) => {
         sendJson(400, { error: 'prompt が空です' });
         return;
       }
-      // root は明示指定がない限り AGENT_WORKDIR（env / cwd）。外部ディレクトリは許可しない。
+      // root は明示指定がない限り設定のワークスペース（agentWorkdir()）。外部ディレクトリは許可しない。
       // 語彙チェック + realpath 解決の両方で境界を検証する（/work/repo-other や
       // root 内 symlink でワークスペース外の実体を指すケースを弾く）
-      let root = AGENT_WORKDIR;
+      const baseWork = agentWorkdir();
+      let root = baseWork;
       if (typeof body.root === 'string' && body.root.trim() !== '') {
         root = path.resolve(body.root);
         const [realBase, realRoot] = await Promise.all([
-          fs.realpath(AGENT_WORKDIR).catch(() => AGENT_WORKDIR),
+          fs.realpath(baseWork).catch(() => baseWork),
           fs.realpath(root).catch(() => root),
         ]);
         const rel = path.relative(realBase, realRoot);
@@ -1056,7 +1092,19 @@ const server = http.createServer(async (req, res) => {
       if (typeof body.model === 'string' && body.model !== '__custom__') patch.model = body.model;
       if (typeof body.customModel === 'string') patch.customModel = body.customModel;
       if (body.orchestrationCount !== undefined) patch.orchestrationCount = Number(body.orchestrationCount);
-      if (body.fleetMode === 'roles' || body.fleetMode === 'uniform') patch.fleetMode = body.fleetMode;
+      if (body.fleetMode === 'roles' || body.fleetMode === 'uniform' || body.fleetMode === 'custom') patch.fleetMode = body.fleetMode;
+      if (typeof body.workdir === 'string') patch.workdir = body.workdir;
+      // カスタムノード構成: 配列なら保存（各ノードの role / model / providerId / expertise を正規化）
+      if (Array.isArray(body.customNodes)) {
+        patch.customNodes = (body.customNodes as Array<Record<string, unknown>>).map((n, idx) => ({
+          id: String(n.id ?? `node-${idx + 1}`).trim(),
+          label: String(n.label ?? '').trim(),
+          role: String(n.role ?? 'general').trim(),
+          model: String(n.model ?? '').trim(),
+          providerId: String(n.providerId ?? '').trim() || undefined,
+          expertise: n.expertise,
+        }));
+      }
       if (body.thinkingTokens !== undefined) patch.thinkingTokens = Number(body.thinkingTokens);
       if (typeof body.hyperThinking === 'boolean') patch.hyperThinking = body.hyperThinking;
       if (typeof body.language === 'string') patch.language = body.language;
@@ -1192,7 +1240,7 @@ const server = http.createServer(async (req, res) => {
         knowledge: memory.listKnowledge().length,
         path: memory.memoryPath(),
       },
-      agent: { workdir: AGENT_WORKDIR, allowRunCommand: AGENT_ALLOW_RUN, safeMode: process.env.ARCASHA_AGENT_SAFE_MODE === '1', auditDir: process.env.ARCASHA_AUDIT_DIR ?? undefined },
+      agent: { workdir: agentWorkdir(), allowRunCommand: AGENT_ALLOW_RUN, safeMode: process.env.ARCASHA_AGENT_SAFE_MODE === '1', auditDir: process.env.ARCASHA_AUDIT_DIR ?? undefined },
       feedback: await feedback.stats(),
       cache: (() => {
         // 直近 100 コールのプロンプトキャッシュヒット率（KV キャッシュ最適化の可視化）
@@ -1217,7 +1265,7 @@ const server = http.createServer(async (req, res) => {
       currentThreadId,
       threads: memory.listThreads(),
       memoryPath: memory.memoryPath(),
-      workdir: AGENT_WORKDIR,
+      workdir: agentWorkdir(),
       allowRunCommand: AGENT_ALLOW_RUN,
       models: hub.experts.map((e) => ({ id: e.modelId, nodeId: e.nodeId, family: e.family, paramsM: e.paramsM })),
       settings: {

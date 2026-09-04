@@ -18,7 +18,7 @@ import { defaultMemoryDir } from './long-term-memory.js';
 export type UiLanguage = 'ja' | 'en' | 'zh' | 'ko';
 
 /** フリート（オーケストレーション）の構成モード。 */
-export type FleetMode = 'roles' | 'uniform';
+export type FleetMode = 'roles' | 'uniform' | 'custom';
 
 /** 1 つの API プロバイダ（モデルごとに baseUrl / apiKey / model を紐付けて登録）。 */
 export interface ApiProvider {
@@ -34,6 +34,27 @@ export interface ApiProvider {
   model: string;
 }
 
+/**
+ * カスタムフリートの 1 ノード（fleetMode='custom' のとき使用）。
+ * role は自由な役割名（'general' / 'reasoning' に加え、'code' / 'review' / 'creative' 等も可）。
+ * expertise はこのノードが得意とするタスク種別（math/code/reasoning/search/general）。指定すると
+ * その種別のタスクが優先的にこのノードへ振り分けられる。無指定なら role の general/reasoning で従来ルーティング。
+ */
+export interface CustomFleetNode {
+  /** 一意な ID（例: 'n1', 'review-1'）。 */
+  id: string;
+  /** 表示名（例: 'コードレビュー', '数学エキスパート'）。 */
+  label: string;
+  /** 役割名（'general' / 'reasoning' / 自由名）。 */
+  role: string;
+  /** このノードが使用するモデル名（例: 'deepseek-v4-flash'）。 */
+  model: string;
+  /** このノードが呼ぶ API プロバイダ ID（省略 = モデル名一致のプロバイダ / 既定）。 */
+  providerId?: string;
+  /** 得意なタスク種別（任意）。指定するとその種別のタスクが優先的に振り分けられる。 */
+  expertise?: 'math' | 'code' | 'reasoning' | 'search' | 'general';
+}
+
 export interface AssistantSettings {
   /** DeepSeek API キー（空 = .env の DEEPSEEK_API_KEY を使う）。既定プロバイダ #0 と同期。 */
   apiKey: string;
@@ -45,8 +66,12 @@ export interface AssistantSettings {
   customModel: string;
   /** オーケストレーションに参加できるモデル数（1〜50、既定 2） */
   orchestrationCount: number;
-  /** フリート構成モード: 'roles' = General/Reasoning 役割別 / 'uniform' = 選んだモデルで N 台 */
+  /** フリート構成モード: 'roles' = General/Reasoning 役割別 / 'uniform' = 選んだモデルで N 台 / 'custom' = 手動ノード構成 */
   fleetMode: FleetMode;
+  /** fleetMode='custom' のとき使う手動ノード構成。既存の roles/uniform では使われない。 */
+  customNodes: CustomFleetNode[];
+  /** Coding Agent（実ファイル編集）の作業ワークスペース（開発ディレクトリ）。空 = env/cwd。 */
+  workdir: string;
   /** 複数 API プロバイダの登録リスト（先頭 = 既定）。空なら旧 apiKey/apiBase から構築。 */
   providers: ApiProvider[];
   /** ハイパー Thinking / thinking モード時に思考（reasoning）へ割り当てるトークン上限（既定 8000） */
@@ -82,11 +107,40 @@ export function defaultSettings(): AssistantSettings {
     customModel: '',
     orchestrationCount: 2,
     fleetMode: 'roles',
+    customNodes: [],
+    workdir: '',
     providers: defaultProviders(),
     thinkingTokens: 8000,
     hyperThinking: false,
     language: 'ja',
   };
+}
+
+/** カスタムノード配列の正規化（不正エントリを除去）。 */
+function sanitizeCustomNodes(raw: unknown): CustomFleetNode[] {
+  if (!Array.isArray(raw)) return [];
+  const list: CustomFleetNode[] = [];
+  const seen = new Set<string>();
+  const validExpertise = new Set(['math', 'code', 'reasoning', 'search', 'general']);
+  for (const n of raw) {
+    if (!n || typeof n !== 'object') continue;
+    const o = n as Record<string, unknown>;
+    const id = String(o.id ?? '').trim() || `node-${list.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const model = String(o.model ?? '').trim();
+    if (!model) continue; // モデル未指定のノードはスキップ
+    const expertiseRaw = String(o.expertise ?? '');
+    list.push({
+      id,
+      label: String(o.label ?? '').trim() || id,
+      role: String(o.role ?? '').trim() || 'general',
+      model,
+      providerId: String(o.providerId ?? '').trim() || undefined,
+      expertise: validExpertise.has(expertiseRaw) ? (expertiseRaw as CustomFleetNode['expertise']) : undefined,
+    });
+  }
+  return list;
 }
 
 /** プロバイダ配列の正規化（不正なエントリを除去し、apiKey/apiBase の空欄を既定で補完）。 */
@@ -113,7 +167,10 @@ function sanitizeProviders(raw: unknown, fallback: ApiProvider[]): ApiProvider[]
 }
 
 function sanitizeFleetMode(s: unknown): FleetMode {
-  return s === 'uniform' ? 'uniform' : 'roles';
+  const v = String(s ?? '');
+  if (v === 'uniform') return 'uniform';
+  if (v === 'custom') return 'custom';
+  return 'roles';
 }
 
 function settingsPath(): string {
@@ -172,6 +229,8 @@ export class SettingsStore {
         customModel: sanitize(data.customModel),
         orchestrationCount: clampCount(data.orchestrationCount ?? d.orchestrationCount),
         fleetMode: sanitizeFleetMode(data.fleetMode),
+        customNodes: sanitizeCustomNodes(data.customNodes),
+        workdir: sanitize(data.workdir),
         providers: sanitizeProviders(data.providers, d.providers),
         thinkingTokens: clampThinkingTokens(data.thinkingTokens ?? d.thinkingTokens),
         hyperThinking: data.hyperThinking === true,
@@ -219,6 +278,8 @@ export class SettingsStore {
     if (typeof patch.customModel === 'string') s.customModel = sanitize(patch.customModel);
     if (patch.orchestrationCount !== undefined) s.orchestrationCount = clampCount(patch.orchestrationCount);
     if (patch.fleetMode !== undefined) s.fleetMode = sanitizeFleetMode(patch.fleetMode);
+    if (patch.customNodes !== undefined) s.customNodes = sanitizeCustomNodes(patch.customNodes);
+    if (typeof patch.workdir === 'string') s.workdir = sanitize(patch.workdir);
     if (patch.thinkingTokens !== undefined) s.thinkingTokens = clampThinkingTokens(patch.thinkingTokens);
     if (typeof patch.hyperThinking === 'boolean') s.hyperThinking = patch.hyperThinking;
     if (patch.language !== undefined) s.language = sanitizeLanguage(patch.language);
