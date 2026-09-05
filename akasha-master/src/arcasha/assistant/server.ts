@@ -192,8 +192,11 @@ function activeFleet(): FleetExpert[] {
         ? (r as TaskKind)
         : undefined;
     };
-    return s.customNodes.map((n) => ({
-      nodeId: n.id,
+    // キーレス環境では登録済みモックノード（mock-a / mock-b）へ循環マップする。
+    // 任意のユーザー nodeId をそのまま ExpertHub.generate に渡すと未登録エラーになるため。
+    const mockNodes = fleet.filter((e) => e.role === 'general' || e.role === 'reasoning');
+    return s.customNodes.map((n, i) => ({
+      nodeId: hasAnyKey ? n.id : (mockNodes[i % Math.max(1, mockNodes.length)]?.nodeId ?? 'mock-a'),
       model: hasAnyKey ? n.model : 'mock',
       role: (n.role === 'reasoning' ? 'reasoning' : 'general') as 'general' | 'reasoning',
       label: n.label || n.role || n.id,
@@ -352,8 +355,11 @@ async function answerThread(
   let totalPrompt = 0; // フォールバックで複数回呼んだ場合も合算する
   let totalCompletion = 0;
   let totalCacheRead = 0; // プロンプトキャッシュヒット（KV キャッシュ最適化の可視化）
-  // 明示モデル指定（WebUI のモデル選択）があれば chatOpts の model を上書き
-  const requestedModel = opts.model ?? '';
+  // 明示モデル指定（WebUI のモデル選択）があれば chatOpts の model を上書き。
+  // custom フリートでは各ノードが自分のモデルを持つため、グローバル override は無効にする
+  // （ノード固有のモデルを尊重する）。
+  const isCustomFleet = settings.get().fleetMode === 'custom' && settings.get().customNodes.length > 0;
+  const requestedModel = isCustomFleet ? '' : (opts.model ?? '');
   const callModel = async (node: { model: string; nodeId: string; providerId?: string }): Promise<{ text: string; reasoning: string; promptTokens: number; completionTokens: number; cacheReadTokens: number }> => {
     if (realModel) {
       const chatOpts = { ...chatDefaults(), timeoutMs: 240_000 };

@@ -125,8 +125,18 @@ function sanitizeCustomNodes(raw: unknown): CustomFleetNode[] {
   for (const n of raw) {
     if (!n || typeof n !== 'object') continue;
     const o = n as Record<string, unknown>;
-    const id = String(o.id ?? '').trim() || `node-${list.length + 1}`;
-    if (seen.has(id)) continue;
+    // 明示 ID が既存と衝突する場合は捨てず、接尾辞を付けて一意化する
+    let id = String(o.id ?? '').trim();
+    if (!id) {
+      // 既定 ID は既存と衝突しない値になるまで増やす（node-1, node-2, …）
+      let k = 1;
+      while (seen.has(`node-${k}`)) k++;
+      id = `node-${k}`;
+    } else if (seen.has(id)) {
+      let k = 2;
+      while (seen.has(`${id}-${k}`)) k++;
+      id = `${id}-${k}`;
+    }
     seen.add(id);
     const model = String(o.model ?? '').trim();
     if (!model) continue; // モデル未指定のノードはスキップ
@@ -279,7 +289,12 @@ export class SettingsStore {
     if (patch.orchestrationCount !== undefined) s.orchestrationCount = clampCount(patch.orchestrationCount);
     if (patch.fleetMode !== undefined) s.fleetMode = sanitizeFleetMode(patch.fleetMode);
     if (patch.customNodes !== undefined) s.customNodes = sanitizeCustomNodes(patch.customNodes);
-    if (typeof patch.workdir === 'string') s.workdir = sanitize(patch.workdir);
+    // workdir は絶対パスだけ受け付ける（相対パスは cwd 依存で意図しないディレクトリを
+    // 編集する恐れがあるため、空文字へ落として env / cwd の既定へ戻す）
+    if (typeof patch.workdir === 'string') {
+      const w = sanitize(patch.workdir);
+      s.workdir = w === '' || path.isAbsolute(w) ? w : '';
+    }
     if (patch.thinkingTokens !== undefined) s.thinkingTokens = clampThinkingTokens(patch.thinkingTokens);
     if (typeof patch.hyperThinking === 'boolean') s.hyperThinking = patch.hyperThinking;
     if (patch.language !== undefined) s.language = sanitizeLanguage(patch.language);
