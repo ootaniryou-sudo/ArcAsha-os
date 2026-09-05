@@ -96,6 +96,10 @@ export const GOLDEN_CASES: GoldenCase[] = [
   // ── レビュー指摘の回帰（lexer / normalizer / generator の誤判定修正） ──
   // 汎用の「を読んで」はファイル文脈なしでは code へ倒さない（数学解釈を維持）
   { name: 'read-noctx-math', input: '問題を読んで解いて', expect: { intent: 'solve', domain: 'math', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // Cubic P1: 汎用の「読み込んで」は ACTION_READ_FILE から除去。非ファイル要求は code へ倒さない
+  { name: 'read-noctx-load', input: '問題を読み込んで解いて', expect: { intent: 'solve', domain: 'math', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // Cubic P1: パスのみの「直して」は EDIT_FILE を出す（context-gated edit words に追加）
+  { name: 'edit-path-naosu', input: 'src/main.ts を直して', expect: { domain: 'code', actions: ['ACTION_EDIT_FILE'], opcodes: [CodeOpcode.EDIT_FILE, Task.PATCH] } },
   // パス文脈ありは READ_FILE
   { name: 'read-path-context', input: 'src/main.ts を読んで', expect: { intent: 'code', domain: 'code', actions: ['ACTION_READ_FILE'], opcodes: [CodeOpcode.READ_FILE, Task.SEARCH] } },
   // verify + 数式は math を維持（Capability 検証で throw しない）

@@ -73,7 +73,7 @@ export const ACTION_SYNONYMS: Record<CanonicalAction, readonly string[]> = {
   // ── コードファイル操作（SWE）。汎用の「を読んで / を修正して」等は
   //    ファイル・コード文脈（ファイル/ソース/コード語、パス、拡張子）がある場合のみ
   //    下の hasFileContext ゲートを通して採用する（数学等の誤誘導を防ぐ）。 ──
-  ACTION_READ_FILE: ['ファイルを読んで', 'ファイルを読む', 'ファイルを読み', 'ソースを読んで', 'コードを読んで', '読み込んで', 'read file', 'read the file'],
+  ACTION_READ_FILE: ['ファイルを読んで', 'ファイルを読む', 'ファイルを読み', 'ソースを読んで', 'コードを読んで', 'read file', 'read the file'],
   ACTION_GREP: ['ファイルを検索', 'ファイルを探', 'ソースを検索', 'ソースを探', 'コードを検索', 'コードを探', '関数を検索', '関数を探', 'クラスを検索', 'クラスを探', 'シンボルを検索', 'grep', 'をgrep'],
   ACTION_EDIT_FILE: ['ファイルを修正', 'ファイルを編集', 'ファイルを直', 'ソースを修正', 'ソースを編集', 'コードを修正', 'コードを編集', 'コードを直', 'バグを修正', 'バグを直', 'edit file', 'fix the bug'],
   // 汎用のコマンド実行。テスト・ビルドは専用命令（RUN_TESTS）へ分離したので、
@@ -108,7 +108,7 @@ const FILE_CONTEXT_WORDS = [
  *     「src/main.ts を読んで」→ パス文脈あり → READ_FILE
  */
 const CONTEXT_DEPENDENT_READ_WORDS = ['を読んで', 'を読む', 'を読み', '読んで', '読み込んで'];
-const CONTEXT_DEPENDENT_EDIT_WORDS = ['を修正して', 'を編集して', 'を書き換えて', '修正して', '編集して', '書き換えて'];
+const CONTEXT_DEPENDENT_EDIT_WORDS = ['を修正して', 'を編集して', 'を書き換えて', '修正して', '編集して', '書き換えて', 'を直して', '直して'];
 
 /** 文にファイル・コード文脈（語彙 or パス or 拡張子）があるか判定する。 */
 function hasFileContext(t: string): boolean {
