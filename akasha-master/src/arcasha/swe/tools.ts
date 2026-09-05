@@ -740,6 +740,17 @@ async function gitRevertTool(args: Record<string, unknown>, ctx: SweContext): Pr
   if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) {
     return { ok: false, output: `git_revert: パスはルート外です: ${p}`, ms: Date.now() - t0 };
   }
+  // P1 安全策: git_revert は「ファイル単位」のロールバック。ディレクトリを指定すると
+  // git restore -- <dir> で中の全変更を一括破棄してしまうため、ディレクトリ指定は拒否する。
+  const stat = await fs.stat(r.real).catch(() => null);
+  if (stat && stat.isDirectory()) {
+    return {
+      ok: false,
+      output: `git_revert 中止: ${p} はディレクトリです。git_revert はファイル単位のロールバックのみ対応します。` +
+        'ディレクトリ内の全変更を破棄する場合は、対象ファイルを個別に指定してください。',
+      ms: Date.now() - t0,
+    };
+  }
   // P1 安全策: エージェント起因でない事前のステージ済み変更（git add 済み）を破棄しないよう、
   // 対象がステージ済みの変更を含む場合は拒否する（git restore はステージ済みも元に戻すため）。
   const staged = await captureSpawn('git', ['diff', '--cached', '--name-only', '--', rel], ctx.root, 15_000);
@@ -763,6 +774,11 @@ async function gitRevertTool(args: Record<string, unknown>, ctx: SweContext): Pr
 async function runTestsTool(args: Record<string, unknown>, ctx: SweContext): Promise<SweToolResult> {
   const t0 = Date.now();
   const rawTarget = typeof args.target === 'string' ? args.target.trim() : '';
+  // P1 安全策: target が '-' で始まる場合、pytest のオプション（--collect-only 等）として
+  // 解釈され、意図しない動作や引数注入を招く恐れがあるため拒否する。
+  if (rawTarget !== '' && rawTarget.startsWith('-')) {
+    return { ok: false, output: 'run_tests: target はファイル / ディレクトリ / node 指定にしてください（"-" で始まる pytest オプションは不可）', ms: Date.now() - t0 };
+  }
   // パス指定は root 内に限定（pytest の node 指定「tests/test_x.py::test_y」も許可）。
   // 単語チェックに加え、symlink 迂回で root 外へ出ないよう :: より前のパスを realpath で検証する。
   if (rawTarget !== '') {
