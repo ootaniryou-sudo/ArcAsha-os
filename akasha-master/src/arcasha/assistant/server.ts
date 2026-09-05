@@ -33,6 +33,8 @@ import { runSweAgent } from '../swe/agent.js';
 import { extractRememberAll } from './remember.js';
 import { SettingsStore, maskSecret } from './settings.js';
 import { createFeedbackStore } from './feedback.js';
+import { createChatLog } from './chat-log.js';
+import { webSearch } from './web-search.js';
 import type { FleetExpert, TaskKind } from '../plugin/model-fleet.js';
 import { compile as ailsmCompile } from '../ailsm/compiler.js';
 import { nameOf, loadRegistry } from '../ailsa/vocab.js';
@@ -129,15 +131,55 @@ function buildHistoryForCache(messages: Array<{ role: string; content: string }>
   return list.slice(start, end).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 }
 
-// ─── ノード（複数モデル艦隊）+ AVM + 長期記憶 + 設定 + フィードバック ─────────────
+// ─── ノード（複数モデル艦隊）+ AVM + 長期記憶 + 設定 + フィードバック + チャットログ ─────────
 const hub = new ExpertHub();
 const fleet = buildFleet(hub, { verbose: true });
 const ws = new AvmWorkspace();
 const memory = new LongTermMemory();
 const settings = new SettingsStore();
 const feedback = createFeedbackStore();
+const chatLog = createChatLog();
 await memory.load();
 await settings.load();
+
+/**
+ * DuckDuckGo リアルタイム Web 検索を実行して、結果を整形テキストで返す。
+ * チャットの検索要求（「検索して」等）で使う。失敗時はヒント付きのエラー文を返す。
+ */
+async function runWebSearch(query: string): Promise<string> {
+  const out = await webSearch(query, { maxResults: 5 });
+  if (!out.ok || out.results.length === 0) {
+    return `（Web 検索に失敗しました: ${out.error ?? '結果なし'}）`;
+  }
+  const lines = [`🔎 DuckDuckGo 検索結果: ${query}`];
+  out.results.forEach((r, i) => {
+    lines.push(`${i + 1}. ${r.title}`);
+    if (r.url) lines.push(`   ${r.url}`);
+    if (r.snippet) lines.push(`   ${r.snippet}`);
+  });
+  return lines.join('\n');
+}
+
+/**
+ * ユーザーの発言から Web 検索要求かどうかを判定し、検索クエリを抽出する。
+ * 「…を検索して / 調べて / 最新の… / 今の…」等で Web 検索を意図する。
+ * 該当しなければ null（検索しない）。
+ */
+function detectWebSearch(message: string): string | null {
+  const t = message.trim();
+  // 検索を明示する語
+  const explicit = /(?:を|で)?(?:検索して|検索して下さい|調べて|調べて下さい|インターネットで|ネットで|Webで|ウェブで|最新情報|今の|現在の|リアルタイム)/.exec(t);
+  if (!explicit) return null;
+  // 検索クエリ抽出: 「…を検索して」の「…」部分。無ければ文全体から検索語を推測。
+  // 例: 「量子コンピュータの最新動向を検索して」→ クエリ = その前段
+  const m = /^(.+?)(?:を|について|の)?(?:検索して|検索して下さい|調べて|調べて下さい|インターネットで調べて|ネットで調べて|Webで検索して|ウェブで検索して)/.exec(t);
+  if (m && m[1] && m[1].length > 1) {
+    return m[1].replace(/^(?:今|現在|最新の|リアルタイムの?)/, '').trim();
+  }
+  // 抽出できない場合は発言全体をクエリ候補に（検索して 等の語を除去）
+  const q = t.replace(/検索して下さい|検索して|調べて下さい|調べて|インターネットで|ネットで|Webで|ウェブで/g, '').trim();
+  return q.length > 0 ? q : null;
+}
 
 // ─── オーケストレーション呼び出しログ（監視センター用のリングバッファ） ───
 interface CallLogEntry {
@@ -267,7 +309,7 @@ function currentThread(): string {
  */
 async function answerThread(
   threadId: string,
-  opts: { maxTokens?: number; mode?: 'casual' | 'expert'; injectFact?: boolean; model?: string; systemPrompt?: string } = {},
+  opts: { maxTokens?: number; mode?: 'casual' | 'expert'; injectFact?: boolean; model?: string; systemPrompt?: string; searchContext?: string } = {},
 ): Promise<{
   reply: string;
   ms: number;
@@ -329,6 +371,13 @@ async function answerThread(
   if (plainChat && kloads.length > 0) {
     refParts.push(`[AVM知識] ${kloads.map((k) => `${k.title}: ${k.loadedText.slice(0, 300)}`).join('\n')}`);
   }
+  // Web 検索結果（DuckDuckGo）を参考情報として末尾側に含める
+  if (opts.searchContext) {
+    trace.push('web.search（DuckDuckGo）を参考に回答');
+    if (plainChat) {
+      refParts.push(`[Web 検索結果]\n${opts.searchContext}`);
+    }
+  }
   const refBody = refParts.join('\n');
   // 従来の合成本文（プロンプト直指定時 / モックフォールバック用。キャッシュ最適化対象外）
   const userBody = [
@@ -336,6 +385,7 @@ async function answerThread(
     memCtx || '（まだ記憶はありません）',
     '──────────────────────────────',
     kloads.length > 0 ? `[AVM知識] ${kloads.map((k) => `${k.title}: ${k.loadedText.slice(0, 300)}`).join('\n')}` : '',
+    opts.searchContext ? `[Web 検索結果]\n${opts.searchContext}` : '',
     '',
     `質問: ${query}`,
     '簡潔に・親しみやすく日本語で答えてください。',
@@ -785,6 +835,16 @@ const server = http.createServer(async (req, res) => {
       }
       currentThreadId = thread.id;
       memory.appendMessage(thread.id, { role: 'user', content: message });
+      // チャット記録（時系列ログ）へ user メッセージを追記
+      await chatLog.append({ threadId: thread.id, role: 'user', content: message.slice(0, 4000), mode: thread.mode });
+
+      // DuckDuckGo Web 検索要求の検出（「検索して / 調べて / 最新の / 今の」等）
+      // 検索クエリを抽出し、結果をコンテキストとして追加して回答に反映する。
+      const searchQuery = detectWebSearch(message);
+      let searchContext = '';
+      if (searchQuery) {
+        searchContext = await runWebSearch(searchQuery);
+      }
 
       // スラッシュコマンド（expert / または常時 help 等）
       if (message.startsWith('/')) {
@@ -793,12 +853,26 @@ const server = http.createServer(async (req, res) => {
           // /new は新スレッドが本体なので、返信は新スレッドに書き、UI に新スレッド ID を返す
           const replyThreadId = r.newThreadId ?? thread.id;
           memory.appendMessage(replyThreadId, { role: 'assistant', content: r.reply, meta: { model: 'command', mode: thread.mode } });
+          await chatLog.append({ threadId: replyThreadId, role: 'assistant', content: r.reply.slice(0, 4000), model: 'command', mode: thread.mode, kind: 'command' });
           sendJson(200, { reply: r.reply, threadId: replyThreadId, mode: thread.mode, command: true, reload: r.reload ?? false, newThreadId: r.newThreadId });
           return;
         }
       }
 
-      const r = await answerThread(thread.id, { maxTokens: DEFAULT_MAX_TOKENS, mode: thread.mode, model: String(body.model ?? '') });
+      const r = await answerThread(thread.id, { maxTokens: DEFAULT_MAX_TOKENS, mode: thread.mode, model: String(body.model ?? ''), searchContext });
+      // チャット記録へ assistant 応答を追記
+      await chatLog.append({
+        threadId: thread.id,
+        role: 'assistant',
+        content: r.reply.slice(0, 4000),
+        model: r.model,
+        mode: thread.mode,
+        kind: r.kind,
+        promptTokens: r.promptTokens,
+        completionTokens: r.completionTokens,
+        cacheReadTokens: r.cacheReadTokens,
+        meta: searchQuery ? { webSearch: searchQuery } : undefined,
+      });
       sendJson(200, {
         reply: r.reply,
         threadId: thread.id,
@@ -1069,6 +1143,21 @@ const server = http.createServer(async (req, res) => {
   // ── 設定（Settings） ──
   if (req.method === 'GET' && url.pathname === '/api/settings') {
     const s = settings.get();
+    // モデル選択候補: 既定の Flash/Pro + 登録プロバイダのモデル + カスタムフリートのノードモデル。
+    // 重複を除き、プロバイダ名をラベルに付けて選択しやすくする。
+    const modelSet = new Map<string, string>(); // id -> label
+    const addModel = (id: string, label: string): void => {
+      if (!id) return;
+      if (!modelSet.has(id)) modelSet.set(id, label);
+    };
+    addModel('deepseek-v4-flash', 'DeepSeek-V4-Flash');
+    addModel('deepseek-v4-pro', 'DeepSeek-V4-Pro');
+    for (const p of s.providers) {
+      if (p.model) addModel(p.model, p.name ? `${p.name} — ${p.model}` : p.model);
+    }
+    for (const n of s.customNodes) {
+      if (n.model) addModel(n.model, n.label ? `${n.label} — ${n.model}` : n.model);
+    }
     sendJson(200, {
       ...s,
       apiKey: maskSecret(s.apiKey), // キーはマスクして返す
@@ -1081,8 +1170,7 @@ const server = http.createServer(async (req, res) => {
       })),
       path: settings.path(),
       availableModels: [
-        { id: 'deepseek-v4-flash', label: 'DeepSeek-V4-Flash' },
-        { id: 'deepseek-v4-pro', label: 'DeepSeek-V4-Pro' },
+        ...[...modelSet.entries()].map(([id, label]) => ({ id, label })),
         { id: '__custom__', label: 'その他（カスタム）' },
       ],
     });

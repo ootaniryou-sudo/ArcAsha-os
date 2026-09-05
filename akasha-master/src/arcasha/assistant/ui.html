@@ -1110,18 +1110,45 @@ $('accessBtn').addEventListener('click',()=>{
 });
 
 /* ===== モデル選択 ===== */
+// モデル表示名の解決（MODEL_DISPLAY + サーバ設定の availableModels から）
+function modelDisplay(m){
+  if(MODEL_DISPLAY[m])return MODEL_DISPLAY[m];
+  const am=(serverSettings&&serverSettings.availableModels)||[];
+  const hit=am.find(x=>x.id===m);
+  return hit?hit.label:m;
+}
 function applyModel(m){
   model=m;
-  $('modelLabel').textContent=MODEL_DISPLAY[m]||m;
-  $('modelBtn').title='Select model, current '+(MODEL_DISPLAY[m]||m);
+  $('modelLabel').textContent=modelDisplay(m);
+  $('modelBtn').title='Select model, current '+modelDisplay(m);
 }
-$('modelBtn').addEventListener('click',()=>{
-  openMenu($('modelBtn'),[
-    {heading:'Model'},
-    {label:'⚡ DeepSeek-V4-Flash', sel:model==='deepseek-v4-flash', desc:'高速・汎用（検索/会話）', onclick:()=>applyModel('deepseek-v4-flash')},
-    {label:'🧠 DeepSeek-V4-Pro', sel:model==='deepseek-v4-pro', desc:'推論・数学・コード', onclick:()=>applyModel('deepseek-v4-pro')},
-  ]);
-});
+// 実際に API へ送るモデル名を返す（__custom__ は設定で保存した実モデルを使う）
+function effectiveModel(){
+  if(model && model!=='__custom__')return model;
+  return (serverSettings&&serverSettings.model)||'deepseek-v4-flash';
+}
+// モデル選択メニューを開く（設定で登録した API モデル / カスタムフリートのノードを含む）
+async function openModelMenu(){
+  // serverSettings が未ロードなら /api/settings を取得してから構築する
+  if(!serverSettings){
+    try{
+      const r=await fetch('/api/settings');
+      const d=await r.json();
+      if(!d.error)serverSettings=d;
+    }catch(_){}
+  }
+  const items=[{heading:'Model'}];
+  const am=(serverSettings&&serverSettings.availableModels)||[];
+  const seen=new Set();
+  am.forEach((x)=>{
+    if(x.id==='__custom__'||seen.has(x.id))return;
+    seen.add(x.id);
+    items.push({label:MODEL_DISPLAY[x.id]||('🧠 '+x.label), sel:model===x.id, desc:MODEL_DISPLAY[x.id]?'高速・汎用（検索/会話）':(x.label||x.id), onclick:()=>applyModel(x.id)});
+  });
+  items.push({label:'✏️ その他（カスタム）', sel:model==='__custom__', desc:'モデル名を自分で入力', onclick:()=>applyModel('__custom__')});
+  openMenu($('modelBtn'),items);
+}
+$('modelBtn').addEventListener('click',openModelMenu);
 
 /* ===== Commands メニュー ===== */
 $('cmdsBtn').addEventListener('click',()=>{
@@ -1179,7 +1206,7 @@ async function send(){
   busy=true;$('send').disabled=true;setTyping(true);
   try{
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({message:text,threadId,mode,model})});
+      body:JSON.stringify({message:text,threadId,mode,model:effectiveModel()})});
     const d=await r.json();
     if(d.error){addSystem('⚠️ '+d.error)}
     else{

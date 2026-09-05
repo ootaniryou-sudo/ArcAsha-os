@@ -37,6 +37,7 @@
     "swe:sandbox-test": "tsx src/arcasha/swe/sandbox-test.ts",
     "swe:cache-test": "tsx src/arcasha/swe/cache-stats-test.ts",
     "assistant:feedback-test": "tsx src/arcasha/assistant/feedback-test.ts",
+    "assistant:chatlog-test": "tsx src/arcasha/assistant/chat-log-test.ts",
     "chat": "tsx src/arcasha/chat/chat-server.ts",
     "assistant": "tsx src/arcasha/assistant/server.ts",
     "assistant:test": "tsx src/arcasha/assistant/memory-test.ts",
