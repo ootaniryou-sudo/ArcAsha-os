@@ -102,14 +102,25 @@ npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニット
 - **多言語エンドポイント**: `/ja` `/en` `/zh` `/ko` で Chat 画面の言語を切替
   （`/` は設定タブで保存した言語が既定）。バナーの 🌐 チップからも切替可能
 - **設定タブ**: 複数の API プロバイダ（名前 / モデル名 / Base URL / キー）を Web から登録可能
-  （DeepSeek / OpenAI 等を混在させ、モデル名の一致するプロバイダへ自動ルーティング）。保存先は
+  （DeepSeek / OpenAI / Anthropic / Gemini 等を混在させ、モデル名の一致するプロバイダへ自動ルーティング）。保存先は
   `~/.arcasha/assistant-settings.json`（git 管理外・API キーはマスク表示）
+- **Chat のモデル選択**: 入力画面のモデル選択メニューに、設定で登録した API プロバイダのモデル
+  （例: `gemini-2.5-flash`）を動的表示。選ぶとそのモデルを公開するプロバイダの API キー・
+  エンドポイントで呼び出します（`thinking` は DeepSeek 系のみ送信）
 - **オーケストレーション制御**: 参加モデル数（1〜50）をスライダーで制御。
   構成モードを切替可能:
-  - **役割別（既定）**: General=選択モデル ×1 + Reasoning ×(N-1) のフォールバックチェーン
+  - **役割別（roles・既定）**: General=選択モデル ×1 + Reasoning ×(N-1) のフォールバックチェーン
     （空応答時に次のモデルへ委譲）
   - **同一モデルで N 台（uniform）**: 選択したモデルを N 台並列同時呼び出しし、
     最初の有効応答を採用（実行時はプロバイダ+モデルのユニーク組み合わせのみ並列化）
+  - **カスタム（custom）**: 各ノードの役割名・モデル・API プロバイダ・得意タスクを手動で
+    自由に構成（得意タスクの一致するノードへ優先振り分け）
+- **ワークスペース指定**: 設定タブで開発ディレクトリの絶対パスを指定すると、Coding Agent が
+  そのプロジェクト内で実ファイルを編集します（サイドバーの Workspace 表示に反映）
+- **Chat 記録の自動保存**: 会話ログを `~/.arcasha/chat-log.jsonl` に時系列で自動追記
+  （ts・スレッド・モデル・モード付き・append-only・git 外）
+- **DuckDuckGo Web 検索**: チャットで「…を検索して / 調べて」と入力すると、DuckDuckGo の
+  リアルタイム検索結果（API キー不要）を参考情報として回答に反映
 - **ハイパー Thinking モード**: `thinking` 有効 + `reasoning_effort=max` + 出力上限
   8000 トークン。深い推論向け（content が空でも推論内容を回答として採用）
 - **AILSM 出力ビューア**: Chat の各回答に「⚙ AILSM 出力」ボタンが付き、自然言語入力が
@@ -121,8 +132,13 @@ npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニット
 - **スラッシュコマンド**: `/help` `/memory` `/remember` `/forget` `/pin` `/new` 等
 - **OpenAI 互換 API**: `POST /v1/chat/completions`（baseURL = `http://localhost:4781/v1`）
   を Cursor 等の外部ツールからそのまま利用可能。`/v1/models` で利用モデルを公開
-- **長期記憶の保存先**: `~/.arcasha/assistant-memory.json`（`ARCASHA_MEMORY_DIR` で変更可）
-- 実装: `src/arcasha/assistant/`（server / settings / long-term-memory / remember / ui.html）
+- **データ保存先（すべて git 外・自動生成）**: `~/.arcasha/` に
+  `assistant-memory.json`（長期記憶）/ `assistant-settings.json`（API キー・設定）/
+  `assistant-feedback.jsonl`（👍/👎評価）/ `chat-log.jsonl`（会話ログ）/
+  `agent-audit/`（監査ログ）を自動生成。初回入力時にディレクトリも自動作成。
+  保存先は `.env`（`.env.example` 参照）の `ARCASHA_MEMORY_DIR` / `ARCASHA_FEEDBACK_DIR` /
+  `ARCASHA_CHAT_LOG_DIR` / `ARCASHA_AUDIT_DIR` で変更可能
+- 実装: `src/arcasha/assistant/`（server / settings / long-term-memory / remember / chat-log / web-search / ui.html）
 
 > 既存の AVM 可視化付きチャット（`npm run chat`・ポート 4780）はそのまま利用できます。
 
