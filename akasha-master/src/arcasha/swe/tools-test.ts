@@ -290,6 +290,16 @@ async function main(): Promise<void> {
     check('delete_dir は親遡及（sub/..）を拒否（src は残る）', !ddDotDot.ok && rootStill2 && srcStill, ddDotDot.output);
     const ddGit = await getSweTool('delete_dir')!.run({ path: '.git' }, { root, allowRunCommand: true });
     check('delete_dir は .git を拒否', !ddGit.ok, ddGit.output);
+    // P1: 対象ディレクトリ自体が tests でなくても、中にテストファイルを含む場合は巻き込み削除を拒否
+    await fs.mkdir(path.join(root, 'src', 'feature'), { recursive: true });
+    await fs.writeFile(path.join(root, 'src', 'feature', 'test_impl.py'), 'def test_x(): pass', 'utf8');
+    const ddTestFile = await getSweTool('delete_dir')!.run({ path: 'src/feature' }, { root, allowRunCommand: true });
+    const featureStill = await fs.access(path.join(root, 'src', 'feature')).then(() => true).catch(() => false);
+    check('delete_dir はテストファイルを含むディレクトリを拒否（ディレクトリは残る）', !ddTestFile.ok && featureStill, ddTestFile.output);
+    // P1: 対象ディレクトリ内に tests サブディレクトリがある場合も巻き込み削除を拒否
+    await fs.mkdir(path.join(root, 'src', 'feature', 'tests'), { recursive: true });
+    const ddTestSub = await getSweTool('delete_dir')!.run({ path: 'src/feature' }, { root, allowRunCommand: true });
+    check('delete_dir は tests サブディレクトリを含むディレクトリを拒否', !ddTestSub.ok, ddTestSub.output);
 
     // 未知ツールは undefined
     check('未知ツールは undefined', getSweTool('nope') === undefined);

@@ -1009,12 +1009,58 @@ async function deleteDirTool(args: Record<string, unknown>, ctx: SweContext): Pr
   if (segments.includes('tests') || segments.some((s) => IGNORE_DIRS.has(s))) {
     return { ok: false, output: `delete_dir: 削除禁止ディレクトリです（tests または ${[...IGNORE_DIRS].slice(0, 8).join(' / ')} 等）: ${p}`, ms: Date.now() - t0 };
   }
+  // P1 安全策: 対象ディレクトリ自体が tests と名乗らなくても、その中にテストファイル
+  // （test_*.py / *_test.py / conftest.py）や tests サブディレクトリが含まれれば、
+  // テストを巻き込んで再帰削除してしまう。削除前に再帰走査して保護パスを検出する。
+  const protectedInside = await findProtectedInDir(r.real);
+  if (protectedInside) {
+    return {
+      ok: false,
+      output: `delete_dir 中止: ${p} 内にテストファイル / tests ディレクトリが含まれます（${protectedInside}）。` +
+        'テストを巻き込む削除はできません。テスト以外のディレクトリを個別に指定してください。',
+      ms: Date.now() - t0,
+    };
+  }
   try {
     await fs.rm(r.real, { recursive: true, force: false });
   } catch (e) {
     return { ok: false, output: `delete_dir 失敗: ${(e as Error).message}`, ms: Date.now() - t0 };
   }
   return { ok: true, output: `ディレクトリ削除成功: ${p}`, ms: Date.now() - t0 };
+}
+
+/**
+ * ディレクトリ内を再帰走査し、テストファイル / tests ディレクトリが含まれるかを検出する。
+ * 見つかったらその相対パスを返す（無ければ null）。delete_dir の巻き込み削除防止用。
+ */
+async function findProtectedInDir(dir: string): Promise<string | null> {
+  let found: string | null = null;
+  const walk = async (cur: string, relPath: string): Promise<void> => {
+    if (found) return;
+    let entries;
+    try {
+      entries = await fs.readdir(cur, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (found) return;
+      const childRel = relPath ? `${relPath}/${e.name}` : e.name;
+      if (e.isDirectory()) {
+        // tests / 重要ディレクトリは保護
+        if (e.name === 'tests' || IGNORE_DIRS.has(e.name)) {
+          found = childRel;
+          return;
+        }
+        await walk(path.join(cur, e.name), childRel);
+      } else if (e.isFile() && isTestFilePath(childRel)) {
+        found = childRel;
+        return;
+      }
+    }
+  };
+  await walk(dir, '');
+  return found;
 }
 
 /* ------------------------------------------------------------------ */
