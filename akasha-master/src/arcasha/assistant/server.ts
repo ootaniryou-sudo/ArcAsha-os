@@ -413,8 +413,12 @@ async function answerThread(
   const callModel = async (node: { model: string; nodeId: string; providerId?: string }): Promise<{ text: string; reasoning: string; promptTokens: number; completionTokens: number; cacheReadTokens: number }> => {
     if (realModel) {
       const chatOpts = { ...chatDefaults(), timeoutMs: 240_000 };
-      // ノードのプロバイダ（複数 API 登録）を解決する。無ければ既定プロバイダ。
-      const prov = (node.providerId ? settings.providerById(node.providerId) : undefined) ?? settings.defaultProvider();
+      // 明示モデル指定（WebUI のモデル選択）があれば、そのモデルを公開するプロバイダを優先する。
+      // 例: gemini-2.5-flash を選んだら Gemini プロバイダの apiKey/baseUrl を使う（DeepSeek のまま呼ばない）。
+      const prov =
+        (requestedModel ? settings.get().providers.find((p) => p.model === requestedModel && p.apiKey !== '') : undefined) ??
+        (node.providerId ? settings.providerById(node.providerId) : undefined) ??
+        settings.defaultProvider();
       // 各プロバイダの baseUrl / apiKey / model を優先。空欄は env 既定へフォールバック。
       if (prov?.apiKey) chatOpts.apiKey = prov.apiKey;
       if (prov?.apiBase) chatOpts.baseUrl = prov.apiBase;
@@ -422,11 +426,16 @@ async function answerThread(
       chatOpts.model = requestedModel || node.model || prov?.model || chatOpts.model;
       chatOpts.maxTokens = hyper ? thinkingTokens : maxTokens;
       chatOpts.temperature = 0.3;
-      if (hyper) {
-        chatOpts.thinking = 'enabled';
-        chatOpts.reasoningEffort = 'max';
-      } else {
-        chatOpts.thinking = 'disabled';
+      // thinking / reasoning_effort は DeepSeek 系プロバイダのみ（Gemini 等の OpenAI 互換 API は
+      // thinking フィールドを認識せず 400 になるため送らない）。
+      const isDeepSeek = (prov?.apiBase || chatOpts.baseUrl).includes('deepseek.com');
+      if (isDeepSeek) {
+        if (hyper) {
+          chatOpts.thinking = 'enabled';
+          chatOpts.reasoningEffort = 'max';
+        } else {
+          chatOpts.thinking = 'disabled';
+        }
       }
       const r = await chatCompletion(
         plainChat
