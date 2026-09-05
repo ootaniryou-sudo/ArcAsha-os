@@ -48,16 +48,18 @@ export interface SandboxRunner {
  */
 export class DirectSandboxRunner implements SandboxRunner {
   readonly id = 'direct';
+  /** 収集する最大出力（バイト）。超過時は子プロセスを終了して切り詰める（メモリ保護）。 */
+  static readonly MAX_OUTPUT_BYTES = 1_048_576; // 1 MiB
   private readonly spawnImpl: (
     command: string,
     args: string[],
     cwd: string,
     timeoutMs: number,
-  ) => Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean; error?: string }>;
+  ) => Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean; truncated: boolean; error?: string }>;
 
   constructor(
     spawnImpl?: (command: string, args: string[], cwd: string, timeoutMs: number) => Promise<{
-      code: number | null; stdout: string; stderr: string; timedOut: boolean; error?: string;
+      code: number | null; stdout: string; stderr: string; timedOut: boolean; truncated: boolean; error?: string;
     }>,
   ) {
     // テストで差し替え可能にしておく
@@ -68,25 +70,35 @@ export class DirectSandboxRunner implements SandboxRunner {
         let stdout = '';
         let stderr = '';
         let settled = false;
+        // 出力が上限を超えたら子プロセスを終了する（無制限出力コマンドのメモリ枯渇を防ぐ）
+        const killIfOverflow = (): void => {
+          if (settled) return;
+          if (stdout.length + stderr.length > DirectSandboxRunner.MAX_OUTPUT_BYTES) {
+            settled = true;
+            child.kill('SIGKILL');
+            clearTimeout(timer);
+            resolve({ code: null, stdout, stderr, timedOut: false, truncated: true });
+          }
+        };
         const timer = setTimeout(() => {
           if (settled) return;
           settled = true;
           child.kill('SIGKILL');
-          resolve({ code: null, stdout, stderr, timedOut: true });
+          resolve({ code: null, stdout, stderr, timedOut: true, truncated: false });
         }, timeoutMs);
-        child.stdout?.on('data', (d: Buffer) => { stdout += d.toString('utf8'); });
-        child.stderr?.on('data', (d: Buffer) => { stderr += d.toString('utf8'); });
+        child.stdout?.on('data', (d: Buffer) => { stdout += d.toString('utf8'); killIfOverflow(); });
+        child.stderr?.on('data', (d: Buffer) => { stderr += d.toString('utf8'); killIfOverflow(); });
         child.on('error', (err) => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
-          resolve({ code: null, stdout, stderr, timedOut: false, error: err.message });
+          resolve({ code: null, stdout, stderr, timedOut: false, truncated: false, error: err.message });
         });
         child.on('close', (code) => {
           if (settled) return;
           settled = true;
           clearTimeout(timer);
-          resolve({ code, stdout, stderr, timedOut: false });
+          resolve({ code, stdout, stderr, timedOut: false, truncated: false });
         });
       });
     });
@@ -107,6 +119,9 @@ export class DirectSandboxRunner implements SandboxRunner {
     const out = await this.spawnImpl(cmd, args, opts.cwd, opts.timeoutMs);
     if (out.timedOut) {
       return { ok: false, output: `[タイムアウト ${Math.floor(opts.timeoutMs / 1000)}s]`, ms: Date.now() - t0 };
+    }
+    if (out.truncated) {
+      return { ok: false, output: `[出力上限 ${Math.floor(DirectSandboxRunner.MAX_OUTPUT_BYTES / 1024)}KiB 超過] コマンドを終了しました`, ms: Date.now() - t0 };
     }
     if (out.error !== undefined) {
       return { ok: false, output: `起動失敗: ${out.error}`, ms: Date.now() - t0 };

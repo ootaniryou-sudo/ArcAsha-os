@@ -43,6 +43,10 @@ async function main(): Promise<void> {
   const r5 = await new DirectSandboxRunner().run({ command: 'no-such-cmd-xyz', cwd: root, timeoutMs: 1000 });
   check('存在しないコマンドはエラー', !r5.ok, r5.output);
 
+  // 無制限出力コマンド（yes）が出力上限で終了する（メモリ枯渇防止）
+  const r6 = await new DirectSandboxRunner().run({ command: 'yes', cwd: root, timeoutMs: 5000 });
+  check('無制限出力（yes）は出力上限で終了', !r6.ok && r6.output.includes('出力上限'), r6.output.slice(0, 200));
+
   // 設定ランナー（env 既定 = direct）
   const g = getSandboxRunner();
   check('getSandboxRunner が direct を返す', g.id === 'direct' && (await g.available()), g.id);
