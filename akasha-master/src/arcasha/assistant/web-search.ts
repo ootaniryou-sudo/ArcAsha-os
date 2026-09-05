@@ -197,7 +197,18 @@ async function googleCseSearch(q: string, maxResults: number, timeoutMs: number)
   const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(q)}&num=${Math.min(maxResults, 10)}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   if (res.status === 429 || res.status === 402) return { results: [], error: `Google CSE ${res.status}`, exhausted: true };
-  if (!res.ok) return { results: [], error: `Google CSE ${res.status}` };
+  if (!res.ok) {
+    // Google API はエラー本文に理由（403 = サイト限定で全 Web 不可 / quotaExceeded 等）を含む
+    let reason = `Google CSE ${res.status}`;
+    try {
+      const err = (await res.json()) as { error?: { message?: string; code?: number; errors?: Array<{ reason?: string; message?: string }> } };
+      const e = err.error?.errors?.[0];
+      reason = `Google CSE ${err.error?.code ?? res.status}: ${e?.reason ?? e?.message ?? err.error?.message ?? ''}`.trim();
+    } catch {
+      /* JSON でなければステータスのみ */
+    }
+    return { results: [], error: reason };
+  }
   const data = (await res.json()) as { items?: Array<{ title?: string; link?: string; snippet?: string }> };
   return {
     results: (data.items || []).slice(0, maxResults).map((r) => ({
