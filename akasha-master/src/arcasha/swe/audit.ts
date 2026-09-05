@@ -35,8 +35,10 @@ export interface AuditEntry {
   ts: string;
   /** ツール名 / モデル名 / イベント名。 */
   name: string;
-  /** ツール引数（シリアライズ可能なもののみ・シークレットは含めない）。 */
+  /** ツール引数（シリアライズ可能なもののみ・シークレットは含めない）。生の引数は保存しない方針。 */
   args?: Record<string, unknown>;
+  /** ツール引数のハッシュ（SHA-256）。モデル制御の引数は生でなくハッシュで保存する。 */
+  argsHash?: string;
   /** ツール結果のハッシュ（SHA-256）。 */
   resultHash?: string;
   /** モデル応答本文のハッシュ。 */
@@ -116,6 +118,7 @@ function canonicalize(e: AuditEntry): string {
   const keys: (keyof AuditEntry)[] = ['kind', 'agentRunId', 'agentStepId', 'ts', 'name'];
   const parts = keys.map((k) => `${k}=${String(e[k] ?? '')}`);
   if (e.args) parts.push(`args=${JSON.stringify(e.args)}`);
+  if (e.argsHash) parts.push(`argsHash=${e.argsHash}`);
   if (e.resultHash) parts.push(`resultHash=${e.resultHash}`);
   if (e.responseHash) parts.push(`responseHash=${e.responseHash}`);
   if (e.ok !== undefined) parts.push(`ok=${e.ok}`);

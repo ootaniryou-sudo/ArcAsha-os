@@ -302,13 +302,14 @@ export async function runSweAgent(
       }
       const result = await tool.run(args, ctx);
       toolResults.push({ name: tc.name, ok: result.ok, output: result.output, ms: result.ms });
-      // ツール呼び出しを監査ログへ（引数はシークレットを含まない想定。出力はハッシュのみ）
+      // ツール呼び出しを監査ログへ。引数はモデル制御の任意値（ファイル内容・コマンド・
+      // シークレットを含みうる）のため、生のまま保存せずハッシュ化する。出力もハッシュのみ。
       await audit.emit({
         kind: 'tool',
         agentRunId,
         agentStepId: i,
         name: tc.name,
-        args,
+        argsHash: sha256(JSON.stringify(args)),
         resultHash: result.output ? sha256(result.output) : undefined,
         ok: result.ok,
         ms: result.ms,
@@ -350,7 +351,9 @@ export async function runSweAgent(
 
   // 安全モード: エージェントの変更を作業ブランチへ commit（可能なら push）する。
   // 人間のレビューと CI を待ってからマージされる（main へ直接は入れない）。
-  if (opts.safeMode && safeBranch) {
+  // 中断（abort）された実行は変更が不完全な可能性があるため commit / push しない。
+  const abortedRun = opts.signal?.aborted === true;
+  if (opts.safeMode && safeBranch && !abortedRun) {
     const commitMsg = `feat(agent): ${sanitizeText(opts.issue).slice(0, 60)}`;
     const cm = await commitAll(root, commitMsg);
     await audit.emit({ kind: 'system', agentRunId, name: 'commit', meta: { message: cm.message } });
@@ -358,6 +361,8 @@ export async function runSweAgent(
       const pd = await pushAndDiff(root, safeBranch);
       await audit.emit({ kind: 'system', agentRunId, name: 'pr', meta: { message: pd.message, diffHash: pd.diff ? sha256(pd.diff) : undefined } });
     }
+  } else if (opts.safeMode && safeBranch && abortedRun) {
+    await audit.emit({ kind: 'system', agentRunId, name: 'commit-skipped', meta: { message: '中断されたため commit/push をスキップしました' } });
   }
   await audit.emit({ kind: 'agent', agentRunId, name: 'end', ok: gotFinalAnswer, meta: { stopReason, toolCalls, steps: steps.length } });
 
