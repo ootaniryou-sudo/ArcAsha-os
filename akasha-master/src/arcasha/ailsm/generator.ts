@@ -12,7 +12,7 @@
 
 import { Domain, Slot, Task } from '../ailsa/vocab.js';
 import { Opcode } from '../ailsa/opcode.js';
-import { MathOpcode } from '../ailsa/dialect.js';
+import { CodeOpcode, MathOpcode } from '../ailsa/dialect.js';
 import type { Instruction } from '../ailsa/encoder.js';
 import type { AilsmGraph } from './ailsm.js';
 import type { CanonicalAction } from './normalizer.js';
@@ -54,6 +54,25 @@ const OPCODE_OF_ACTION: Partial<Record<CanonicalAction, MathOpcode>> = {
   ACTION_MATRIX: MathOpcode.MATRIX,
 };
 
+/** コードファイル操作アクション → Code 方言オペコード（SWE / registry v1.3.0+ / v1.4.0） */
+const CODE_OPCODE_OF_ACTION: Partial<Record<CanonicalAction, CodeOpcode>> = {
+  ACTION_READ_FILE: CodeOpcode.READ_FILE,
+  ACTION_GREP: CodeOpcode.GREP,
+  ACTION_EDIT_FILE: CodeOpcode.EDIT_FILE,
+  ACTION_RUN_COMMAND: CodeOpcode.RUN_COMMAND,
+  // v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化
+  ACTION_GIT_DIFF: CodeOpcode.GIT_DIFF,
+  ACTION_GIT_STATUS: CodeOpcode.GIT_STATUS,
+  ACTION_RUN_TESTS: CodeOpcode.RUN_TESTS,
+  ACTION_REPLACE_ALL: CodeOpcode.REPLACE_ALL,
+  ACTION_INSERT_LINE: CodeOpcode.INSERT_LINE,
+  ACTION_APPEND_LINE: CodeOpcode.APPEND_LINE,
+  ACTION_MOVE_FILE: CodeOpcode.MOVE_FILE,
+  ACTION_DELETE_FILE: CodeOpcode.DELETE_FILE,
+  ACTION_GREP_CONTEXT: CodeOpcode.GREP_CONTEXT,
+  ACTION_FIND_SYMBOL: CodeOpcode.FIND_SYMBOL,
+};
+
 type SlotValue = { slot: number; value: string | number | boolean };
 
 /** スロット追加（重複時は既存値に追記して結合 — スロット重複を構造的に防ぐ） */
@@ -92,12 +111,10 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   addSlot(goalSlots, Slot.GOAL, task.label);
   if (task.attrs.output) addSlot(goalSlots, Slot.OUTPUT, String(task.attrs.output));
 
-  // 要約/検索など: 入力テキストを SLOT_INPUT へ
+  // 要約/検索/コード操作など: 入力テキストを SLOT_INPUT へ
   const inputNode = g.nodes.find((n) => n.kind === 'value' && n.label === 'input');
-  if (inputNode) {
-    const text = String((inputNode.attrs.text as string | undefined) ?? '');
-    if (text) addSlot(goalSlots, Slot.INPUT, text);
-  }
+  const inputText = inputNode ? String((inputNode.attrs.text as string | undefined) ?? '') : '';
+  if (inputText) addSlot(goalSlots, Slot.INPUT, inputText);
 
   // 入力式 / 定数畳み込み結果
   const equation = g.nodes.find((n) => n.type === 'equation');
@@ -105,20 +122,34 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   const inputExpr = equation ? String((equation.attrs.expr as string | undefined) ?? '') : null;
   const foldedValue = constant ? String((constant.attrs.value as number | undefined) ?? '') : null;
 
-  // 数学アクション → 数学オペコード（方程式の入力式が必要）
+  // 数学アクション → 数学オペコード / コード操作アクション → Code 方言オペコード
   const actions = (task.attrs.actions as string[] | undefined) ?? [];
   let mathOpEmitted = 0;
   for (const action of actions) {
     const op = OPCODE_OF_ACTION[action as CanonicalAction];
-    if (op === undefined) {
+    const cop = CODE_OPCODE_OF_ACTION[action as CanonicalAction];
+    if (op === undefined && cop === undefined) {
       addSlot(goalSlots, Slot.GOAL, action);
       continue;
     }
-    if (inputExpr) {
-      instrs.push({ opcode: op, slots: [{ slot: Slot.INPUT, value: inputExpr }] });
-      mathOpEmitted++;
-    } else {
-      addSlot(goalSlots, Slot.GOAL, action);
+    if (op !== undefined) {
+      // 数学オペコード（方程式の入力式が必要）
+      if (inputExpr) {
+        instrs.push({ opcode: op, slots: [{ slot: Slot.INPUT, value: inputExpr }] });
+        mathOpEmitted++;
+      } else {
+        addSlot(goalSlots, Slot.GOAL, action);
+      }
+      continue;
+    }
+    // コード方言オペコード（GREP / READ_FILE / EDIT_FILE / RUN_COMMAND）
+    // domain=code のときだけ命令化（要約文の「読む」等が誤爆しないようガード）
+    if (cop !== undefined && domain === 'code') {
+      if (inputText) {
+        instrs.push({ opcode: cop, slots: [{ slot: Slot.INPUT, value: inputText }] });
+      } else {
+        addSlot(goalSlots, Slot.GOAL, action);
+      }
     }
   }
 
@@ -130,7 +161,33 @@ export function generateAilsa(g: AilsmGraph): Instruction[] {
   // 定数畳み込み結果は SLOT_INPUT として伝達（オペコードは不要 — 値が確定済み）
   if (foldedValue) addSlot(goalSlots, Slot.INPUT, foldedValue);
 
-  const taskOp = TASK_OF_INTENT[intent] ?? Task.SOLVE;
+  // タスク動詞を選ぶ。code ドメインでは実行したアクションに応じて適切なタスクを選ぶ
+  // （READ/GREP/検索強化 → 検索タスク、EDIT/ファイル操作 → 修正タスク、
+  //   RUN_COMMAND → 実行タスク、テスト/Git差分 → 検証タスク）。
+  let taskOp: Task;
+  if (domain === 'code') {
+    const codeActs = actions.filter((a) => CODE_OPCODE_OF_ACTION[a as CanonicalAction] !== undefined);
+    const isSearchLike = (a: string): boolean =>
+      a === 'ACTION_READ_FILE' || a === 'ACTION_GREP' || a === 'ACTION_GREP_CONTEXT' || a === 'ACTION_FIND_SYMBOL';
+    const isEditLike = (a: string): boolean =>
+      a === 'ACTION_EDIT_FILE' || a === 'ACTION_REPLACE_ALL' || a === 'ACTION_INSERT_LINE' ||
+      a === 'ACTION_APPEND_LINE' || a === 'ACTION_MOVE_FILE' || a === 'ACTION_DELETE_FILE';
+    const isVerifyLike = (a: string): boolean =>
+      a === 'ACTION_RUN_TESTS' || a === 'ACTION_GIT_DIFF' || a === 'ACTION_GIT_STATUS';
+    if (codeActs.some(isEditLike)) {
+      taskOp = Task.PATCH;
+    } else if (codeActs.some(isSearchLike)) {
+      taskOp = Task.SEARCH;
+    } else if (codeActs.some((a) => a === 'ACTION_RUN_COMMAND')) {
+      taskOp = Task.SOLVE;
+    } else if (codeActs.some(isVerifyLike)) {
+      taskOp = Task.VERIFY;
+    } else {
+      taskOp = TASK_OF_INTENT[intent] ?? Task.PATCH;
+    }
+  } else {
+    taskOp = TASK_OF_INTENT[intent] ?? Task.SOLVE;
+  }
   instrs.push({ opcode: taskOp, slots: goalSlots });
   instrs.push({ opcode: Opcode.RETURN, slots: [{ slot: Slot.TASK_ID, value: tid }] });
 

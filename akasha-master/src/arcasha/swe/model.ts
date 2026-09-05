@@ -117,7 +117,13 @@ export async function chatCompletion(
       };
       finish_reason?: string;
     }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      // DeepSeek のプロンプトキャッシュ
+      prompt_cache_hit_tokens?: number;
+      prompt_cache_miss_tokens?: number;
+    };
   };
 
   const msg = data.choices?.[0]?.message;
@@ -143,6 +149,11 @@ export async function chatCompletion(
     usage: {
       promptTokens: data.usage?.prompt_tokens ?? 0,
       completionTokens: data.usage?.completion_tokens ?? 0,
+      // DeepSeek のプロンプトキャッシュ: prompt_cache_hit_tokens を捕捉（キャッシュヒット率の可視化・最適化）
+      cacheReadTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
+      cacheWriteTokens: data.usage?.prompt_cache_miss_tokens !== undefined && data.usage?.prompt_tokens !== undefined
+        ? Math.max(0, data.usage.prompt_tokens - (data.usage.prompt_cache_hit_tokens ?? 0) - (data.usage.prompt_cache_miss_tokens ?? data.usage.prompt_tokens))
+        : undefined,
     },
     finishReason,
     ms: Date.now() - t0,
@@ -157,7 +168,7 @@ export async function chatCompletion(
 export function toChatTools(tools: Array<{
   name: string;
   description: string;
-  parameters: Array<{ name: string; type: string; description: string; enum?: Array<string | number | boolean>; required?: boolean }>;
+  parameters: Array<{ name: string; type: string; description: string; enum?: Array<string | number | boolean>; items?: string; required?: boolean }>;
 }>): ChatToolDef[] {
   return tools.map((t) => {
     const properties: Record<string, unknown> = {};
@@ -165,6 +176,7 @@ export function toChatTools(tools: Array<{
     for (const p of t.parameters) {
       const prop: Record<string, unknown> = { type: p.type, description: p.description };
       if (p.enum) prop.enum = p.enum;
+      if (p.type === 'array') prop.items = { type: p.items ?? 'string' };
       properties[p.name] = prop;
       if (p.required === true) required.push(p.name);
     }

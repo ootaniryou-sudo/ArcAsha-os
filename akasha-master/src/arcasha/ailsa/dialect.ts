@@ -29,6 +29,24 @@ export enum CodeOpcode {
   PATCH = 0x53,
   BUILD = 0x54,
   TEST = 0x55,
+  // ── SWE オペレーション（registry v1.3.0+） ──
+  GREP = 0x56,
+  READ_FILE = 0x57,
+  EDIT_FILE = 0x58,
+  RUN_COMMAND = 0x59,
+  // ── Git / テスト / 編集細分化 / ファイル操作（registry v1.4.0+） ──
+  // 0x5A–0x60 は code 領域の連番。0x61/0x62 は search 方言（QUERY/EXTRACT）が
+  // 占有しているため、検索強化は 0x63 以降に置く（dialect は registry のフィールドで解決）。
+  GIT_DIFF = 0x5a,
+  GIT_STATUS = 0x5b,
+  RUN_TESTS = 0x5c,
+  REPLACE_ALL = 0x5d,
+  INSERT_LINE = 0x5e,
+  APPEND_LINE = 0x5f,
+  MOVE_FILE = 0x60,
+  GREP_CONTEXT = 0x63,
+  FIND_SYMBOL = 0x64,
+  DELETE_FILE = 0x65,
 }
 
 export enum SearchOpcode {

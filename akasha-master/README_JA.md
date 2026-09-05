@@ -70,6 +70,64 @@ npx tsx examples/quickstart.ts  # 5 分ツアー
 
 ---
 
+## 💬 AI アシスタント（リッチな Chat WebUI・長期記憶つき）
+
+専門知識なしの一般ユーザーが日常タスクにすぐ使える **AI アシスタント**です
+（DeepSeek Web UI 風のリッチな画面・依存ゼロ）。複数モデル（`deepseek-v4-flash` /
+`deepseek-v4-pro`）をタスク分類で自動ルーティングし、**長期記憶**（ユーザーについて・
+好み・会話スレッド）を JSON に永続化します（再起動後も記憶は残ります）。
+
+```bash
+cd akasha-master
+npm run assistant          # http://localhost:4781 で起動
+npm run assistant:test     # 長期記憶 + 記憶抽出ルールのユニットテスト（34 tests）
+```
+
+- **AI Coding Agent（Workspace Write）**: コンポーザー左下の Access mode を
+  `Workspace Write` に切り替えると、Chat から指示するだけで **実ファイルを編集**します。
+  SWE エージェント（`src/arcasha/swe/`）のツールループをエンジンに使い、ツール呼び出し・
+  思考（Thought for a while）・Trajectory（実行ログ）をストリーミング表示
+  - **ツールループ収束**: 修正不要タスクは即回答・調査は最大 10 回・同じツールの繰り返し禁止・
+    残りステップ警告（5/2）で無限ループを防止
+  - **AILSM 統合**: エージェントの system prompt に AILSM 要約ガイドを注入。
+    `ailsm_compile` ツールで自然言語 → AILSM 命令列の変換・検証ができ、
+    生成した AILSA 命令列を最終回答に含められる
+- **エージェント安全化**（`src/arcasha/swe/audit.ts` / `pr-workflow.ts` / `sandbox.ts`）:
+  - **監査ログ**: 全ツール呼び出し・モデル応答を **append-only JSONL + HMAC 署名**で
+    `~/.arcasha/agent-audit/` に保存（git 外・改ざん検知可能）
+  - **safe-mode**: env `ARCASHA_AGENT_SAFE_MODE=1` で有効。Coding Agent の編集を
+    **作業ブランチ（arcasha/agent/<ts>）へ commit + push** し、人間のレビューと CI を
+    待ってからマージする（main へ直接入れない）。SWE-bench 評価はサンドボックス内で直接編集のまま
+  - **サンドボックス**: `ARCASHA_SANDBOX` で run_command の隔離実行を切替（既定 direct = shell:false 引数分離）
+- **多言語エンドポイント**: `/ja` `/en` `/zh` `/ko` で Chat 画面の言語を切替
+  （`/` は設定タブで保存した言語が既定）。バナーの 🌐 チップからも切替可能
+- **設定タブ**: 複数の API プロバイダ（名前 / モデル名 / Base URL / キー）を Web から登録可能
+  （DeepSeek / OpenAI 等を混在させ、モデル名の一致するプロバイダへ自動ルーティング）。保存先は
+  `~/.arcasha/assistant-settings.json`（git 管理外・API キーはマスク表示）
+- **オーケストレーション制御**: 参加モデル数（1〜50）をスライダーで制御。
+  構成モードを切替可能:
+  - **役割別（既定）**: General=選択モデル ×1 + Reasoning ×(N-1) のフォールバックチェーン
+    （空応答時に次のモデルへ委譲）
+  - **同一モデルで N 台（uniform）**: 選択したモデルを N 台並列同時呼び出しし、
+    最初の有効応答を採用（実行時はプロバイダ+モデルのユニーク組み合わせのみ並列化）
+- **ハイパー Thinking モード**: `thinking` 有効 + `reasoning_effort=max` + 出力上限
+  8000 トークン。深い推論向け（content が空でも推論内容を回答として採用）
+- **AILSM 出力ビューア**: Chat の各回答に「⚙ AILSM 出力」ボタンが付き、自然言語入力が
+  コンパイルされた **AILSA 命令列・検証結果・バイト列（hex）** を確認できます。
+  スレッドへ保存されるため、**既に終わった Chat を開いても表示可能**
+- **AILSM 指示語辞典タブ**: `registry.json`（唯一の権威）をカテゴリ別・検索付きで表示
+- **AILSM ガイド**（`src/arcasha/swe/ailsm-guide.ts`）: registry から LLM 向けの
+  「説明書」を自動生成（全命令の自然言語説明 + 書き方の例）。要約版はエージェントに注入
+- **スラッシュコマンド**: `/help` `/memory` `/remember` `/forget` `/pin` `/new` 等
+- **OpenAI 互換 API**: `POST /v1/chat/completions`（baseURL = `http://localhost:4781/v1`）
+  を Cursor 等の外部ツールからそのまま利用可能。`/v1/models` で利用モデルを公開
+- **長期記憶の保存先**: `~/.arcasha/assistant-memory.json`（`ARCASHA_MEMORY_DIR` で変更可）
+- 実装: `src/arcasha/assistant/`（server / settings / long-term-memory / remember / ui.html）
+
+> 既存の AVM 可視化付きチャット（`npm run chat`・ポート 4780）はそのまま利用できます。
+
+---
+
 ## 📁 リポジトリ構成
 
 ```

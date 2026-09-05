@@ -14,10 +14,12 @@
 export interface SweToolParameter {
   name: string;
   /** JSON Schema 型（function calling は string へ変換される）。 */
-  type: 'string' | 'integer' | 'boolean';
+  type: 'string' | 'integer' | 'boolean' | 'array';
   description: string;
   /** enum があれば指定（任意・type に応じた値型）。 */
   enum?: Array<string | number | boolean>;
+  /** type='array' のときの要素型（任意。省略時は string）。 */
+  items?: 'string' | 'integer' | 'boolean';
   /** 必須かどうか（true のとき OpenAI 互換 schema の required 配列へ入る）。 */
   required?: boolean;
 }
@@ -70,6 +72,10 @@ export interface ChatResponseMessage {
 export interface ChatUsage {
   promptTokens: number;
   completionTokens: number;
+  /** DeepSeek 等のプロンプトキャッシュでヒットした入力トークン数（prompt_cache_hit_tokens）。 */
+  cacheReadTokens?: number;
+  /** キャッシュ書き込みトークン数（DeepSeek は現状報告しない）。 */
+  cacheWriteTokens?: number;
 }
 
 /** ツールループの 1 ステップ結果。 */

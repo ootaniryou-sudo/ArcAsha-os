@@ -33,7 +33,13 @@
     "swe": "tsx src/arcasha/cli.ts swe",
     "swe:tools-test": "tsx src/arcasha/swe/tools-test.ts",
     "swe:eval-test": "tsx src/arcasha/swe/eval-test.ts",
+    "swe:audit-test": "tsx src/arcasha/swe/audit-test.ts",
+    "swe:sandbox-test": "tsx src/arcasha/swe/sandbox-test.ts",
+    "swe:cache-test": "tsx src/arcasha/swe/cache-stats-test.ts",
+    "assistant:feedback-test": "tsx src/arcasha/assistant/feedback-test.ts",
     "chat": "tsx src/arcasha/chat/chat-server.ts",
+    "assistant": "tsx src/arcasha/assistant/server.ts",
+    "assistant:test": "tsx src/arcasha/assistant/memory-test.ts",
     "arcasha": "tsx src/arcasha/cli.ts"
   },
   "engines": {

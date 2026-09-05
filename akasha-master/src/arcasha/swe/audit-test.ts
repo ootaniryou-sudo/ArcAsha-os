@@ -1,0 +1,115 @@
+/**
+ * 監査ログの検証テスト（append-only + HMAC 署名・改ざん検知）。
+ *
+ *   npm run swe:audit-test
+ */
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createAuditLogger, verifyAuditLine, verifyAuditChain, sha256 } from './audit.js';
+
+let failures = 0;
+function check(name: string, cond: boolean, detail = ''): void {
+  if (cond) {
+    console.log(`  ✓ ${name}`);
+  } else {
+    failures++;
+    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+  }
+}
+
+async function main(): Promise<void> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-audit-'));
+  const secret = 'test-secret';
+  const log = createAuditLogger({ dir, secret });
+  console.log(`audit dir: ${dir}\n`);
+
+  // emit してファイルに追記されるか
+  const a1 = await log.emit({ kind: 'tool', agentRunId: 'r1', agentStepId: 0, name: 'edit_file', args: { path: 'src/a.py' }, ok: true, ms: 10 });
+  const a2 = await log.emit({ kind: 'model', agentRunId: 'r1', agentStepId: 0, name: 'chat', model: 'flash', promptTokens: 100, completionTokens: 50 });
+  const a3 = await log.emit({ kind: 'agent', agentRunId: 'r1', name: 'end', ok: true });
+  check('3 エントリ emit', a1.id !== a2.id && a2.id !== a3.id, '');
+
+  // ファイルが append-only に保存されている
+  const raw = await fs.readFile(log.file(), 'utf8');
+  const lines = raw.trim().split('\n');
+  check('ファイルに 3 行保存', lines.length === 3, `len=${lines.length}`);
+
+  // 署名検証（正しい鍵で通る）
+  const parsed = lines.map((l) => JSON.parse(l));
+  check('署名が正しい鍵で検証できる', parsed.every((l) => verifyAuditLine(l, secret)), '');
+  check('署名が誤った鍵で失敗する', !verifyAuditLine(parsed[0], 'wrong-secret'), '');
+
+  // 改ざん検知: エントリの内容を変えると署名不一致になる
+  const tampered = JSON.parse(JSON.stringify(parsed[0]));
+  tampered.entry.args = { path: 'src/evil.py' };
+  check('改ざんエントリは署名検証に失敗', !verifyAuditLine(tampered, secret), '');
+
+  // ハッシュ連鎖: 全体検証が通る
+  check('ハッシュ連鎖が全体で検証できる', verifyAuditChain(parsed, secret) === null, String(verifyAuditChain(parsed, secret)));
+
+  // 行の削除検知: 先頭行を消すと連鎖が壊れる
+  const deleted = parsed.slice(1);
+  check('行削除を検知できる', verifyAuditChain(deleted, secret) !== null, '');
+
+  // 行の並べ替え検知: 順序を入れ替えると連鎖が壊れる
+  const reordered = [parsed[0], parsed[2], parsed[1]];
+  check('行並べ替えを検知できる', verifyAuditChain(reordered, secret) !== null, '');
+
+  // 行の挿入検知: 途中に偽行を挟むと連鎖が壊れる
+  const fake = JSON.parse(JSON.stringify(parsed[1]));
+  fake.entry.name = 'fake-injected';
+  const injected = [parsed[0], fake, parsed[1], parsed[2]];
+  check('行挿入を検知できる', verifyAuditChain(injected, secret) !== null, '');
+
+  // ハッシュ
+  check('sha256 が 64 文字 hex', sha256('hello').length === 64, sha256('hello'));
+
+  // 新規ロガーでも readAll で読める
+  const log2 = createAuditLogger({ dir, secret });
+  const all = await log2.readAll();
+  check('readAll で 3 エントリ読める', all.length === 3, `len=${all.length}`);
+
+  // ── チェーン終端（anchor）: 末尾切り詰め・全削除の検知 ──
+  check('anchor ファイルが存在する', await fs.stat(log.anchorFile()).then(() => true).catch(() => false), '');
+  const anchor = await log.readAnchor();
+  check('anchor に行数 3 と最終ハッシュが記録される', anchor !== null && anchor.count === 3 && anchor.lastHash.length === 64, JSON.stringify(anchor));
+
+  // 新規ロガー（同じ dir）でも verify() が通る（連鎖 + anchor 一致）
+  check('verify() が整合ログで通る', (await log2.verify()) === null, String(await log2.verify()));
+
+  // 末尾行を削除 → verify() が行数の不一致を検知
+  const jsonlPath = log.file();
+  const rawLines = (await fs.readFile(jsonlPath, 'utf8')).trim().split('\n');
+  await fs.writeFile(jsonlPath, rawLines.slice(0, 2).join('\n') + '\n', 'utf8');
+  const log3 = createAuditLogger({ dir, secret });
+  check('末尾行削除を anchor で検知できる', (await log3.verify()) !== null, String(await log3.verify()));
+
+  // ログ全削除 → verify() が行数 0 と anchor の不一致を検知
+  await fs.writeFile(jsonlPath, '', 'utf8');
+  const log4 = createAuditLogger({ dir, secret });
+  check('ログ全削除を anchor で検知できる', (await log4.verify()) !== null, String(await log4.verify()));
+
+  // ── anchor の署名検証（改ざん検知） ──
+  const dir2 = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-audit2-'));
+  const log5 = createAuditLogger({ dir: dir2, secret });
+  await log5.emit({ kind: 'tool', agentRunId: 'r2', name: 'edit_file', ok: true });
+  const anchor2 = await log5.readAnchor();
+  check('anchor に署名が記録される', anchor2 !== null && anchor2.signature.length === 64, JSON.stringify(anchor2));
+  // anchor の count を書き換える（署名が一致しなくなる）
+  const anchorFile2 = log5.anchorFile();
+  const forgedAnchor = JSON.parse(JSON.stringify(anchor2));
+  forgedAnchor.count = 99; // 改ざん
+  await fs.writeFile(anchorFile2, JSON.stringify(forgedAnchor) + '\n', 'utf8');
+  const log6 = createAuditLogger({ dir: dir2, secret });
+  const readForged = await log6.readAnchor();
+  check('改ざんされた anchor は readAnchor で無効扱い', readForged === null, JSON.stringify(readForged));
+  check('改ざんされた anchor で verify() は失敗する', (await log6.verify()) !== null, String(await log6.verify()));
+  await fs.rm(dir2, { recursive: true, force: true });
+
+  await fs.rm(dir, { recursive: true, force: true });
+  console.log(`\n${failures === 0 ? '✅ ALL PASS — audit' : `❌ ${failures} failures`}`);
+  process.exit(failures === 0 ? 0 : 1);
+}
+
+void main();

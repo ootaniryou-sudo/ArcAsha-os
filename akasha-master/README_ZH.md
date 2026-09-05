@@ -70,6 +70,28 @@ npx tsx examples/quickstart.ts  # 5 分钟体验
 
 ---
 
+## 💬 AI 助手（丰富的 Chat WebUI・带长期记忆）
+
+无需专业知识、可立即用于日常任务的 **AI 助手**（类似 Hermes Agent / DeepSeek Web UI・零依赖）。
+多模型（`deepseek-v4-flash` / `deepseek-v4-pro`）按任务自动路由，**长期记忆**（用户信息・喜好・
+会话线程）以 JSON 持久化（重启后仍保留）。
+
+```bash
+cd akasha-master
+npm run assistant          # 启动于 http://localhost:4781
+npm run assistant:test     # 长期记忆 + 记忆提取规则单元测试（21 tests）
+```
+
+- **休闲模式（默认）**: 用自然语言处理日常任务（咨询・写作・摘要・点子等）。
+  自我介绍（「我的名字是〜」「喜欢/讨厌〜」）会被自动记住并在之后活用
+- **专家模式**: 右上角切换后可使用 `/help` `/memory` `/remember` `/forget` `/pin` 等斜杠命令
+- **OpenAI 兼容 API**: `POST /v1/chat/completions`（baseURL = `http://localhost:4781/v1`）
+  可直接从 Cursor 等外部工具使用。`/v1/models` 公开可用模型
+- **长期记忆保存位置**: `~/.arcasha/assistant-memory.json`（可用 `ARCASHA_MEMORY_DIR` 修改）
+- 实现: `src/arcasha/assistant/`（server / long-term-memory / remember / ui.html）
+
+---
+
 ## 📁 仓库结构
 
 ```

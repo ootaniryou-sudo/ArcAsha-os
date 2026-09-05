@@ -15,6 +15,11 @@ import type { ChatOptions, SweAgentResult, SweContext, SweStep } from './types.j
 import type { ChatMessage } from './model.js';
 import { chatCompletion, toChatTools, chatDefaults } from './model.js';
 import { SWE_TOOLS, getSweTool } from './tools.js';
+import { buildAilsmQuickGuide } from './ailsm-guide.js';
+import { createAuditLogger, sha256 } from './audit.js';
+import type { AuditLogger } from './audit.js';
+import { cacheHitRate } from './cache-stats.js';
+import { ensureBranch, commitAll, pushAndDiff, branchName, isGitRepo, isCleanWorktree, captureWorktreeDiff } from './pr-workflow.js';
 
 /** ツール名を引数へ渡すための定義（agent 用に description を補強した system を作る）。 */
 const TOOL_USAGE_GUIDE = SWE_TOOLS.map((t) => {
@@ -22,28 +27,46 @@ const TOOL_USAGE_GUIDE = SWE_TOOLS.map((t) => {
   return `- ${t.name}(${args})`;
 }).join('\n');
 
-function buildSystemPrompt(): string {
+function buildSystemPrompt(opts: { safeMode?: boolean } = {}): string {
+  const safeMode = opts.safeMode ?? false;
   return [
     'あなたはソフトウェアエンジニアリングエージェントです。',
     '与えられたリポジトリで問題（issue）を解決してください。',
     '',
+    '【タスクの種類を見極めること】',
+    '- 修正が必要なタスク: バグ修正・機能追加・リファクタリング等 → 調査して実際にコードを修正する',
+    '- 修正が不要なタスク: 質問・調査報告・説明・読むだけの依頼 → ツールで必要最小限を確認したら、すぐに最終回答を返す（ファイルは変更しない）',
+    '',
     '作業手順:',
     '1. まずリポジトリの構造を把握する（list_dir / glob_search / read_file を使う）',
-    '2. 問題に関連するコードを grep_search で探し、read_file で読む',
-    '3. 原因の見当がついたら、すぐに write_file / edit_file で修正する（調査ばかりせず、早めに修正に着手すること）',
-    '4. 修正後は run_command でテストを実行して確認する（例: python3 -m pytest で該当テストを実行）',
+    '2. 問題に関連するコードを grep_search / grep_context / find_symbol で探し、read_file で読む',
+    '3. 原因の見当がついたら、すぐに write_file / edit_file / replace_all / insert_line / append_line で修正する（調査ばかりせず、早めに修正に着手すること）',
+    '4. 修正後は run_tests（pytest）で該当テストを実行して確認する。編集前後の差分は git_diff / git_status で確認でき、誤った変更は git_revert で取り消せる',
+    ...(safeMode
+      ? [
+          '',
+          '【安全モード（実ワークスペース）】あなたの編集は自動で専用ブランチに隔離されます。',
+          '- 編集は通常どおり write_file / edit_file で行ってください。',
+          '- ループ終了時に、あなたの変更は作業ブランチへ commit され、可能なら push されます。',
+          '- main などの共有ブランチへ直接マージしないでください。人間のレビューと CI の承認を待ってからマージされます。',
+        ]
+      : []),
     '',
-    '重要:',
+    '重要（ツールループの収束ルール）:',
     '- ツールは必ず正しい引数で 1 度に 1 つずつ呼び出してください',
+    '- 同じツールを同じ引数で繰り返し呼ばないでください（結果は同じです。前に進めないなら結論を出してください）',
+    '- 調査（list_dir / read_file / grep_search / grep_context / glob_search / find_symbol / git_status / git_diff）は合計 10 回までにしてください。それ以上調べても結論が変わらないなら、わかった範囲で最終回答してください',
     '- ファイルパスはリポジトリルートからの相対パスで指定してください',
     '- Python の実行には「python」ではなく「python3」を使ってください',
-    '- 調査だけで終わらず、必ず write_file か edit_file で実際にコードを修正してください。修正せずに終了してはいけません',
-    '- テストファイル（tests/ ディレクトリ、test_*.py、*_test.py、conftest.py）は編集・作成しないでください。テストは評価時に自動で適用されます。ソースコード（実装）のみを修正してください',
+    '- 修正が必要なタスクでは、write_file / edit_file / replace_all / insert_line 等で実際にコードを修正してください',
+    '- テストファイル（tests/ ディレクトリ、test_*.py、*_test.py、conftest.py）は編集・作成・削除しないでください。テストは評価時に自動で適用されます。ソースコード（実装）のみを修正してください',
     '- 修正が完了したら、ツール呼び出しなしで最終回答（変更したファイルと理由、テスト結果）を日本語で返してください',
     '- 既存コードのスタイルを維持してください',
     '',
     '利用可能なツール:',
     TOOL_USAGE_GUIDE,
+    '',
+    buildAilsmQuickGuide(),
   ].join('\n');
 }
 
@@ -58,11 +81,36 @@ export interface SweAgentOptions {
   maxIterations?: number;
   /**
    * run_command（任意コマンド実行）を許可するか。既定 false（安全のため opt-in）。
-   * env ARCASHA_SWE_ALLOW_RUN=1 でも有効化される。
+   * honorEnvAllowRun=true（既定）のときは env ARCASHA_SWE_ALLOW_RUN=1 でも有効化される。
+   * サーバ経由では honorEnvAllowRun=false にして env を無視する（CLI 専用）。
    */
   allowRunCommand?: boolean;
+  /**
+   * env ARCASHA_SWE_ALLOW_RUN を尊重するか。既定 true（CLI 互換）。
+   * サーバ（/api/agent）では false を指定する。
+   */
+  honorEnvAllowRun?: boolean;
+  /**
+   * 安全モード（実ワークスペース編集をブランチ + commit + PR に載せる）。
+   * true のとき、エージェントが write/edit 系ツールで変更した内容を、
+   * ループ終了時に作業ブランチへ commit し（可能なら push）する。
+   * SWE-bench 評価（一時サンドボックス）では false のまま直接編集する。
+   */
+  safeMode?: boolean;
+  /**
+   * 監査ロガー。省略時は既定（~/.arcasha/agent-audit/ へ append-only + HMAC）。
+   * テストでメモリ内ロガーに差し替え可能。
+   */
+  audit?: AuditLogger;
+  /** 中断信号（SSE クライアント切断時など）。ループ先頭と各ツール実行前に確認する。 */
+  signal?: AbortSignal;
   /** 追加のコンテキスト（既存テスト名・失敗出力など）。 */
   extraContext?: string;
+  /**
+   * 各ステップ完了時の進捗コールバック（SSE ストリーミング等で使う）。
+   * ループの各反復後、そのステップ（ツール結果含む）を渡す。
+   */
+  onStep?: (step: SweStep, index: number) => void;
 }
 
 export interface SweAgentDeps {
@@ -96,12 +144,47 @@ export async function runSweAgent(
     throw new Error(`root が存在しません: ${root}（${(e as Error).message}）`);
   }
 
-  const allowRunCommand = opts.allowRunCommand === true || process.env.ARCASHA_SWE_ALLOW_RUN === '1';
+  const allowRunCommand = opts.allowRunCommand === true || (opts.honorEnvAllowRun !== false && process.env.ARCASHA_SWE_ALLOW_RUN === '1');
   const ctx: SweContext = { root, allowRunCommand };
   const chatOpts: ChatOptions = { ...chatDefaults(), ...opts.chat };
 
+  // 監査ログ（全ツール呼び出し・モデル応答の署名付き証跡）。省略時は既定ロガー。
+  const audit = opts.audit ?? createAuditLogger();
+  const agentRunId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await audit.emit({ kind: 'agent', agentRunId, name: 'start', args: { root, safeMode: !!opts.safeMode, issue: sanitizeText(opts.issue).slice(0, 200) } });
+
+  // 安全モード: 実ワークスペース編集をブランチへ隔離する（SWE-bench 評価は false のまま）。
+  // ループ前に作業ブランチを確保し、ループ終了時に commit + push する。
+  // ensureBranch が失敗した場合は safeBranch を null のままにし、共有ブランチへの
+  // commit / push を実行しない（ブランチ隔離保証に反するため）。
+  let safeBranch: string | null = null;
+  if (opts.safeMode) {
+    const gitOk = await isGitRepo(root);
+    if (gitOk) {
+      // P1: ワークスペースに既存のユーザー変更があると、safe-mode の commitAll（git add -A）が
+      // エージェント起因でない変更まで巻き込んでコミットしてしまう。開始前にクリーンか確認し、
+      // 汚れている場合は safe-mode を中止する（直接編集はしない）。
+      const clean = await isCleanWorktree(root);
+      if (!clean) {
+        await audit.emit({ kind: 'system', agentRunId, name: 'branch-failed', meta: { message: 'ワークスペースに未コミットのユーザー変更があるため safe-mode を中止しました' } });
+        throw new Error('safe-mode: ワークスペースに未コミットの変更があります。コミットまたは revert してから再実行してください（エージェント起因でない変更を巻き込みません）。');
+      }
+      const candidate = branchName();
+      const br = await ensureBranch(root, candidate);
+      await audit.emit({ kind: 'system', agentRunId, name: 'branch', meta: { message: br.message } });
+      if (br.ok) {
+        safeBranch = candidate;
+      } else {
+        await audit.emit({ kind: 'system', agentRunId, name: 'branch-failed', meta: { message: br.message } });
+        console.error(`⚠️ safe-mode: ブランチ確保に失敗したため commit/push をスキップします: ${br.message}`);
+      }
+    } else {
+      await audit.emit({ kind: 'system', agentRunId, name: 'branch', meta: { message: 'git リポジトリでないため safe-mode をスキップ（直接編集）' } });
+    }
+  }
+
   const messages: ChatMessage[] = [
-    { role: 'system', content: buildSystemPrompt() },
+    { role: 'system', content: buildSystemPrompt({ safeMode: opts.safeMode }) },
     { role: 'user', content: `# Issue（解決すべき問題）\n\n${sanitizeText(opts.issue)}${opts.extraContext ? `\n\n# 追加コンテキスト\n\n${sanitizeText(opts.extraContext)}` : ''}` },
   ];
 
@@ -117,8 +200,48 @@ export async function runSweAgent(
 
   let emptyReplies = 0; // 不完全応答（空 content / 打ち切り）の連続回数
   for (let i = 0; i < maxIterations; i++) {
+    // クライアント切断などの中断信号があれば即座に打ち切る
+    if (opts.signal?.aborted) {
+      stopReason = 'aborted';
+      finalAnswer = steps.length > 0
+        ? '（クライアントが切断されたため中断しました）'
+        : '（中断されました）';
+      break;
+    }
+    // 残りステップが少なくなったら収束を促す警告を注入する
+    // （予算が小さい場合は最初から警告せず、ツールを使わせる）
+    const remaining = maxIterations - i;
+    if (maxIterations >= 8 && remaining === 5) {
+      messages.push({
+        role: 'user',
+        content: '（システム: 残りステップはあと 5 回です。調査を打ち切り、わかった範囲で結論をまとめて最終回答を出してください。修正が必要ならこの時点で write_file / edit_file を実行してください。）',
+      });
+    } else if (maxIterations >= 5 && remaining === 2) {
+      messages.push({
+        role: 'user',
+        content: '（システム: 残りステップはあと 2 回です。ツールを呼ばず、ここまでの結果を日本語で最終回答してください。）',
+      });
+    }
     const completion = await deps.chat(messages, tools, chatOpts);
     const { message, finishReason, usage } = completion;
+
+    // モデル応答を監査ログへ（本文ハッシュのみ・機密を含めない）
+    await audit.emit({
+      kind: 'model',
+      agentRunId,
+      agentStepId: i,
+      name: 'chat',
+      model: chatOpts.model,
+      promptTokens: usage?.promptTokens ?? 0,
+      completionTokens: usage?.completionTokens ?? 0,
+      responseHash: message.content ? sha256(message.content) : undefined,
+      meta: {
+        finishReason,
+        toolCallCount: message.toolCalls.length,
+        cacheReadTokens: usage?.cacheReadTokens ?? 0,
+        cacheHitRate: cacheHitRate(usage ?? { promptTokens: 0, completionTokens: 0 }),
+      },
+    });
 
     // トークン集計（usage が空の呼び出しも加算は 0 で安全）
     promptTokens += usage?.promptTokens ?? 0;
@@ -134,6 +257,7 @@ export async function runSweAgent(
         gotFinalAnswer = true;
         stopReason = finishReason;
         steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+        opts.onStep?.(steps[steps.length - 1], i);
         break;
       }
       // 不完全応答（空 content・'length' 打ち切り等）: 即 break せず続行を促す
@@ -144,6 +268,7 @@ export async function runSweAgent(
         gotFinalAnswer = false;
         stopReason = finishReason || 'empty_reply';
         steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+        opts.onStep?.(steps[steps.length - 1], i);
         break;
       }
       // 不完全応答（assistant ターン）を履歴に記録してから続行を促す
@@ -152,22 +277,24 @@ export async function runSweAgent(
         content: message.content ?? '',
         reasoning_content: message.reasoning ?? null,
       });
-      // 続行を促す user メッセージを追加して再試行
+      // 続行を促す user メッセージを追加して再試行（終了を促す方向に緩和）
       messages.push({
         role: 'user',
-        content: `（システム: 直前の応答が不完全です。まだ解決作業が終わっていません。）\n` +
-          `修正が完了していない場合は、ツール（write_file / edit_file / run_command）を使って修正とテストを続けてください。\n` +
-          `修正が完了したなら、変更したファイル・理由・テスト結果を日本語で詳しく書いた最終回答を返してください。`,
+        content: `（システム: 直前の応答が不完全でした。）\n` +
+          `まだ修正が終わっていない場合は、1 回だけツール（write_file / edit_file / run_command）で続けてください。\n` +
+          `修正が不要なタスク（質問・調査報告）なら、これ以上ツールを呼ばず、わかったことを日本語で書いた最終回答を返してください。`,
       });
       steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+      opts.onStep?.(steps[steps.length - 1], i);
       continue;
     }
 
     // 不完全応答でなければカウンタをリセット
     emptyReplies = 0;
 
-    // tool_calls を実行する
+    // tool_calls を実行する（各ツールの前にも中断を確認する）
     for (const tc of message.toolCalls) {
+      if (opts.signal?.aborted) break;
       toolCalls++;
       const tool = getSweTool(tc.name);
       if (!tool) {
@@ -183,9 +310,22 @@ export async function runSweAgent(
       }
       const result = await tool.run(args, ctx);
       toolResults.push({ name: tc.name, ok: result.ok, output: result.output, ms: result.ms });
+      // ツール呼び出しを監査ログへ。引数はモデル制御の任意値（ファイル内容・コマンド・
+      // シークレットを含みうる）のため、生のまま保存せずハッシュ化する。出力もハッシュのみ。
+      await audit.emit({
+        kind: 'tool',
+        agentRunId,
+        agentStepId: i,
+        name: tc.name,
+        argsHash: sha256(JSON.stringify(args)),
+        resultHash: result.output ? sha256(result.output) : undefined,
+        ok: result.ok,
+        ms: result.ms,
+      });
     }
 
     steps.push({ index: i, message, toolResults, usage: usage ?? { promptTokens: 0, completionTokens: 0 }, ms: completion.ms });
+    opts.onStep?.(steps[steps.length - 1], i);
 
     // assistant メッセージ（tool_calls 付き）と tool 結果を履歴へ追加
     messages.push({
@@ -216,6 +356,26 @@ export async function runSweAgent(
       : '（モデルが応答しませんでした）';
     stopReason = 'max_iterations';
   }
+
+  // 安全モード: エージェントの変更を作業ブランチへ commit（可能なら push）する。
+  // 人間のレビューと CI を待ってからマージされる（main へ直接は入れない）。
+  // 中断（abort）された実行は変更が不完全な可能性があるため commit / push しない。
+  const abortedRun = opts.signal?.aborted === true;
+  if (opts.safeMode && safeBranch && !abortedRun) {
+    const commitMsg = `feat(agent): ${sanitizeText(opts.issue).slice(0, 60)}`;
+    // commit 前に作業ツリー差分を取得（commit 後の git diff HEAD は空になるため、
+    // PR 差分は commit 前のものを pushAndDiff に渡す）
+    const worktreeDiff = await captureWorktreeDiff(root);
+    const cm = await commitAll(root, commitMsg);
+    await audit.emit({ kind: 'system', agentRunId, name: 'commit', meta: { message: cm.message } });
+    if (cm.ok) {
+      const pd = await pushAndDiff(root, safeBranch, worktreeDiff);
+      await audit.emit({ kind: 'system', agentRunId, name: 'pr', meta: { message: pd.message, diffHash: pd.diff ? sha256(pd.diff) : undefined } });
+    }
+  } else if (opts.safeMode && safeBranch && abortedRun) {
+    await audit.emit({ kind: 'system', agentRunId, name: 'commit-skipped', meta: { message: '中断されたため commit/push をスキップしました' } });
+  }
+  await audit.emit({ kind: 'agent', agentRunId, name: 'end', ok: gotFinalAnswer, meta: { stopReason, toolCalls, steps: steps.length } });
 
   return {
     ok: gotFinalAnswer && finalAnswer !== '' && finalAnswer !== '(最終回答なし)',

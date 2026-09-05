@@ -70,6 +70,30 @@ npx tsx examples/quickstart.ts  # Visite de 5 minutes
 
 ---
 
+## 💬 Assistant IA (Chat WebUI riche・avec mémoire à long terme)
+
+Un **assistant IA** que tout utilisateur peut utiliser immédiatement pour des tâches quotidiennes
+(style Hermes Agent / DeepSeek Web UI・zéro dépendance). Plusieurs modèles
+(`deepseek-v4-flash` / `deepseek-v4-pro`) sont routés automatiquement par classification
+de tâche ; la **mémoire à long terme** (infos utilisateur・préférences・fils de discussion)
+est persistée en JSON (survit aux redémarrages).
+
+```bash
+cd akasha-master
+npm run assistant          # Démarre sur http://localhost:4781
+npm run assistant:test     # Tests unitaires mémoire + règles d'extraction (21 tests)
+```
+
+- **Mode casual (défaut)** : tâches quotidiennes en langage naturel (conseil・rédaction・résumé・idées).
+  Les présentations (« Je m'appelle … » / « j'aime/je n'aime pas … ») sont mémorisées automatiquement
+- **Mode expert** : bascule en haut à droite → commandes `/help` `/memory` `/remember` `/forget` `/pin`
+- **API compatible OpenAI** : `POST /v1/chat/completions` (baseURL = `http://localhost:4781/v1`)
+  utilisable depuis Cursor et autres outils. `/v1/models` liste les modèles
+- **Emplacement de la mémoire** : `~/.arcasha/assistant-memory.json` (modifiable via `ARCASHA_MEMORY_DIR`)
+- Implémentation : `src/arcasha/assistant/` (server / long-term-memory / remember / ui.html)
+
+---
+
 ## 📁 Structure du dépôt
 
 ```

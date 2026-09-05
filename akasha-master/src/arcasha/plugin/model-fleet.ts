@@ -17,6 +17,13 @@ export interface FleetExpert {
   model: string;
   role: 'general' | 'reasoning';
   label: string;
+  /** このノードがどの API プロバイダ（設定の providers）で呼ぶか。無ければ既定。 */
+  providerId?: string;
+  /**
+   * このノードが得意とするタスク種別（custom フリートで指定可）。指定すると
+   * その種別のタスクが優先的にこのノードへ振り分けられる。無指定なら role 基準。
+   */
+  expertise?: TaskKind;
 }
 
 /** 発言からタスク種別を推定する（簡易キーワード分類・英語キーワードは単語境界） */
@@ -28,9 +35,17 @@ export function classifyTask(text: string): TaskKind {
   return 'general';
 }
 
-/** タスク種別 → 担当エキスパート（math/code/reasoning は Pro、search/general は Flash） */
+/**
+ * タスク種別 → 担当エキスパート。
+ * カスタムフリートでは expertise が kind と一致するノードを最優先する。
+ * 一致が無ければ従来ルール（math/code/reasoning → reasoning ロール、search/general → general ロール）。
+ */
 export function routeExpert(kind: TaskKind, fleet: FleetExpert[]): FleetExpert {
   if (fleet.length === 0) throw new Error('routeExpert: 艦隊（fleet）が空です');
+  // 1) expertise が kind と一致するノードを最優先（custom フリートの振り分け）
+  const byExpertise = fleet.find((e) => e.expertise === kind);
+  if (byExpertise) return byExpertise;
+  // 2) 従来ルール
   if (kind === 'math' || kind === 'code' || kind === 'reasoning') {
     return fleet.find((e) => e.role === 'reasoning') ?? fleet[0];
   }

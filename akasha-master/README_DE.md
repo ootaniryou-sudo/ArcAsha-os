@@ -70,6 +70,37 @@ npx tsx examples/quickstart.ts  # 5-Minuten-Tour
 
 ---
 
+## 💬 KI-Assistent (reichhaltige Chat-WebUI・mit Langzeitgedächtnis)
+
+Ein **KI-Assistent**, den auch Nicht-Fachleute sofort für Alltagsaufgaben nutzen können
+(Hermes-Agent / DeepSeek-WebUI-Stil・ohne Abhängigkeiten). Mehrere Modelle
+(`deepseek-v4-flash` / `deepseek-v4-pro`) werden per Aufgabenklassifikation geroutet;
+**Langzeitgedächtnis** (Nutzerinfos・Vorlieben・Chat-Verläufe) wird als JSON persistiert
+(übersteht Neustarts).
+
+```bash
+cd akasha-master
+npm run assistant          # Start unter http://localhost:4781
+npm run assistant:test     # Unit-Tests für Gedächtnis + Extraktionsregeln (34 Tests)
+```
+
+- **Casual-Modus (Standard)**: Alltagsaufgaben in natürlicher Sprache (Beratung・Text・Zusammenfassung・Ideen).
+  Selbstvorstellungen („Mein Name ist …“ / „ich mag/mag nicht …“) werden automatisch gemerkt
+- **Expertenmodus**: Wechsel per Slash-Befehl `/expert` / `/casual` (vom Assistant-Server verarbeitet) → Befehle wie `/help` `/memory` `/remember` `/forget` `/pin`
+- **AI Coding Agent (Workspace Write)**: Access mode unten links auf `Workspace Write` stellen und per Chat **echte Dateien bearbeiten** (SWE-Agent-Tool-Loop mit Streaming von Tool-Calls, „Thought for a while“ und Trajectory-Log)
+- **Mehrsprachige Endpunkte**: `/ja` `/en` `/zh` `/ko` wechseln die UI-Sprache (der 🌐-Chip oben tut dasselbe; `/` nutzt die gespeicherte Sprache)
+- **Einstellungen-Tab**: API-Key / Base-URL per Web setzen (überschreibt .env; gespeichert unter `~/.arcasha/assistant-settings.json`, Key maskiert), Modellauswahl mit eigener Modelleingabe („Sonstiges“)
+- **Orchestrierungssteuerung**: Anzahl teilnehmender Modelle (1–50) per Slider — 1 = nur Flash / 2 = Flash + Pro (Standard) / 3–50 = erweiterte Fallback-Kette. Neuer Modus „uniform“: das gewählte Modell wird für N Knoten parallel aufgerufen.
+- **Hyper-Thinking-Modus**: `thinking` + `reasoning_effort=max` + 8000-Token-Budget für tiefes Reasoning
+- **AILSM-Ausgabe-Viewer**: Jede Antwort hat einen „⚙ AILSM-Ausgabe“-Button (AILSA-Befehle, Verifikation, Bytes hex) — auch in **bereits beendeten Chats** abrufbar
+- **AILSM-Befehlswörterbuch-Tab**: `registry.json` (einzige Autorität) kategorisiert + durchsuchbar
+- **OpenAI-kompatible API**: `POST /v1/chat/completions` (baseURL = `http://localhost:4781/v1`)
+  – direkt aus Cursor u. a. nutzbar. `/v1/models` listet Modelle
+- **Speicherort**: `~/.arcasha/assistant-memory.json` (`ARCASHA_MEMORY_DIR` änderbar)
+- Implementierung: `src/arcasha/assistant/` (server / settings / long-term-memory / remember / ui.html)
+
+---
+
 ## 📁 Repository-Struktur
 
 ```

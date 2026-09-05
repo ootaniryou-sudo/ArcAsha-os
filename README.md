@@ -126,6 +126,7 @@ AI_*.md               Specifications (ArcAsha-Core, see below)
 
 | Doc | Contents |
 |-----|----------|
+| `INNOVATIONS.md` | **革新技術まとめ**（AI OS / AILSA・AILSM / AVM / Reasoning / Executive / Attachment / Cognitive Graph / Belief-Driven / Akasha-Link を一覧） |
 | `MASTER_SPEC.md` | Full architecture vision |
 | `ARCASHA_V2_SPEC.md` | v2 design spec (v0.36) |
 | `AI_REASONING.md` | Hypothesis SSA / Reasoning Graph / Executive / Meta Executive / Expert Evolution |

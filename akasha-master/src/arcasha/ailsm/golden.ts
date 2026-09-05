@@ -8,7 +8,7 @@
  */
 
 import { compile } from './compiler.js';
-import { MathOpcode } from '../ailsa/dialect.js';
+import { CodeOpcode, MathOpcode } from '../ailsa/dialect.js';
 import { Task } from '../ailsa/vocab.js';
 
 export interface GoldenExpect {
@@ -65,6 +65,49 @@ export const GOLDEN_CASES: GoldenCase[] = [
   { name: 'search', input: 'Webで記事を検索して', expect: { intent: 'search', domain: 'search' } },
   { name: 'verify', input: '結果を検証して', expect: { intent: 'verify', domain: 'reasoning' } },
   { name: 'code', input: 'コードのバグを修正して', expect: { intent: 'code', domain: 'code' } },
+
+  // ── コードファイル操作（SWE: GREP / READ_FILE / EDIT_FILE / RUN_COMMAND、registry v1.3.0） ──
+  { name: 'swe-grep', input: 'コードを検索して', expect: { intent: 'search', domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
+  { name: 'swe-grep-syn', input: 'ソースを探して', expect: { domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
+  { name: 'swe-grep-en', input: 'grep TODO in tools', expect: { domain: 'code', actions: ['ACTION_GREP'], opcodes: [CodeOpcode.GREP] } },
+  { name: 'swe-read', input: 'src/arcasha/swe/tools.ts を読んで', expect: { domain: 'code', actions: ['ACTION_READ_FILE'], opcodes: [CodeOpcode.READ_FILE] } },
+  { name: 'swe-edit', input: 'tools.ts のバグを修正して', expect: { intent: 'code', domain: 'code', actions: ['ACTION_EDIT_FILE'], opcodes: [CodeOpcode.EDIT_FILE] } },
+  // v1.4.0: テスト実行は専用 RUN_TESTS（汎用 RUN_COMMAND から独立）
+  { name: 'swe-run', input: 'テストを実行して', expect: { domain: 'code', actions: ['ACTION_RUN_TESTS'], opcodes: [CodeOpcode.RUN_TESTS, Task.VERIFY] } },
+  // 誤爆ガード: 要約が目的の文は、読みの語を含んでいても reasoning のまま（code 命令を出さない）
+  { name: 'swe-read-guard', input: 'このファイルを読んで要約して', expect: { intent: 'summarize', domain: 'reasoning', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // 誤爆ガード: Web 検索は code ドメインへ倒さない
+  { name: 'swe-grep-guard', input: 'Webで記事を検索して', expect: { intent: 'search', domain: 'search', notOpcodes: [CodeOpcode.GREP] } },
+
+  // ── v1.4.0: Git / テスト / 編集細分化 / ファイル操作 / 検索強化 ──
+  { name: 'swe-git-diff', input: '変更差分を確認して', expect: { domain: 'code', actions: ['ACTION_GIT_DIFF'], opcodes: [CodeOpcode.GIT_DIFF, Task.VERIFY] } },
+  { name: 'swe-git-status', input: 'git status', expect: { domain: 'code', actions: ['ACTION_GIT_STATUS'], opcodes: [CodeOpcode.GIT_STATUS, Task.VERIFY] } },
+  { name: 'swe-git-status-ja', input: '作業ツリーの状態を確認して', expect: { domain: 'code', actions: ['ACTION_GIT_STATUS'], opcodes: [CodeOpcode.GIT_STATUS, Task.VERIFY] } },
+  { name: 'swe-replace-all', input: 'ファイル内の TODO を全置換して', expect: { domain: 'code', actions: ['ACTION_REPLACE_ALL'], opcodes: [CodeOpcode.REPLACE_ALL, Task.PATCH] } },
+  { name: 'swe-move', input: 'src/a.ts を lib/b.ts にファイルを移動して', expect: { domain: 'code', actions: ['ACTION_MOVE_FILE'], opcodes: [CodeOpcode.MOVE_FILE, Task.PATCH] } },
+  { name: 'swe-delete', input: 'src/old.ts をファイル削除して', expect: { domain: 'code', actions: ['ACTION_DELETE_FILE'], opcodes: [CodeOpcode.DELETE_FILE, Task.PATCH] } },
+  { name: 'swe-insert', input: 'src/main.ts の10行目に行を挿入して', expect: { domain: 'code', actions: ['ACTION_INSERT_LINE'], opcodes: [CodeOpcode.INSERT_LINE, Task.PATCH] } },
+  { name: 'swe-append', input: 'src/main.ts の末尾に追記して', expect: { domain: 'code', actions: ['ACTION_APPEND_LINE'], opcodes: [CodeOpcode.APPEND_LINE, Task.PATCH] } },
+  { name: 'swe-find-symbol', input: 'runSweAgent の定義を検索して', expect: { domain: 'code', actions: ['ACTION_FIND_SYMBOL'], opcodes: [CodeOpcode.FIND_SYMBOL, Task.SEARCH] } },
+  { name: 'swe-grep-context', input: 'TODO を前後行付きで検索して', expect: { domain: 'code', actions: ['ACTION_GREP_CONTEXT'], opcodes: [CodeOpcode.GREP_CONTEXT, Task.SEARCH] } },
+  // 誤爆ガード: 一般的な「状態を確認して」は GIT_STATUS を出さない（Git 固有語のみ）
+  { name: 'git-status-guard', input: 'サーバの状態を確認して', expect: { domain: 'reasoning', notOpcodes: [CodeOpcode.GIT_STATUS] } },
+
+  // ── レビュー指摘の回帰（lexer / normalizer / generator の誤判定修正） ──
+  // 汎用の「を読んで」はファイル文脈なしでは code へ倒さない（数学解釈を維持）
+  { name: 'read-noctx-math', input: '問題を読んで解いて', expect: { intent: 'solve', domain: 'math', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // Cubic P1: 汎用の「読み込んで」は ACTION_READ_FILE から除去。非ファイル要求は code へ倒さない
+  { name: 'read-noctx-load', input: '問題を読み込んで解いて', expect: { intent: 'solve', domain: 'math', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // Cubic P1: パスのみの「直して」は EDIT_FILE を出す（context-gated edit words に追加）
+  { name: 'edit-path-naosu', input: 'src/main.ts を直して', expect: { domain: 'code', actions: ['ACTION_EDIT_FILE'], opcodes: [CodeOpcode.EDIT_FILE, Task.PATCH] } },
+  // パス文脈ありは READ_FILE
+  { name: 'read-path-context', input: 'src/main.ts を読んで', expect: { intent: 'code', domain: 'code', actions: ['ACTION_READ_FILE'], opcodes: [CodeOpcode.READ_FILE, Task.SEARCH] } },
+  // verify + 数式は math を維持（Capability 検証で throw しない）
+  { name: 'verify-math', input: 'x+2=5を確認して', expect: { intent: 'verify', domain: 'math', opcodes: [MathOpcode.EQ, Task.VERIFY] } },
+  // 小数除算は math（lexer がパスと誤判定しない）
+  { name: 'divide-decimal', input: '2/3.14を計算して', expect: { intent: 'solve', domain: 'math', notOpcodes: [CodeOpcode.READ_FILE] } },
+  // code アクションのタスク選択: READ は TASK_SEARCH（TASK_PATCH/SOLVE に誤分類しない）
+  { name: 'read-task-search', input: 'src/main.ts を読んで', expect: { opcodes: [Task.SEARCH], notOpcodes: [Task.PATCH] } },
 
   // ── Constant Folding（定数畳み込み） ──
   {
