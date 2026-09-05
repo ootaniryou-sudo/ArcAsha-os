@@ -18,22 +18,50 @@ interface GitOut {
   err: string;
 }
 
-function gitExec(cwd: string, args: string[]): Promise<GitOut> {
+function gitExec(cwd: string, args: string[], timeoutMs = 30_000): Promise<GitOut> {
   return new Promise((resolve) => {
     const child = spawn('git', args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';
     let err = '';
+    let settled = false;
+    // P2: ネットワーク push や Git hook が無限にブロックしないようタイムアウトを設ける。
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      resolve({ code: null, out, err: `タイムアウト（${Math.floor(timeoutMs / 1000)}s）` });
+    }, timeoutMs);
     child.stdout?.on('data', (d: Buffer) => { out += d.toString('utf8'); });
     child.stderr?.on('data', (d: Buffer) => { err += d.toString('utf8'); });
-    child.on('error', (e) => resolve({ code: null, out, err: e.message }));
-    child.on('close', (code) => resolve({ code, out, err }));
+    child.on('error', (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ code: null, out, err: e.message });
+    });
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ code, out, err });
+    });
   });
 }
 
-/** ブランチ名を生成する（例: arcasha/agent/<timestamp>）。 */
+/** ブランチ名を生成する（例: arcasha/agent/<timestamp>-<ms>-<rand>）。 */
 export function branchName(prefix = 'arcasha/agent'): string {
-  const ts = new Date().toISOString().replace(/[-:T]/g, '').replace(/\..+$/, '');
-  return `${prefix}/${ts}`;
+  const now = new Date();
+  const ts = now.toISOString().replace(/[-:T]/g, '').replace(/\..+$/, '');
+  // P2: 1 秒以内の並行実行でもブランチ名が衝突しないよう ms + 乱数を付与する
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  const rand = Math.random().toString(36).slice(2, 6);
+  return `${prefix}/${ts}-${ms}-${rand}`;
+}
+
+/** 作業ツリーがクリーン（未コミット変更なし）か確認する。 */
+export async function isCleanWorktree(cwd: string): Promise<boolean> {
+  const r = await gitExec(cwd, ['status', '--porcelain']);
+  return r.code === 0 && r.out.trim() === '';
 }
 
 /** リポジトリが git 管理か確認する。 */
@@ -81,14 +109,17 @@ export async function commitAll(cwd: string, message: string): Promise<{ ok: boo
 export async function pushAndDiff(cwd: string, branch: string): Promise<{ ok: boolean; message: string; diff?: string }> {
   // 差分を取得（PR 用）
   const diff = await gitExec(cwd, ['diff', '--no-color', 'HEAD']);
-  // push（リモートが無い場合はローカル commit のみで OK）
+  // リモートが無い場合・origin が無い場合はローカル commit のみで OK
   const remotes = await gitExec(cwd, ['remote']);
-  if (remotes.code === 0 && remotes.out.trim() !== '') {
-    const push = await gitExec(cwd, ['push', '-u', 'origin', branch]);
-    if (push.code !== 0) {
-      return { ok: false, message: `push 失敗: ${push.err}`, diff: diff.out };
-    }
-    return { ok: true, message: `ブランチ ${branch} を origin へ push`, diff: diff.out };
+  const remoteNames = remotes.code === 0 ? remotes.out.trim().split(/\s+/).filter(Boolean) : [];
+  if (remoteNames.length === 0) {
+    return { ok: true, message: `ローカルブランチ ${branch} に commit（リモートなし）`, diff: diff.out };
   }
-  return { ok: true, message: `ローカルブランチ ${branch} に commit（リモートなし）`, diff: diff.out };
+  // P2: origin が無い場合は最初のリモートを使う（origin 固定だと push が失敗する）
+  const remote = remoteNames.includes('origin') ? 'origin' : remoteNames[0];
+  const push = await gitExec(cwd, ['push', '-u', remote, branch]);
+  if (push.code !== 0) {
+    return { ok: false, message: `push 失敗: ${push.err}`, diff: diff.out };
+  }
+  return { ok: true, message: `ブランチ ${branch} を ${remote} へ push`, diff: diff.out };
 }

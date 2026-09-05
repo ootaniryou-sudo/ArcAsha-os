@@ -19,7 +19,7 @@ import { buildAilsmQuickGuide } from './ailsm-guide.js';
 import { createAuditLogger, sha256 } from './audit.js';
 import type { AuditLogger } from './audit.js';
 import { cacheHitRate } from './cache-stats.js';
-import { ensureBranch, commitAll, pushAndDiff, branchName, isGitRepo } from './pr-workflow.js';
+import { ensureBranch, commitAll, pushAndDiff, branchName, isGitRepo, isCleanWorktree } from './pr-workflow.js';
 
 /** ツール名を引数へ渡すための定義（agent 用に description を補強した system を作る）。 */
 const TOOL_USAGE_GUIDE = SWE_TOOLS.map((t) => {
@@ -161,6 +161,14 @@ export async function runSweAgent(
   if (opts.safeMode) {
     const gitOk = await isGitRepo(root);
     if (gitOk) {
+      // P1: ワークスペースに既存のユーザー変更があると、safe-mode の commitAll（git add -A）が
+      // エージェント起因でない変更まで巻き込んでコミットしてしまう。開始前にクリーンか確認し、
+      // 汚れている場合は safe-mode を中止する（直接編集はしない）。
+      const clean = await isCleanWorktree(root);
+      if (!clean) {
+        await audit.emit({ kind: 'system', agentRunId, name: 'branch-failed', meta: { message: 'ワークスペースに未コミットのユーザー変更があるため safe-mode を中止しました' } });
+        throw new Error('safe-mode: ワークスペースに未コミットの変更があります。コミットまたは revert してから再実行してください（エージェント起因でない変更を巻き込みません）。');
+      }
       const candidate = branchName();
       const br = await ensureBranch(root, candidate);
       await audit.emit({ kind: 'system', agentRunId, name: 'branch', meta: { message: br.message } });
