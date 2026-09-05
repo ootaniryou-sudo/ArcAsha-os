@@ -1041,6 +1041,9 @@ async function findProtectedInDir(dir: string): Promise<string | null> {
     try {
       entries = await fs.readdir(cur, { withFileTypes: true });
     } catch {
+      // P2: readdir が失敗（権限なし・破損等）した場合、中身を検査できないため
+      // fail-closed で「保護あり」として扱う（安全側）。delete_dir を続行させない。
+      found = `${relPath || '.'}（検査不可）`;
       return;
     }
     for (const e of entries) {

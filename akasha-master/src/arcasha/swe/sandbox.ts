@@ -69,11 +69,14 @@ export class DirectSandboxRunner implements SandboxRunner {
         const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
         let stderr = '';
+        // 累積バイト長（マルチバイト UTF-8 も正確に上限を守るため Buffer.byteLength で数える）
+        let stdoutBytes = 0;
+        let stderrBytes = 0;
         let settled = false;
         // 出力が上限を超えたら子プロセスを終了する（無制限出力コマンドのメモリ枯渇を防ぐ）
         const killIfOverflow = (): void => {
           if (settled) return;
-          if (stdout.length + stderr.length > DirectSandboxRunner.MAX_OUTPUT_BYTES) {
+          if (stdoutBytes + stderrBytes > DirectSandboxRunner.MAX_OUTPUT_BYTES) {
             settled = true;
             child.kill('SIGKILL');
             clearTimeout(timer);
@@ -86,8 +89,16 @@ export class DirectSandboxRunner implements SandboxRunner {
           child.kill('SIGKILL');
           resolve({ code: null, stdout, stderr, timedOut: true, truncated: false });
         }, timeoutMs);
-        child.stdout?.on('data', (d: Buffer) => { stdout += d.toString('utf8'); killIfOverflow(); });
-        child.stderr?.on('data', (d: Buffer) => { stderr += d.toString('utf8'); killIfOverflow(); });
+        child.stdout?.on('data', (d: Buffer) => {
+          stdout += d.toString('utf8');
+          stdoutBytes += Buffer.byteLength(d);
+          killIfOverflow();
+        });
+        child.stderr?.on('data', (d: Buffer) => {
+          stderr += d.toString('utf8');
+          stderrBytes += Buffer.byteLength(d);
+          killIfOverflow();
+        });
         child.on('error', (err) => {
           if (settled) return;
           settled = true;

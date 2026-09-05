@@ -201,6 +201,16 @@ function sanitize(s: unknown): string {
   return String(s ?? '').trim();
 }
 
+/**
+ * workdir は絶対パスだけ受け付ける（相対パスは cwd 依存で意図しないディレクトリを
+ * 編集する恐れがあるため、空文字へ落として env / cwd の既定へ戻す）。
+ * load() と update() の両方で使う（load 側も同じ guard を適用して整合させる）。
+ */
+function sanitizeWorkdir(v: unknown): string {
+  const w = sanitize(v);
+  return w === '' || path.isAbsolute(w) ? w : '';
+}
+
 function sanitizeLanguage(s: unknown): UiLanguage {
   const v = String(s ?? '').toLowerCase();
   return v === 'en' || v === 'zh' || v === 'ko' ? v : 'ja';
@@ -240,7 +250,7 @@ export class SettingsStore {
         orchestrationCount: clampCount(data.orchestrationCount ?? d.orchestrationCount),
         fleetMode: sanitizeFleetMode(data.fleetMode),
         customNodes: sanitizeCustomNodes(data.customNodes),
-        workdir: sanitize(data.workdir),
+        workdir: sanitizeWorkdir(data.workdir),
         providers: sanitizeProviders(data.providers, d.providers),
         thinkingTokens: clampThinkingTokens(data.thinkingTokens ?? d.thinkingTokens),
         hyperThinking: data.hyperThinking === true,
@@ -289,12 +299,8 @@ export class SettingsStore {
     if (patch.orchestrationCount !== undefined) s.orchestrationCount = clampCount(patch.orchestrationCount);
     if (patch.fleetMode !== undefined) s.fleetMode = sanitizeFleetMode(patch.fleetMode);
     if (patch.customNodes !== undefined) s.customNodes = sanitizeCustomNodes(patch.customNodes);
-    // workdir は絶対パスだけ受け付ける（相対パスは cwd 依存で意図しないディレクトリを
-    // 編集する恐れがあるため、空文字へ落として env / cwd の既定へ戻す）
-    if (typeof patch.workdir === 'string') {
-      const w = sanitize(patch.workdir);
-      s.workdir = w === '' || path.isAbsolute(w) ? w : '';
-    }
+    // workdir は絶対パスだけ受け付ける（sanitizeWorkdir で load / update を整合）
+    if (typeof patch.workdir === 'string') s.workdir = sanitizeWorkdir(patch.workdir);
     if (patch.thinkingTokens !== undefined) s.thinkingTokens = clampThinkingTokens(patch.thinkingTokens);
     if (typeof patch.hyperThinking === 'boolean') s.hyperThinking = patch.hyperThinking;
     if (patch.language !== undefined) s.language = sanitizeLanguage(patch.language);

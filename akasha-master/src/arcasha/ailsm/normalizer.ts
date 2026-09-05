@@ -108,7 +108,9 @@ const FILE_CONTEXT_WORDS = [
  *     「src/main.ts を読んで」→ パス文脈あり → READ_FILE
  */
 const CONTEXT_DEPENDENT_READ_WORDS = ['を読んで', 'を読む', 'を読み', '読んで', '読み込んで'];
-const CONTEXT_DEPENDENT_EDIT_WORDS = ['を修正して', 'を編集して', 'を書き換えて', '修正して', '編集して', '書き換えて', 'を直して', '直して'];
+// 「直して」単体は「見直して」等の複合動詞に誤マッチするため含めず、「を直して」のみ。
+// （「src/main.ts を直して」は「を直して」にマッチする。ファイル文脈ゲートを通る）
+const CONTEXT_DEPENDENT_EDIT_WORDS = ['を修正して', 'を編集して', 'を書き換えて', '修正して', '編集して', '書き換えて', 'を直して'];
 
 /** 文にファイル・コード文脈（語彙 or パス or 拡張子）があるか判定する。 */
 function hasFileContext(t: string): boolean {
