@@ -96,6 +96,8 @@ export interface AuditAnchor {
   lastHash: string;
   /** 更新時刻（ISO）。 */
   ts: string;
+  /** anchor の署名（HMAC-SHA256）。JSONL と一緒に書き換える改ざんを防ぐ。 */
+  signature: string;
 }
 
 /** 監査ロガー生成オプション。 */
@@ -167,8 +169,13 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
   }
 
   // チェーン終端（anchor）を保存する。JSONL 追記後に別ファイルへ書く。
+  // P1: anchor も監査シークレットで署名し、JSONL と一緒に書き換える改ざんを防ぐ。
+  function signAnchor(a: { count: number; lastHash: string; ts: string }): string {
+    return createHmac('sha256', secret).update(`count=${a.count}\nlastHash=${a.lastHash}\nts=${a.ts}`).digest('hex');
+  }
   async function saveAnchor(hash: string, count: number): Promise<void> {
-    const anchor: AuditAnchor = { count, lastHash: hash, ts: new Date().toISOString() };
+    const ts = new Date().toISOString();
+    const anchor: AuditAnchor = { count, lastHash: hash, ts, signature: signAnchor({ count, lastHash: hash, ts }) };
     await fs.writeFile(anchorPath, JSON.stringify(anchor) + '\n', { encoding: 'utf8', mode: 0o600 });
   }
 
@@ -179,7 +186,11 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
     async readAnchor(): Promise<AuditAnchor | null> {
       try {
         const raw = await fs.readFile(anchorPath, 'utf8');
-        return JSON.parse(raw.trim()) as AuditAnchor;
+        const a = JSON.parse(raw.trim()) as AuditAnchor;
+        // 署名が無い・不正な anchor は無効扱い（改ざんされた anchor を信用しない）
+        if (!a.signature) return null;
+        const expected = signAnchor({ count: a.count, lastHash: a.lastHash, ts: a.ts });
+        return expected === a.signature ? a : null;
       } catch {
         return null;
       }
@@ -188,8 +199,14 @@ export function createAuditLogger(opts: AuditLoggerOptions = {}): AuditLogger {
       const lines = await this.readAll();
       const chainErr = verifyAuditChain(lines, secret);
       if (chainErr) return chainErr;
-      // anchor がある場合、末尾切り詰め・全削除を検知する
+      // anchor ファイルが存在するのに readAnchor() が null を返す場合、anchor が
+      // 改ざんされている（署名不一致）か読み取れない。fail-closed で失敗させる。
+      const anchorExists = await fs.stat(anchorPath).then(() => true).catch(() => false);
       const anchor = await this.readAnchor();
+      if (anchorExists && !anchor) {
+        return 'anchor が改ざんされているか読み取れません（署名不一致または破損）→ ログの信頼性を検証できません';
+      }
+      // anchor がある場合、末尾切り詰め・全削除を検知する
       if (anchor) {
         if (lines.length !== anchor.count) {
           return `ログ行数が anchor（${anchor.count} 行）と不一致（現在 ${lines.length} 行）→ 末尾切り詰めまたは全削除の可能性`;

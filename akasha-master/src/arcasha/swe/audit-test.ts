@@ -90,6 +90,23 @@ async function main(): Promise<void> {
   const log4 = createAuditLogger({ dir, secret });
   check('ログ全削除を anchor で検知できる', (await log4.verify()) !== null, String(await log4.verify()));
 
+  // ── anchor の署名検証（改ざん検知） ──
+  const dir2 = await fs.mkdtemp(path.join(os.tmpdir(), 'arcasha-audit2-'));
+  const log5 = createAuditLogger({ dir: dir2, secret });
+  await log5.emit({ kind: 'tool', agentRunId: 'r2', name: 'edit_file', ok: true });
+  const anchor2 = await log5.readAnchor();
+  check('anchor に署名が記録される', anchor2 !== null && anchor2.signature.length === 64, JSON.stringify(anchor2));
+  // anchor の count を書き換える（署名が一致しなくなる）
+  const anchorFile2 = log5.anchorFile();
+  const forgedAnchor = JSON.parse(JSON.stringify(anchor2));
+  forgedAnchor.count = 99; // 改ざん
+  await fs.writeFile(anchorFile2, JSON.stringify(forgedAnchor) + '\n', 'utf8');
+  const log6 = createAuditLogger({ dir: dir2, secret });
+  const readForged = await log6.readAnchor();
+  check('改ざんされた anchor は readAnchor で無効扱い', readForged === null, JSON.stringify(readForged));
+  check('改ざんされた anchor で verify() は失敗する', (await log6.verify()) !== null, String(await log6.verify()));
+  await fs.rm(dir2, { recursive: true, force: true });
+
   await fs.rm(dir, { recursive: true, force: true });
   console.log(`\n${failures === 0 ? '✅ ALL PASS — audit' : `❌ ${failures} failures`}`);
   process.exit(failures === 0 ? 0 : 1);
