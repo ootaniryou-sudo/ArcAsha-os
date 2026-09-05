@@ -151,7 +151,11 @@ async function runWebSearch(query: string): Promise<string> {
   if (!out.ok || out.results.length === 0) {
     return `（Web 検索に失敗しました: ${out.error ?? '結果なし'}）`;
   }
-  const lines = [`🔎 DuckDuckGo 検索結果: ${query}`];
+  const sourceLabel: Record<string, string> = {
+    tavily: 'Tavily', serper: 'Serper', brave: 'Brave', exa: 'Exa',
+    'google-cse': 'Google CSE', duckduckgo: 'DuckDuckGo', 'duckduckgo-ia': 'DuckDuckGo',
+  };
+  const lines = [`🔎 Web 検索結果（${sourceLabel[out.source] ?? out.source}）: ${query}`];
   out.results.forEach((r, i) => {
     lines.push(`${i + 1}. ${r.title}`);
     if (r.url) lines.push(`   ${r.url}`);
