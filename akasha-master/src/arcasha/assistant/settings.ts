@@ -125,6 +125,8 @@ function sanitizeCustomNodes(raw: unknown): CustomFleetNode[] {
   for (const n of raw) {
     if (!n || typeof n !== 'object') continue;
     const o = n as Record<string, unknown>;
+    const model = String(o.model ?? '').trim();
+    if (!model) continue; // モデル未指定のノードはスキップ（ID も予約しない）
     // 明示 ID が既存と衝突する場合は捨てず、接尾辞を付けて一意化する
     let id = String(o.id ?? '').trim();
     if (!id) {
@@ -138,8 +140,6 @@ function sanitizeCustomNodes(raw: unknown): CustomFleetNode[] {
       id = `${id}-${k}`;
     }
     seen.add(id);
-    const model = String(o.model ?? '').trim();
-    if (!model) continue; // モデル未指定のノードはスキップ
     const expertiseRaw = String(o.expertise ?? '');
     list.push({
       id,

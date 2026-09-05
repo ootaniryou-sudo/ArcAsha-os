@@ -19,7 +19,7 @@ import { buildAilsmQuickGuide } from './ailsm-guide.js';
 import { createAuditLogger, sha256 } from './audit.js';
 import type { AuditLogger } from './audit.js';
 import { cacheHitRate } from './cache-stats.js';
-import { ensureBranch, commitAll, pushAndDiff, branchName, isGitRepo, isCleanWorktree } from './pr-workflow.js';
+import { ensureBranch, commitAll, pushAndDiff, branchName, isGitRepo, isCleanWorktree, captureWorktreeDiff } from './pr-workflow.js';
 
 /** ツール名を引数へ渡すための定義（agent 用に description を補強した system を作る）。 */
 const TOOL_USAGE_GUIDE = SWE_TOOLS.map((t) => {
@@ -363,10 +363,13 @@ export async function runSweAgent(
   const abortedRun = opts.signal?.aborted === true;
   if (opts.safeMode && safeBranch && !abortedRun) {
     const commitMsg = `feat(agent): ${sanitizeText(opts.issue).slice(0, 60)}`;
+    // commit 前に作業ツリー差分を取得（commit 後の git diff HEAD は空になるため、
+    // PR 差分は commit 前のものを pushAndDiff に渡す）
+    const worktreeDiff = await captureWorktreeDiff(root);
     const cm = await commitAll(root, commitMsg);
     await audit.emit({ kind: 'system', agentRunId, name: 'commit', meta: { message: cm.message } });
     if (cm.ok) {
-      const pd = await pushAndDiff(root, safeBranch);
+      const pd = await pushAndDiff(root, safeBranch, worktreeDiff);
       await audit.emit({ kind: 'system', agentRunId, name: 'pr', meta: { message: pd.message, diffHash: pd.diff ? sha256(pd.diff) : undefined } });
     }
   } else if (opts.safeMode && safeBranch && abortedRun) {
